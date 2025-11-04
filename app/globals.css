@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+  }
+
+  * {
+    @apply border-white/10;
+  }
+
+  body {
+    @apply bg-black text-white;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5),
+                 0 0 20px rgba(255, 255, 255, 0.3),
+                 0 0 30px rgba(255, 255, 255, 0.2);
+  }
+
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .hover-glow {
+    transition: all 0.3s ease;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Smooth animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: blur(4px);
+  }
+  50% {
+    opacity: 0.5;
+    filter: blur(8px);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  animation: gradient 3s ease infinite;
+}
+
+/* Dropdown styling */
+select {
+  background-color: black;
+  color: white;
+}
+
+select option {
+  background-color: black;
+  color: white;
+  padding: 8px;
+}
+
+select option:hover {
+  background-color: #1a1a1a;
+}
