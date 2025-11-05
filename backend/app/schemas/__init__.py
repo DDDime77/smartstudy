@@ -15,6 +15,7 @@ from app.schemas.onboarding import (
     OnboardingComplete,
     ProfileResponse,
     SubjectResponse,
+    UpdateProfile,
 )
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "OnboardingComplete",
     "ProfileResponse",
     "SubjectResponse",
+    "UpdateProfile",
 ]

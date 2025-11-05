@@ -3,55 +3,30 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.core.security import get_current_user
 from app.models import User, UserProfile, Subject, Availability
 from app.schemas import (
     OnboardingComplete,
     ProfileResponse,
     SubjectResponse,
     SubjectInput,
+    UpdateProfile,
 )
 from datetime import time
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
 
-def get_current_user_from_token(token: str, db: Session) -> User:
-    """Get current user from JWT token"""
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
-
-    email = payload.get("sub")
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    return user
-
-
 @router.post("/complete", response_model=ProfileResponse)
 async def complete_onboarding(
     onboarding_data: OnboardingComplete,
-    token: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Complete the entire onboarding process"""
 
     # Get current user
-    user = get_current_user_from_token(token, db)
+    user = current_user
 
     # Check if profile already exists
     existing_profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
@@ -119,10 +94,13 @@ async def complete_onboarding(
 
 
 @router.get("/profile", response_model=ProfileResponse)
-async def get_profile(token: str, db: Session = Depends(get_db)):
+async def get_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get user profile"""
 
-    user = get_current_user_from_token(token, db)
+    user = current_user
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
     if not profile:
@@ -134,11 +112,47 @@ async def get_profile(token: str, db: Session = Depends(get_db)):
     return profile
 
 
+@router.put("/profile", response_model=ProfileResponse)
+async def update_profile(
+    profile_data: UpdateProfile,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update user profile"""
+
+    user = current_user
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+
+    # Update only provided fields
+    if profile_data.timezone is not None:
+        profile.timezone = profile_data.timezone
+    if profile_data.education_system is not None:
+        profile.education_system = profile_data.education_system
+    if profile_data.education_program is not None:
+        profile.education_program = profile_data.education_program
+    if profile_data.study_goal is not None:
+        profile.study_goal = profile_data.study_goal
+
+    db.commit()
+    db.refresh(profile)
+
+    return profile
+
+
 @router.get("/subjects", response_model=List[SubjectResponse])
-async def get_subjects(token: str, db: Session = Depends(get_db)):
+async def get_subjects(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get user's subjects"""
 
-    user = get_current_user_from_token(token, db)
+    user = current_user
 
     subjects = db.query(Subject).filter(Subject.user_id == user.id, Subject.archived == False).all()
 
@@ -148,12 +162,12 @@ async def get_subjects(token: str, db: Session = Depends(get_db)):
 @router.post("/subjects", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)
 async def add_subject(
     subject_data: SubjectInput,
-    token: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Add a new subject"""
 
-    user = get_current_user_from_token(token, db)
+    user = current_user
 
     subject = Subject(
         user_id=user.id,
@@ -175,12 +189,12 @@ async def add_subject(
 @router.delete("/subjects/{subject_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_subject(
     subject_id: str,
-    token: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete a subject"""
 
-    user = get_current_user_from_token(token, db)
+    user = current_user
 
     subject = db.query(Subject).filter(
         Subject.id == subject_id,

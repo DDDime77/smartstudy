@@ -1,6 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { OnboardingData, SubjectInput } from '@/lib/api/onboarding';
 import TimezoneStep from './onboarding/TimezoneStep';
 import EducationSystemStep from './onboarding/EducationSystemStep';
@@ -64,35 +69,43 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     }
   };
 
+  function canProceed(): boolean {
+    switch (currentStep) {
+      case 1:
+        return !!onboardingData.timezone;
+      case 2:
+        return !!onboardingData.education_system && !!onboardingData.education_program;
+      case 3:
+        return !!onboardingData.import_method;
+      case 4:
+        return (onboardingData.subjects?.length || 0) > 0;
+      case 5:
+        return (onboardingData.availability?.length || 0) > 0;
+      default:
+        return false;
+    }
+  }
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-5xl my-8 rounded-3xl bg-black border border-white/10 shadow-2xl animate-scale-in">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-5xl p-0 gap-0 bg-card border-border overflow-hidden">
         {/* Header */}
-        <div className="relative px-8 py-6 border-b border-white/10 bg-black/80 backdrop-blur-sm sticky top-0 z-10 rounded-t-3xl">
+        <div className="px-8 py-6 border-b border-border">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white">Welcome to StudySmart</h2>
-              <p className="text-sm text-slate-400 mt-1">
+              <h2 className="text-2xl font-heading font-bold">Welcome to StudySmart</h2>
+              <p className="text-sm text-muted-foreground mt-1">
                 Step {currentStep} of {totalSteps}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-white transition-colors"
-              aria-label="Close"
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
+          <div className="mt-4 h-1.5 bg-secondary rounded-full overflow-hidden">
             <div
-              className="h-full bg-white transition-all duration-500 ease-out"
+              className="h-full bg-primary transition-all duration-500 ease-out"
               style={{ width: `${(currentStep / totalSteps) * 100}%` }}
             />
           </div>
@@ -101,7 +114,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         {/* Content */}
         <div className="px-8 py-6 min-h-[500px] max-h-[calc(100vh-300px)] overflow-y-auto">
           {error && (
-            <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div className="mb-4 px-4 py-3 rounded-md bg-destructive/10 border border-destructive/50 text-destructive text-sm">
               {error}
             </div>
           )}
@@ -148,51 +161,35 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-6 border-t border-white/10 flex items-center justify-between bg-black/80 backdrop-blur-sm sticky bottom-0 z-10 rounded-b-3xl">
-          <button
+        <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-card">
+          <Button
             onClick={previousStep}
             disabled={currentStep === 1}
-            className="px-6 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="ghost"
+            className="text-muted-foreground hover:text-foreground"
           >
             Back
-          </button>
+          </Button>
 
           {currentStep < totalSteps ? (
-            <button
+            <Button
               onClick={nextStep}
               disabled={!canProceed()}
-              className="px-6 py-2.5 rounded-lg text-sm font-medium text-black bg-white hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Continue
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={handleComplete}
               disabled={isLoading || !canProceed()}
-              className="px-6 py-2.5 rounded-lg text-sm font-medium text-black bg-white hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isLoading ? 'Completing...' : 'Complete Setup'}
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-
-  function canProceed(): boolean {
-    switch (currentStep) {
-      case 1:
-        return !!onboardingData.timezone;
-      case 2:
-        return !!onboardingData.education_system && !!onboardingData.education_program;
-      case 3:
-        return !!onboardingData.import_method;
-      case 4:
-        return (onboardingData.subjects?.length || 0) > 0;
-      case 5:
-        return (onboardingData.availability?.length || 0) > 0;
-      default:
-        return false;
-    }
-  }
 }

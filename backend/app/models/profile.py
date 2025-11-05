@@ -19,7 +19,7 @@ class UserProfile(Base):
 
     # Timezone and preferences
     timezone = Column(String, nullable=False)
-    study_goal = Column(String, nullable=True)
+    study_goal = Column(Integer, nullable=True)  # Study goal in hours per week
     target_study_hours_per_day = Column(Integer, default=3)
     preferred_study_times = Column(JSON, nullable=True)  # Array of time preferences
 

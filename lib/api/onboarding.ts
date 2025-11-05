@@ -27,7 +27,7 @@ export interface OnboardingData {
   import_method: string;
   subjects: SubjectInput[];
   availability: DayAvailability[];
-  study_goal?: string;
+  study_goal?: number; // Study goal in hours per week
 }
 
 export interface ProfileResponse {
@@ -36,7 +36,7 @@ export interface ProfileResponse {
   education_system: string;
   education_program: string | null;
   timezone: string;
-  study_goal: string | null;
+  study_goal: number | null; // Study goal in hours per week
 }
 
 export interface SubjectResponse {
@@ -50,6 +50,13 @@ export interface SubjectResponse {
   color: string | null;
 }
 
+export interface UpdateProfileData {
+  timezone?: string;
+  education_system?: string;
+  education_program?: string;
+  study_goal?: number; // Study goal in hours per week
+}
+
 export const OnboardingService = {
   async completeOnboarding(data: OnboardingData): Promise<ProfileResponse> {
     return ApiClient.post<ProfileResponse>('/onboarding/complete', data);
@@ -61,5 +68,17 @@ export const OnboardingService = {
 
   async getProfile(): Promise<ProfileResponse> {
     return ApiClient.get<ProfileResponse>('/onboarding/profile');
+  },
+
+  async updateProfile(data: UpdateProfileData): Promise<ProfileResponse> {
+    return ApiClient.put<ProfileResponse>('/onboarding/profile', data);
+  },
+
+  async addSubject(subject: SubjectInput): Promise<SubjectResponse> {
+    return ApiClient.post<SubjectResponse>('/onboarding/subjects', subject);
+  },
+
+  async deleteSubject(subjectId: string): Promise<void> {
+    return ApiClient.delete(`/onboarding/subjects/${subjectId}`);
   },
 };

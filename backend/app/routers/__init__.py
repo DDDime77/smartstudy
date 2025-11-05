@@ -1,3 +1,3 @@
-from app.routers import auth, onboarding
+from app.routers import auth, onboarding, subjects
 
-__all__ = ["auth", "onboarding"]
+__all__ = ["auth", "onboarding", "subjects"]

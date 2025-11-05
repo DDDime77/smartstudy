@@ -57,7 +57,15 @@ class OnboardingComplete(BaseModel):
     import_method: str
     subjects: List[SubjectInput]
     availability: List[DayAvailability]
-    study_goal: Optional[str] = None
+    study_goal: Optional[int] = None  # Study goal in hours per week
+
+
+class UpdateProfile(BaseModel):
+    """Update user profile"""
+    timezone: Optional[str] = None
+    education_system: Optional[str] = None
+    education_program: Optional[str] = None
+    study_goal: Optional[int] = None  # Study goal in hours per week
 
 
 class ProfileResponse(BaseModel):
@@ -66,7 +74,7 @@ class ProfileResponse(BaseModel):
     education_system: str
     education_program: Optional[str]
     timezone: str
-    study_goal: Optional[str]
+    study_goal: Optional[int]  # Study goal in hours per week
 
     @field_serializer('id', 'user_id')
     def serialize_uuid(self, value: UUID) -> str:
