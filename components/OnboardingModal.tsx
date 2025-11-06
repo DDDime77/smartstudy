@@ -4,6 +4,9 @@ import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { OnboardingData, SubjectInput } from '@/lib/api/onboarding';
@@ -93,14 +96,16 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
       <DialogContent className="max-w-5xl p-0 gap-0 bg-card border-border overflow-hidden">
         {/* Header */}
         <div className="px-8 py-6 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-heading font-bold">Welcome to StudySmart</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Step {currentStep} of {totalSteps}
-              </p>
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-2xl font-heading font-bold">Welcome to StudySmart</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground mt-1">
+                  Step {currentStep} of {totalSteps} - Complete your profile to get started
+                </DialogDescription>
+              </div>
             </div>
-          </div>
+          </DialogHeader>
 
           {/* Progress Bar */}
           <div className="mt-4 h-1.5 bg-secondary rounded-full overflow-hidden">

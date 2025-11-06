@@ -16,6 +16,12 @@ from app.schemas.onboarding import (
     ProfileResponse,
     SubjectResponse,
     UpdateProfile,
+    UpdateSubject,
+)
+from app.schemas.exam import (
+    ExamInput,
+    ExamResponse,
+    UpdateExam,
 )
 
 __all__ = [
@@ -33,4 +39,8 @@ __all__ = [
     "ProfileResponse",
     "SubjectResponse",
     "UpdateProfile",
+    "UpdateSubject",
+    "ExamInput",
+    "ExamResponse",
+    "UpdateExam",
 ]

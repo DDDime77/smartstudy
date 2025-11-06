@@ -3,7 +3,8 @@ from app.models.profile import UserProfile
 from app.models.subject import Subject
 from app.models.task import Task, TaskType, TaskStatus
 from app.models.study_session import StudySession, TimeOfDay
-from app.models.availability import Availability
+from app.models.availability import BusySchedule
+from app.models.exam import Exam
 
 __all__ = [
     "User",
@@ -14,5 +15,6 @@ __all__ = [
     "TaskStatus",
     "StudySession",
     "TimeOfDay",
-    "Availability",
+    "BusySchedule",
+    "Exam",
 ]

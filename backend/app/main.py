@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, onboarding, subjects
+from app.routers import auth, onboarding, subjects, schedule, exams
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -27,6 +27,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(onboarding.router)
 app.include_router(subjects.router)
+app.include_router(schedule.router)
+app.include_router(exams.router)
 
 
 @app.get("/")

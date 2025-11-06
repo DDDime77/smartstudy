@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { SubjectsService, SubjectStats } from '@/lib/api/subjects';
 import { SubjectResponse, SubjectInput, OnboardingService, ProfileResponse } from '@/lib/api/onboarding';
 import { EDUCATION_SYSTEMS } from '@/lib/education-config';
+import { handleApiError } from '@/lib/api/client';
 
 const SUBJECT_COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
@@ -60,7 +61,7 @@ export default function SubjectsPage() {
       setSubjects(subjectsData);
       setProfile(profileData);
     } catch (error) {
-      console.error('Failed to load subjects and profile:', error);
+      handleApiError(error, 'Failed to load subjects and profile');
       // Set empty defaults if API calls fail
       setSubjects([]);
       setProfile(null);
@@ -76,7 +77,7 @@ export default function SubjectsPage() {
       const stats = await SubjectsService.getStats(subject.id);
       setSubjectStats(stats);
     } catch (error) {
-      console.error('Failed to load subject stats:', error);
+      handleApiError(error, 'Failed to load subject stats');
     } finally {
       setStatsLoading(false);
     }
@@ -107,7 +108,7 @@ export default function SubjectsPage() {
       }
       alert('Subject updated successfully!');
     } catch (error) {
-      console.error('Failed to update subject:', error);
+      handleApiError(error, 'Failed to update subject');
       alert('Failed to update subject. Please try again.');
     }
   };
@@ -132,7 +133,7 @@ export default function SubjectsPage() {
       });
       alert('Subject added successfully!');
     } catch (error) {
-      console.error('Failed to add subject:', error);
+      handleApiError(error, 'Failed to add subject');
       alert('Failed to add subject. Please try again.');
     }
   };
@@ -151,7 +152,7 @@ export default function SubjectsPage() {
       }
       alert('Subject archived successfully!');
     } catch (error) {
-      console.error('Failed to delete subject:', error);
+      handleApiError(error, 'Failed to delete subject');
       alert('Failed to archive subject. Please try again.');
     }
   };
@@ -163,23 +164,26 @@ export default function SubjectsPage() {
 
   // Get available subjects based on education system
   const getAvailableSubjects = () => {
+    // Default to IB IBDP if no profile
+    const educationSystem = profile?.education_system || 'IB';
+    const educationProgram = profile?.education_program || 'IBDP';
+
     if (!profile) {
-      console.log('No profile data');
-      return [];
+      console.log('No profile data, using default IB IBDP');
+    } else {
+      console.log('Profile:', profile);
+      console.log('Education System:', profile.education_system);
+      console.log('Education Program:', profile.education_program);
     }
 
-    console.log('Profile:', profile);
-    console.log('Education System:', profile.education_system);
-    console.log('Education Program:', profile.education_program);
-
-    const system = EDUCATION_SYSTEMS[profile.education_system as keyof typeof EDUCATION_SYSTEMS];
+    const system = EDUCATION_SYSTEMS[educationSystem as keyof typeof EDUCATION_SYSTEMS];
     if (!system) {
-      console.log('No system found for:', profile.education_system);
+      console.log('No system found for:', educationSystem);
       return [];
     }
 
     // Handle null education_program by using the first available program
-    let programKey = profile.education_program;
+    let programKey = educationProgram;
     if (!programKey || programKey === null) {
       const availablePrograms = Object.keys(system.programs);
       programKey = availablePrograms[0];
@@ -221,11 +225,12 @@ export default function SubjectsPage() {
 
   // Get available levels based on education system
   const getAvailableLevels = () => {
-    if (!profile) return [];
+    // Default to IB if no profile
+    const educationSystem = profile?.education_system || 'IB';
 
-    if (profile.education_system === 'IB') {
+    if (educationSystem === 'IB') {
       return ['HL', 'SL'];
-    } else if (profile.education_system === 'A-Level') {
+    } else if (educationSystem === 'A-Level') {
       return ['A-Level', 'AS-Level'];
     }
     return [];
@@ -233,13 +238,15 @@ export default function SubjectsPage() {
 
   // Get available grades based on education system
   const getAvailableGrades = () => {
-    if (!profile) return [];
+    // Default to IB IBDP if no profile
+    const educationSystem = profile?.education_system || 'IB';
+    const educationProgram = profile?.education_program || 'IBDP';
 
-    const system = EDUCATION_SYSTEMS[profile.education_system as keyof typeof EDUCATION_SYSTEMS];
+    const system = EDUCATION_SYSTEMS[educationSystem as keyof typeof EDUCATION_SYSTEMS];
     if (!system) return [];
 
     // Handle null education_program by using the first available program
-    let programKey = profile.education_program;
+    let programKey = educationProgram;
     if (!programKey || programKey === null) {
       const availablePrograms = Object.keys(system.programs);
       programKey = availablePrograms[0];

@@ -5,7 +5,7 @@ Run this to create all tables in the database.
 """
 
 from app.core.database import engine, Base
-from app.models import User, UserProfile, Subject, Task, StudySession
+from app.models import User, UserProfile, Subject, Task, StudySession, BusySchedule, Exam
 
 def init_database():
     """Initialize database tables"""
@@ -21,6 +21,8 @@ def init_database():
     print("  - subjects")
     print("  - tasks")
     print("  - study_sessions")
+    print("  - busy_schedule")
+    print("  - exams")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -19,6 +19,7 @@ class Subject(Base):
     difficulty_level = Column(Integer, nullable=True)  # 1-5
     current_grade = Column(String, nullable=True)  # User's current grade in this subject
     target_grade = Column(String, nullable=True)
+    priority_coefficient = Column(Float, nullable=True, default=1.0)  # Calculated based on grade gap
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -27,3 +28,4 @@ class Subject(Base):
     # Relationships
     user = relationship("User", back_populates="subjects")
     tasks = relationship("Task", back_populates="subject", cascade="all, delete-orphan")
+    exams = relationship("Exam", back_populates="subject", cascade="all, delete-orphan")
