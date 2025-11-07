@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { useRouter } from 'next/navigation';
+import GlassCard from '@/components/GlassCard';
+import Button from '@/components/Button';
+import Badge from '@/components/Badge';
+import AnimatedText from '@/components/AnimatedText';
+import GradientText from '@/components/GradientText';
+import GridBackground from '@/components/GridBackground';
 import { SubjectsService } from '@/lib/api/subjects';
 import { SubjectResponse } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
-import { useRouter } from 'next/navigation';
+import { Calendar, Clock, BookOpen, TrendingUp, Award, Target, Activity, Zap } from 'lucide-react';
 
 export default function DashboardPage() {
   const [userName, setUserName] = useState('Student');
@@ -70,8 +73,6 @@ export default function DashboardPage() {
     newSubjects.splice(dropIndex, 0, draggedSubject);
 
     // Recalculate priority coefficients based on new order
-    // Highest priority (index 0) gets highest coefficient
-    // We'll use a linear scale from 3.0 to 0.5
     const maxCoef = 3.0;
     const minCoef = 0.5;
     const step = newSubjects.length > 1 ? (maxCoef - minCoef) / (newSubjects.length - 1) : 0;
@@ -101,355 +102,325 @@ export default function DashboardPage() {
       );
     } catch (error) {
       handleApiError(error, 'Failed to update subject priorities');
-      // Reload subjects on error
       loadSubjects();
     }
   };
 
+  const quickStats = [
+    {
+      label: 'Tasks Due Today',
+      value: '0',
+      subtext: 'All caught up! 🎉',
+      icon: <Clock className="w-5 h-5" />,
+      gradient: 'from-blue-500/20 to-cyan-500/10'
+    },
+    {
+      label: 'Study Hours',
+      value: '0h',
+      subtext: 'This week',
+      icon: <BookOpen className="w-5 h-5" />,
+      gradient: 'from-purple-500/20 to-pink-500/10'
+    },
+    {
+      label: 'Upcoming Exams',
+      value: '0',
+      subtext: 'No exams scheduled',
+      icon: <Calendar className="w-5 h-5" />,
+      gradient: 'from-green-500/20 to-emerald-500/10'
+    },
+    {
+      label: 'Task Completion',
+      value: '0%',
+      subtext: 'This week',
+      icon: <Target className="w-5 h-5" />,
+      gradient: 'from-orange-500/20 to-yellow-500/10'
+    },
+  ];
+
+  const performanceMetrics = [
+    { label: 'Focus Score', value: 85, color: 'from-blue-400 to-cyan-400' },
+    { label: 'Consistency', value: 92, color: 'from-purple-400 to-pink-400' },
+    { label: 'Efficiency', value: 78, color: 'from-green-400 to-emerald-400' },
+    { label: 'Knowledge Retention', value: 88, color: 'from-orange-400 to-yellow-400' },
+  ];
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-4xl font-heading font-bold">
-          {currentTime}, {userName}
-        </h1>
-        <p className="text-muted-foreground">Here's what's happening with your studies today</p>
-      </div>
+    <div className="min-h-screen bg-black">
+      <GridBackground />
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-border bg-card hover:bg-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasks Due Today</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              All caught up! 🎉
-            </p>
-          </CardContent>
-        </Card>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <AnimatedText
+            text={`${currentTime}, ${userName}`}
+            className="text-4xl md:text-5xl font-bold mb-2"
+            variant="slide"
+          />
+          <p className="text-white/60 text-lg">
+            Here's what's happening with your studies today
+          </p>
+        </div>
 
-        <Card className="border-border bg-card hover:bg-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Study Hours This Week</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <rect width="20" height="14" x="2" y="5" rx="2" />
-              <path d="M2 10h20" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0h</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Start your first session
-            </p>
-          </CardContent>
-        </Card>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {quickStats.map((stat) => (
+            <GlassCard key={stat.label} hover glow>
+              <div className={`bg-gradient-to-br ${stat.gradient} rounded-lg p-4`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-white/70">{stat.icon}</div>
+                  <Badge variant="glow" className="text-xs">Today</Badge>
+                </div>
+                <div className="text-3xl font-bold text-white glow-text mb-1">
+                  {stat.value}
+                </div>
+                <div className="text-white/60 text-sm">{stat.label}</div>
+                <div className="text-white/40 text-xs mt-1">{stat.subtext}</div>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
 
-        <Card className="border-border bg-card hover:bg-accent/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Exams</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              No exams scheduled
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today's Schedule */}
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="font-heading">Today's Schedule</CardTitle>
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Today's Schedule */}
+          <GlassCard className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20">
+                  <Calendar className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Today's Schedule</h3>
+                  <p className="text-white/60 text-sm">Your study sessions for today</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/study-timer')}>
                 View All
               </Button>
             </div>
-            <CardDescription>Your study sessions for today</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="py-8 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  className="h-6 w-6 text-muted-foreground"
-                >
-                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                  <line x1="16" x2="16" y1="2" y2="6" />
-                  <line x1="8" x2="8" y1="2" y2="6" />
-                  <line x1="3" x2="21" y1="10" y2="10" />
-                </svg>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-center py-12 border-2 border-dashed border-white/10 rounded-lg">
+                <div className="text-center">
+                  <div className="text-6xl opacity-20 mb-4">📅</div>
+                  <p className="text-white/60">No study sessions scheduled</p>
+                  <Button className="mt-4" size="sm" onClick={() => router.push('/dashboard/study-timer')}>
+                    + Schedule Session
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+
+          {/* Performance Overview */}
+          <GlassCard>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+                <Activity className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">No study sessions scheduled for today</p>
+                <h3 className="text-xl font-bold text-white">Performance</h3>
+                <p className="text-white/60 text-sm">Your study metrics</p>
               </div>
-              <Button variant="outline" size="sm">
-                + Schedule Session
-              </Button>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Upcoming Tasks */}
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="font-heading">Upcoming Tasks</CardTitle>
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                View All
-              </Button>
-            </div>
-            <CardDescription>Your pending assignments and tasks</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="py-8 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  className="h-6 w-6 text-muted-foreground"
-                >
-                  <path d="M9 11l3 3L22 4" />
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm">No tasks yet</p>
-              </div>
-              <Button variant="outline" size="sm">
-                + Add Task
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Add Exam Dates CTA */}
-      <Card className="border-primary/50 bg-gradient-to-br from-card to-accent/20">
-        <CardContent className="flex items-center gap-6 p-6">
-          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-6 w-6 text-primary"
-            >
-              <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-              <line x1="16" x2="16" y1="2" y2="6" />
-              <line x1="8" x2="8" y1="2" y2="6" />
-              <line x1="3" x2="21" y1="10" y2="10" />
-              <path d="m9 16 2 2 4-4" />
-            </svg>
-          </div>
-          <div className="flex-1 space-y-1">
-            <h3 className="text-lg font-heading font-semibold">Add Your Exam Dates</h3>
-            <p className="text-sm text-muted-foreground">
-              Enable AI-powered spaced repetition and exam preparation timelines by adding your exam schedule
-            </p>
-          </div>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0">
-            + Add Exams
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Subjects Priority */}
-      <Card className="border-border bg-card">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="font-heading">Study Priorities</CardTitle>
-              <CardDescription>Subjects ordered by priority - drag to reorder</CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push('/dashboard/subjects')}
-            >
-              View All
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingSubjects ? (
-            <div className="py-8 text-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-              <p className="text-muted-foreground text-sm mt-2">Loading subjects...</p>
-            </div>
-          ) : subjects.length === 0 ? (
-            <div className="py-8 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  className="h-6 w-6 text-muted-foreground"
-                >
-                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm">No subjects yet</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/subjects')}>
-                + Add Subject
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {subjects.map((subject, index) => (
-                <div
-                  key={subject.id}
-                  draggable
-                  onDragStart={() => handleDragStart(index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDrop={(e) => handleDrop(e, index)}
-                  className={`
-                    flex items-center gap-4 p-4 rounded-lg border border-border bg-card
-                    hover:bg-accent/50 transition-all cursor-move group
-                    ${draggedIndex === index ? 'opacity-50' : ''}
-                  `}
-                  style={{ borderLeftWidth: '4px', borderLeftColor: subject.color || '#6366f1' }}
-                >
-                  {/* Drag Handle */}
-                  <div className="flex flex-col gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                    <div className="w-1 h-1 rounded-full bg-current"></div>
-                    <div className="w-1 h-1 rounded-full bg-current"></div>
-                    <div className="w-1 h-1 rounded-full bg-current"></div>
+            <div className="space-y-4">
+              {performanceMetrics.map((metric) => (
+                <div key={metric.label}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white/80 text-sm">{metric.label}</span>
+                    <span className="text-white font-bold">{metric.value}%</span>
                   </div>
-
-                  {/* Priority Badge */}
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
-                    {index + 1}
-                  </div>
-
-                  {/* Subject Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium truncate">{subject.name}</h4>
-                      {subject.level && (
-                        <Badge variant="outline" className="text-xs">
-                          {subject.level}
-                        </Badge>
-                      )}
-                    </div>
-                    {(subject.current_grade || subject.target_grade) && (
-                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        {subject.current_grade && <span>Current: {subject.current_grade}</span>}
-                        {subject.current_grade && subject.target_grade && <span>→</span>}
-                        {subject.target_grade && <span>Target: {subject.target_grade}</span>}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Priority Coefficient */}
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground">Priority</div>
-                    <div className="text-sm font-bold text-primary">
-                      {subject.priority_coefficient?.toFixed(2)}
-                    </div>
+                  <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r ${metric.color} rounded-full transition-all duration-500`}
+                      style={{ width: `${metric.value}%` }}
+                    />
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground text-center mt-4">
-                💡 Tip: Drag subjects up or down to change their study priority
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Subjects Priority & Tasks */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Study Priorities */}
+          <GlassCard>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
+                  <TrendingUp className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Study Priorities</h3>
+                  <p className="text-white/60 text-sm">Drag to reorder subjects</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/subjects')}>
+                View All
+              </Button>
+            </div>
+
+            {loadingSubjects ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-white/20 border-t-white rounded-full"></div>
+              </div>
+            ) : subjects.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
+                <div className="text-6xl opacity-20 mb-4">📚</div>
+                <p className="text-white/60">No subjects yet</p>
+                <Button className="mt-4" size="sm" onClick={() => router.push('/dashboard/subjects')}>
+                  + Add Subject
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {subjects.slice(0, 5).map((subject, index) => (
+                  <div
+                    key={subject.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={(e) => handleDrop(e, index)}
+                    className={`
+                      p-4 rounded-lg bg-white/5 border border-white/10
+                      hover:bg-white/10 hover:border-white/20 transition-all cursor-move
+                      ${draggedIndex === index ? 'opacity-50' : ''}
+                    `}
+                    style={{ borderLeftWidth: '3px', borderLeftColor: subject.color || '#6366f1' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white truncate">{subject.name}</span>
+                          {subject.level && (
+                            <Badge variant="default" className="text-xs">
+                              {subject.level}
+                            </Badge>
+                          )}
+                        </div>
+                        {(subject.current_grade || subject.target_grade) && (
+                          <div className="flex items-center gap-2 mt-1 text-xs text-white/60">
+                            {subject.current_grade && <span>Current: {subject.current_grade}</span>}
+                            {subject.current_grade && subject.target_grade && <span>→</span>}
+                            {subject.target_grade && <span>Target: {subject.target_grade}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-white/40">Priority</div>
+                        <div className="text-sm font-bold text-white">
+                          {subject.priority_coefficient?.toFixed(1)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {subjects.length > 5 && (
+                  <p className="text-center text-white/40 text-sm mt-2">
+                    +{subjects.length - 5} more subjects
+                  </p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+
+          {/* Upcoming Tasks */}
+          <GlassCard>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500/20 to-red-500/20">
+                  <Zap className="w-5 h-5 text-orange-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Upcoming Tasks</h3>
+                  <p className="text-white/60 text-sm">Your pending assignments</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/tasks')}>
+                View All
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
+                <div className="text-6xl opacity-20 mb-4">📝</div>
+                <p className="text-white/60">No tasks yet</p>
+                <Button className="mt-4" size="sm" onClick={() => router.push('/dashboard/tasks')}>
+                  + Add Task
+                </Button>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Call to Action - Exam Dates */}
+        <GlassCard glow className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30">
+          <div className="flex flex-col md:flex-row items-center gap-6 p-2">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+              <Award className="w-8 h-8 text-purple-400" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <GradientText gradient="from-purple-400 to-pink-400">
+                <h3 className="text-xl font-bold mb-1">Add Your Exam Dates</h3>
+              </GradientText>
+              <p className="text-white/60 text-sm">
+                Enable AI-powered spaced repetition and exam preparation timelines
               </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button variant="primary" onClick={() => router.push('/dashboard/exams')}>
+              + Add Exams
+            </Button>
+          </div>
+        </GlassCard>
 
-      {/* Progress Overview */}
-      <Card className="border-border bg-card">
-        <CardHeader>
-          <CardTitle className="font-heading">Weekly Progress</CardTitle>
-          <CardDescription>Track your study goals and task completion</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Study Goal</span>
-                <Badge variant="secondary" className="text-xs">This Week</Badge>
-              </div>
-              <span className="font-medium">0 / 20 hours</span>
+        {/* Weekly Progress */}
+        <GlassCard className="mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
+              <TrendingUp className="w-5 h-5 text-green-400" />
             </div>
-            <Progress value={0} className="h-2" />
-            <p className="text-xs text-muted-foreground">Keep it up! Start tracking your study time.</p>
+            <div>
+              <h3 className="text-xl font-bold text-white">Weekly Progress</h3>
+              <p className="text-white/60 text-sm">Track your study goals</p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Tasks Completed</span>
-                <Badge variant="secondary" className="text-xs">This Week</Badge>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white/80">Study Goal</span>
+                <span className="text-white font-bold">0 / 20 hours</span>
               </div>
-              <span className="font-medium">0 / 0</span>
+              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full"
+                  style={{ width: '0%' }}
+                />
+              </div>
+              <p className="text-xs text-white/40 mt-1">Start tracking your study time</p>
             </div>
-            <Progress value={0} className="h-2" />
-            <p className="text-xs text-muted-foreground">Add tasks to start tracking your progress.</p>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white/80">Tasks Completed</span>
+                <span className="text-white font-bold">0 / 0</span>
+              </div>
+              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full"
+                  style={{ width: '0%' }}
+                />
+              </div>
+              <p className="text-xs text-white/40 mt-1">Add tasks to track progress</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </GlassCard>
+      </div>
     </div>
   );
 }

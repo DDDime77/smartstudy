@@ -49,3 +49,4 @@ class Task(Base):
     user = relationship("User", back_populates="tasks")
     subject = relationship("Subject", back_populates="tasks")
     study_sessions = relationship("StudySession", back_populates="task", cascade="all, delete-orphan")
+    stages = relationship("TaskStage", back_populates="task", cascade="all, delete-orphan")

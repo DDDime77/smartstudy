@@ -5,6 +5,31 @@ export interface ApiError {
   status: number;
 }
 
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'detail' in error
+  );
+}
+
+export function handleApiError(error: unknown, context: string): void {
+  if (isApiError(error)) {
+    // Don't log 401 errors in development (expected when not authenticated)
+    if (error.status === 401) {
+      console.warn(`${context}: User not authenticated`);
+      return;
+    }
+    console.error(`${context}:`, {
+      status: error.status,
+      detail: error.detail,
+    });
+  } else {
+    console.error(`${context}:`, error);
+  }
+}
+
 export class ApiClient {
   private static token: string | null = null;
 

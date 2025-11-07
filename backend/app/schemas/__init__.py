@@ -23,6 +23,23 @@ from app.schemas.exam import (
     ExamResponse,
     UpdateExam,
 )
+from app.schemas.task import (
+    TaskInput,
+    UpdateTask,
+    TaskResponse,
+    TaskStageInput,
+    StartStageInput,
+    CompleteStageInput,
+    TaskStageResponse,
+    QuestionInput,
+    QuestionResponse,
+    AnswerInput,
+    GradeAnswerInput,
+    UserAnswerResponse,
+    TaskWithStagesResponse,
+    StageWithQuestionsResponse,
+    ResourceInput,
+)
 
 __all__ = [
     "UserRegister",
@@ -43,4 +60,19 @@ __all__ = [
     "ExamInput",
     "ExamResponse",
     "UpdateExam",
+    "TaskInput",
+    "UpdateTask",
+    "TaskResponse",
+    "TaskStageInput",
+    "StartStageInput",
+    "CompleteStageInput",
+    "TaskStageResponse",
+    "QuestionInput",
+    "QuestionResponse",
+    "AnswerInput",
+    "GradeAnswerInput",
+    "UserAnswerResponse",
+    "TaskWithStagesResponse",
+    "StageWithQuestionsResponse",
+    "ResourceInput",
 ]

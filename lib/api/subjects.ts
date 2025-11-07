@@ -1,5 +1,5 @@
 import { ApiClient } from './client';
-import { SubjectResponse, SubjectInput } from './onboarding';
+import { SubjectResponse, SubjectInput, UpdateSubject } from './onboarding';
 
 export interface SubjectStats {
   subject_id: string;
@@ -32,7 +32,7 @@ export const SubjectsService = {
     return ApiClient.get<SubjectStats>(`/subjects/${subjectId}/stats`);
   },
 
-  async update(subjectId: string, data: SubjectInput): Promise<SubjectResponse> {
+  async update(subjectId: string, data: UpdateSubject): Promise<SubjectResponse> {
     return ApiClient.put<SubjectResponse>(`/subjects/${subjectId}`, data);
   },
 

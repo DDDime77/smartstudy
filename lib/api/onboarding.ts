@@ -8,6 +8,17 @@ export interface SubjectInput {
   current_grade?: string;
   target_grade?: string;
   color?: string;
+  priority_coefficient?: number;
+}
+
+export interface UpdateSubject {
+  name?: string;
+  level?: string;
+  category?: string;
+  current_grade?: string;
+  target_grade?: string;
+  color?: string;
+  priority_coefficient?: number;
 }
 
 export interface TimeSlot {

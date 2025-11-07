@@ -93,6 +93,7 @@ class SubjectResponse(BaseModel):
     current_grade: Optional[str]
     target_grade: Optional[str]
     color: Optional[str]
+    priority_coefficient: Optional[float] = 1.0
 
     @field_serializer('id', 'user_id')
     def serialize_uuid(self, value: UUID) -> str:
@@ -100,3 +101,14 @@ class SubjectResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UpdateSubject(BaseModel):
+    """Update subject data"""
+    name: Optional[str] = None
+    level: Optional[str] = None
+    category: Optional[str] = None
+    current_grade: Optional[str] = None
+    target_grade: Optional[str] = None
+    color: Optional[str] = None
+    priority_coefficient: Optional[float] = None

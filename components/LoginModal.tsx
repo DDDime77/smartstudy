@@ -138,6 +138,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 placeholder="John Doe"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                autoComplete="name"
                 className="bg-input border-border"
               />
             </div>
@@ -154,6 +155,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="bg-input border-border"
             />
           </div>
@@ -169,6 +171,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete={isSignUp ? "new-password" : "current-password"}
               className="bg-input border-border"
             />
           </div>

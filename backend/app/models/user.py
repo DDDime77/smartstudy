@@ -30,3 +30,5 @@ class User(Base):
     study_sessions = relationship("StudySession", back_populates="user", cascade="all, delete-orphan")
     busy_schedule = relationship("BusySchedule", back_populates="user", cascade="all, delete-orphan")
     exams = relationship("Exam", back_populates="user", cascade="all, delete-orphan")
+    task_stages = relationship("TaskStage", back_populates="user", cascade="all, delete-orphan")
+    user_answers = relationship("UserAnswer", back_populates="user", cascade="all, delete-orphan")

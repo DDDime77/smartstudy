@@ -4,14 +4,16 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models import User, UserProfile, Subject, Availability
+from app.models import User, UserProfile, Subject, BusySchedule
 from app.schemas import (
     OnboardingComplete,
     ProfileResponse,
     SubjectResponse,
     SubjectInput,
     UpdateProfile,
+    UpdateSubject,
 )
+from app.utils.priority_calculator import calculate_priority_coefficient
 from datetime import time
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
@@ -52,8 +54,17 @@ async def complete_onboarding(
     if onboarding_data.import_method == "manual":
         db.query(Subject).filter(Subject.user_id == user.id).delete()
 
-        # Add new subjects
+        # Add new subjects with priority coefficients
         for subject_data in onboarding_data.subjects:
+            # Calculate priority coefficient based on grade gap
+            priority_coef = calculate_priority_coefficient(
+                current_grade=subject_data.current_grade,
+                target_grade=subject_data.target_grade,
+                education_system=onboarding_data.education_system,
+                education_program=onboarding_data.education_program,
+                level=subject_data.level
+            )
+
             subject = Subject(
                 user_id=user.id,
                 name=subject_data.name,
@@ -61,28 +72,29 @@ async def complete_onboarding(
                 category=subject_data.category,
                 current_grade=subject_data.current_grade,
                 target_grade=subject_data.target_grade,
-                color=subject_data.color
+                color=subject_data.color,
+                priority_coefficient=priority_coef
             )
             db.add(subject)
 
-    # Delete existing availability and add new ones
-    db.query(Availability).filter(Availability.user_id == user.id).delete()
+    # Delete existing busy schedule and add new ones
+    db.query(BusySchedule).filter(BusySchedule.user_id == user.id).delete()
 
-    # Add new availability slots
+    # Add new busy schedule slots
     for day_avail in onboarding_data.availability:
         for slot in day_avail.slots:
             # Convert time strings to time objects
             start_time_obj = time.fromisoformat(slot.start)
             end_time_obj = time.fromisoformat(slot.end)
 
-            availability = Availability(
+            busy_slot = BusySchedule(
                 user_id=user.id,
                 day_of_week=day_avail.day,
                 start_time=start_time_obj,
                 end_time=end_time_obj,
                 recurring=True
             )
-            db.add(availability)
+            db.add(busy_slot)
 
     # Mark profile as completed
     user.profile_completed = True
@@ -169,6 +181,20 @@ async def add_subject(
 
     user = current_user
 
+    # Get user's education system for priority calculation
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+    education_system = profile.education_system if profile else "IB"
+    education_program = profile.education_program if profile else None
+
+    # Calculate priority coefficient
+    priority_coef = calculate_priority_coefficient(
+        current_grade=subject_data.current_grade,
+        target_grade=subject_data.target_grade,
+        education_system=education_system,
+        education_program=education_program,
+        level=subject_data.level
+    )
+
     subject = Subject(
         user_id=user.id,
         name=subject_data.name,
@@ -176,10 +202,78 @@ async def add_subject(
         category=subject_data.category,
         current_grade=subject_data.current_grade,
         target_grade=subject_data.target_grade,
-        color=subject_data.color
+        color=subject_data.color,
+        priority_coefficient=priority_coef
     )
 
     db.add(subject)
+    db.commit()
+    db.refresh(subject)
+
+    return subject
+
+
+@router.put("/subjects/{subject_id}", response_model=SubjectResponse)
+async def update_subject(
+    subject_id: str,
+    subject_data: UpdateSubject,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a subject and recalculate priority coefficient"""
+
+    user = current_user
+
+    subject = db.query(Subject).filter(
+        Subject.id == subject_id,
+        Subject.user_id == user.id
+    ).first()
+
+    if not subject:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subject not found"
+        )
+
+    # Get user's education system
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+    education_system = profile.education_system if profile else "IB"
+    education_program = profile.education_program if profile else None
+
+    # Update fields
+    if subject_data.name is not None:
+        subject.name = subject_data.name
+    if subject_data.level is not None:
+        subject.level = subject_data.level
+    if subject_data.category is not None:
+        subject.category = subject_data.category
+    if subject_data.color is not None:
+        subject.color = subject_data.color
+
+    # Track if grades changed to recalculate priority
+    grades_changed = False
+    if subject_data.current_grade is not None:
+        subject.current_grade = subject_data.current_grade
+        grades_changed = True
+    if subject_data.target_grade is not None:
+        subject.target_grade = subject_data.target_grade
+        grades_changed = True
+
+    # Handle priority coefficient update
+    if subject_data.priority_coefficient is not None:
+        # Manual priority update (e.g., from drag-and-drop)
+        subject.priority_coefficient = subject_data.priority_coefficient
+    elif grades_changed or subject_data.level is not None:
+        # Recalculate priority coefficient if grades or level changed
+        priority_coef = calculate_priority_coefficient(
+            current_grade=subject.current_grade,
+            target_grade=subject.target_grade,
+            education_system=education_system,
+            education_program=education_program,
+            level=subject.level
+        )
+        subject.priority_coefficient = priority_coef
+
     db.commit()
     db.refresh(subject)
 

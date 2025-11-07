@@ -1,301 +1,557 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState } from 'react';
+import GlassCard from '@/components/GlassCard';
+import Button from '@/components/Button';
+import Badge from '@/components/Badge';
+import AnimatedText from '@/components/AnimatedText';
+import GradientText from '@/components/GradientText';
+import GridBackground from '@/components/GridBackground';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { OnboardingService, ProfileResponse, UpdateProfileData } from '@/lib/api/onboarding';
-
-const EDUCATION_SYSTEMS = [
-  { value: 'IB', label: 'International Baccalaureate (IB)' },
-  { value: 'A-Level', label: 'A-Level' },
-  { value: 'American', label: 'American System' },
-];
-
-const EDUCATION_PROGRAMS: Record<string, { value: string; label: string }[]> = {
-  IB: [
-    { value: 'IBDP', label: 'IB Diploma Programme (IBDP)' },
-    { value: 'IBCP', label: 'IB Career-related Programme (IBCP)' },
-    { value: 'IB Courses', label: 'IB Courses' },
-  ],
-  'A-Level': [
-    { value: 'A-Level', label: 'A-Level' },
-  ],
-  American: [
-    { value: 'Standard', label: 'Standard' },
-    { value: 'AP', label: 'Advanced Placement (AP)' },
-    { value: 'Honors', label: 'Honors' },
-  ],
-};
-
-const TIMEZONES = [
-  { value: 'UTC-12:00', label: '(UTC-12:00) International Date Line West' },
-  { value: 'UTC-11:00', label: '(UTC-11:00) Coordinated Universal Time-11' },
-  { value: 'UTC-10:00', label: '(UTC-10:00) Hawaii' },
-  { value: 'UTC-09:00', label: '(UTC-09:00) Alaska' },
-  { value: 'UTC-08:00', label: '(UTC-08:00) Pacific Time (US & Canada)' },
-  { value: 'UTC-07:00', label: '(UTC-07:00) Mountain Time (US & Canada)' },
-  { value: 'UTC-06:00', label: '(UTC-06:00) Central Time (US & Canada)' },
-  { value: 'UTC-05:00', label: '(UTC-05:00) Eastern Time (US & Canada)' },
-  { value: 'UTC-04:00', label: '(UTC-04:00) Atlantic Time (Canada)' },
-  { value: 'UTC-03:00', label: '(UTC-03:00) Buenos Aires, Georgetown' },
-  { value: 'UTC-02:00', label: '(UTC-02:00) Mid-Atlantic' },
-  { value: 'UTC-01:00', label: '(UTC-01:00) Azores' },
-  { value: 'UTC+00:00', label: '(UTC+00:00) London, Lisbon, Dublin' },
-  { value: 'UTC+01:00', label: '(UTC+01:00) Amsterdam, Berlin, Paris' },
-  { value: 'UTC+02:00', label: '(UTC+02:00) Athens, Helsinki, Istanbul' },
-  { value: 'UTC+03:00', label: '(UTC+03:00) Moscow, St. Petersburg' },
-  { value: 'UTC+04:00', label: '(UTC+04:00) Dubai, Abu Dhabi' },
-  { value: 'UTC+05:00', label: '(UTC+05:00) Islamabad, Karachi' },
-  { value: 'UTC+05:30', label: '(UTC+05:30) Mumbai, Kolkata, Chennai' },
-  { value: 'UTC+06:00', label: '(UTC+06:00) Dhaka, Almaty' },
-  { value: 'UTC+07:00', label: '(UTC+07:00) Bangkok, Hanoi, Jakarta' },
-  { value: 'UTC+08:00', label: '(UTC+08:00) Beijing, Hong Kong, Singapore' },
-  { value: 'UTC+09:00', label: '(UTC+09:00) Tokyo, Seoul, Osaka' },
-  { value: 'UTC+10:00', label: '(UTC+10:00) Sydney, Melbourne' },
-  { value: 'UTC+11:00', label: '(UTC+11:00) Solomon Islands' },
-  { value: 'UTC+12:00', label: '(UTC+12:00) Auckland, Wellington' },
-];
+  User, Shield, Bell, Palette, Clock, Globe, BookOpen, GraduationCap,
+  Target, ChevronRight, Save, AlertTriangle, Moon, Sun, Monitor,
+  Volume2, Mail, Smartphone, Lock, Key, UserCheck, Trash2
+} from 'lucide-react';
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<ProfileResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
+  const [darkMode, setDarkMode] = useState('system');
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: true,
+    studyReminders: true,
+    examAlerts: true,
+    achievements: true,
+    weeklyReports: false
+  });
 
   // Profile form state
-  const [timezone, setTimezone] = useState('');
-  const [educationSystem, setEducationSystem] = useState('');
-  const [educationProgram, setEducationProgram] = useState('');
-  const [studyGoal, setStudyGoal] = useState<number | ''>(''); // Hours per week
+  const [profileData, setProfileData] = useState({
+    name: 'Student',
+    email: 'student@example.com',
+    timezone: 'UTC+00:00',
+    studyGoal: 20
+  });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Education form state
+  const [educationData, setEducationData] = useState({
+    educationSystem: 'IB',
+    educationProgram: 'IBDP',
+    grade: 'Year 12',
+    school: 'International School'
+  });
 
-  const loadData = async () => {
-    try {
-      const profileData = await OnboardingService.getProfile();
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'education', label: 'Education', icon: GraduationCap },
+    { id: 'preferences', label: 'Preferences', icon: Palette },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'security', label: 'Security', icon: Shield },
+  ];
 
-      setProfile(profileData);
+  const timezones = [
+    { value: 'UTC-12:00', label: '(UTC-12:00) International Date Line West' },
+    { value: 'UTC-11:00', label: '(UTC-11:00) Hawaii' },
+    { value: 'UTC-10:00', label: '(UTC-10:00) Alaska' },
+    { value: 'UTC-08:00', label: '(UTC-08:00) Pacific Time' },
+    { value: 'UTC-07:00', label: '(UTC-07:00) Mountain Time' },
+    { value: 'UTC-06:00', label: '(UTC-06:00) Central Time' },
+    { value: 'UTC-05:00', label: '(UTC-05:00) Eastern Time' },
+    { value: 'UTC+00:00', label: '(UTC+00:00) London, Dublin' },
+    { value: 'UTC+01:00', label: '(UTC+01:00) Paris, Berlin' },
+    { value: 'UTC+08:00', label: '(UTC+08:00) Singapore, Hong Kong' },
+    { value: 'UTC+09:00', label: '(UTC+09:00) Tokyo, Seoul' },
+  ];
 
-      // Set form values
-      setTimezone(profileData.timezone);
-      setEducationSystem(profileData.education_system);
-      setEducationProgram(profileData.education_program || '');
-      setStudyGoal(profileData.study_goal || '');
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    } finally {
-      setLoading(false);
-    }
+  const educationSystems = [
+    { value: 'IB', label: 'International Baccalaureate (IB)' },
+    { value: 'A-Level', label: 'A-Level' },
+    { value: 'American', label: 'American System' },
+    { value: 'GCSE', label: 'GCSE' },
+  ];
+
+  const educationPrograms = {
+    'IB': ['IBDP', 'IBCP', 'IB Courses'],
+    'A-Level': ['AS Level', 'A2 Level', 'Combined'],
+    'American': ['Standard', 'AP', 'Honors'],
+    'GCSE': ['Standard', 'iGCSE'],
   };
 
-  const handleSaveProfile = async () => {
-    setSaving(true);
-    try {
-      const updateData: UpdateProfileData = {
-        timezone,
-        education_system: educationSystem,
-        education_program: educationProgram,
-        study_goal: studyGoal === '' ? undefined : studyGoal,
-      };
-
-      const updated = await OnboardingService.updateProfile(updateData);
-      setProfile(updated);
-      alert('Profile updated successfully!');
-    } catch (error) {
-      console.error('Failed to save profile:', error);
-      alert('Failed to save profile. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+  const handleSave = () => {
+    // Mock save functionality
+    alert('Settings saved successfully!');
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-muted-foreground">Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-heading font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your account and preferences
-        </p>
-      </div>
+    <div className="min-h-screen bg-black">
+      <GridBackground />
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="bg-muted">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="education">Education</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
-        </TabsList>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <AnimatedText
+            text="Settings"
+            className="text-4xl md:text-5xl font-bold mb-2"
+            variant="slide"
+          />
+          <p className="text-white/60 text-lg">
+            Manage your account and preferences
+          </p>
+        </div>
 
-        {/* Profile Tab */}
-        <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">Profile Settings</CardTitle>
-              <CardDescription>
-                Update your personal information and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select value={timezone} onValueChange={setTimezone}>
-                  <SelectTrigger id="timezone">
-                    <SelectValue placeholder="Select your timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIMEZONES.map((tz) => (
-                      <SelectItem key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar Navigation */}
+          <div className="lg:col-span-1">
+            <GlassCard>
+              <div className="p-6 space-y-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30'
+                        : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <tab.icon className={`w-5 h-5 ${
+                      activeTab === tab.id ? 'text-blue-400' : 'text-white/60'
+                    }`} />
+                    <span className={`font-medium ${
+                      activeTab === tab.id ? 'text-white' : 'text-white/80'
+                    }`}>
+                      {tab.label}
+                    </span>
+                    {activeTab === tab.id && (
+                      <ChevronRight className="w-4 h-4 text-blue-400 ml-auto" />
+                    )}
+                  </button>
+                ))}
               </div>
+            </GlassCard>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="study-goal">Study Goal (hours per week)</Label>
-                <Input
-                  id="study-goal"
-                  type="number"
-                  min="0"
-                  max="168"
-                  value={studyGoal}
-                  onChange={(e) => setStudyGoal(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="e.g., 20"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Set your weekly study time goal in hours
-                </p>
-              </div>
+          {/* Content Area */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+              <>
+                <GlassCard>
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+                        <User className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white">Profile Information</h2>
+                    </div>
 
-              <Separator />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Display Name</label>
+                        <input
+                          type="text"
+                          value={profileData.name}
+                          onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
+                          placeholder="Enter your name"
+                        />
+                      </div>
 
-              <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Email</label>
+                        <input
+                          type="email"
+                          value={profileData.email}
+                          disabled
+                          className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/50"
+                        />
+                        <p className="text-white/40 text-xs mt-1">Contact support to change your email</p>
+                      </div>
 
-        {/* Education Tab */}
-        <TabsContent value="education" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">Education Settings</CardTitle>
-              <CardDescription>
-                Your education system and program details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="education-system">Education System</Label>
-                <Select value={educationSystem} onValueChange={setEducationSystem}>
-                  <SelectTrigger id="education-system">
-                    <SelectValue placeholder="Select your education system" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EDUCATION_SYSTEMS.map((sys) => (
-                      <SelectItem key={sys.value} value={sys.value}>
-                        {sys.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Timezone</label>
+                        <select
+                          value={profileData.timezone}
+                          onChange={(e) => setProfileData({...profileData, timezone: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
+                        >
+                          {timezones.map((tz) => (
+                            <option key={tz.value} value={tz.value} className="bg-gray-900">
+                              {tz.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-              {educationSystem && (
-                <div className="space-y-2">
-                  <Label htmlFor="education-program">Program</Label>
-                  <Select value={educationProgram} onValueChange={setEducationProgram}>
-                    <SelectTrigger id="education-program">
-                      <SelectValue placeholder="Select your program" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EDUCATION_PROGRAMS[educationSystem]?.map((prog) => (
-                        <SelectItem key={prog.value} value={prog.value}>
-                          {prog.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Weekly Study Goal (hours)</label>
+                        <input
+                          type="number"
+                          value={profileData.studyGoal}
+                          onChange={(e) => setProfileData({...profileData, studyGoal: parseInt(e.target.value)})}
+                          min="0"
+                          max="168"
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
+                        />
+                      </div>
 
-              <Separator />
-
-              <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Account Tab */}
-        <TabsContent value="account" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">Account Settings</CardTitle>
-              <CardDescription>
-                Manage your account security and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input value="user@example.com" disabled />
-                <p className="text-xs text-muted-foreground">
-                  Contact support to change your email address
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-destructive">Danger Zone</h3>
-                <div className="border border-destructive/50 rounded-lg p-4 space-y-4">
-                  <div>
-                    <p className="text-sm">
-                      Permanently delete your account and all associated data.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      This action cannot be undone.
-                    </p>
+                      <div className="pt-4">
+                        <Button variant="primary" onClick={handleSave}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <Button variant="destructive" size="sm">
-                    Delete Account
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                </GlassCard>
+              </>
+            )}
+
+            {/* Education Tab */}
+            {activeTab === 'education' && (
+              <>
+                <GlassCard>
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
+                        <GraduationCap className="w-5 h-5 text-green-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white">Education Settings</h2>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Education System</label>
+                        <select
+                          value={educationData.educationSystem}
+                          onChange={(e) => setEducationData({...educationData, educationSystem: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
+                        >
+                          {educationSystems.map((sys) => (
+                            <option key={sys.value} value={sys.value} className="bg-gray-900">
+                              {sys.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Program</label>
+                        <select
+                          value={educationData.educationProgram}
+                          onChange={(e) => setEducationData({...educationData, educationProgram: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
+                        >
+                          {educationPrograms[educationData.educationSystem]?.map((prog) => (
+                            <option key={prog} value={prog} className="bg-gray-900">
+                              {prog}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Grade/Year</label>
+                        <input
+                          type="text"
+                          value={educationData.grade}
+                          onChange={(e) => setEducationData({...educationData, grade: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
+                          placeholder="e.g., Year 12, Grade 11"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">School</label>
+                        <input
+                          type="text"
+                          value={educationData.school}
+                          onChange={(e) => setEducationData({...educationData, school: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
+                          placeholder="Your school name"
+                        />
+                      </div>
+
+                      <div className="pt-4">
+                        <Button variant="primary" onClick={handleSave}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </>
+            )}
+
+            {/* Preferences Tab */}
+            {activeTab === 'preferences' && (
+              <>
+                <GlassCard>
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+                        <Palette className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white">App Preferences</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Theme Settings */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Theme</h3>
+                        <div className="flex gap-3">
+                          {['system', 'light', 'dark'].map((mode) => (
+                            <button
+                              key={mode}
+                              onClick={() => setDarkMode(mode)}
+                              className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
+                                darkMode === mode
+                                  ? 'bg-white/10 border-blue-400 text-blue-400'
+                                  : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                              }`}
+                            >
+                              {mode === 'system' && <Monitor className="w-4 h-4" />}
+                              {mode === 'light' && <Sun className="w-4 h-4" />}
+                              {mode === 'dark' && <Moon className="w-4 h-4" />}
+                              <span className="capitalize">{mode}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Study Timer Settings */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Study Timer</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                            <span className="text-white/80">Auto-start breaks</span>
+                            <button className="w-12 h-6 rounded-full bg-white/10 relative">
+                              <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                            <span className="text-white/80">Sound notifications</span>
+                            <button className="w-12 h-6 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 relative">
+                              <div className="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Display Settings */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Display</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                            <span className="text-white/80">Show animations</span>
+                            <button className="w-12 h-6 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 relative">
+                              <div className="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                            <span className="text-white/80">Compact view</span>
+                            <button className="w-12 h-6 rounded-full bg-white/10 relative">
+                              <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-4">
+                        <Button variant="primary" onClick={handleSave}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Preferences
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </>
+            )}
+
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+              <>
+                <GlassCard>
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500/20 to-yellow-500/20">
+                        <Bell className="w-5 h-5 text-orange-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white">Notification Settings</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Notification Channels */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Notification Channels</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                            <div className="flex items-center gap-3">
+                              <Mail className="w-4 h-4 text-white/60" />
+                              <span className="text-white/80">Email notifications</span>
+                            </div>
+                            <button className={`w-12 h-6 rounded-full relative transition-colors ${
+                              notifications.email ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
+                            }`}>
+                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                                notifications.email ? 'translate-x-6' : 'translate-x-0.5'
+                              }`} />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                            <div className="flex items-center gap-3">
+                              <Smartphone className="w-4 h-4 text-white/60" />
+                              <span className="text-white/80">Push notifications</span>
+                            </div>
+                            <button className={`w-12 h-6 rounded-full relative transition-colors ${
+                              notifications.push ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
+                            }`}>
+                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                                notifications.push ? 'translate-x-6' : 'translate-x-0.5'
+                              }`} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Notification Types */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Notification Types</h3>
+                        <div className="space-y-3">
+                          {[
+                            { key: 'studyReminders', label: 'Study session reminders', icon: Clock },
+                            { key: 'examAlerts', label: 'Exam alerts', icon: AlertTriangle },
+                            { key: 'achievements', label: 'Achievement notifications', icon: Target },
+                            { key: 'weeklyReports', label: 'Weekly progress reports', icon: BookOpen },
+                          ].map((item) => (
+                            <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                              <div className="flex items-center gap-3">
+                                <item.icon className="w-4 h-4 text-white/60" />
+                                <span className="text-white/80">{item.label}</span>
+                              </div>
+                              <button
+                                onClick={() => setNotifications({...notifications, [item.key]: !notifications[item.key]})}
+                                className={`w-12 h-6 rounded-full relative transition-colors ${
+                                  notifications[item.key] ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
+                                }`}
+                              >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                                  notifications[item.key] ? 'translate-x-6' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-4">
+                        <Button variant="primary" onClick={handleSave}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Settings
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </>
+            )}
+
+            {/* Security Tab */}
+            {activeTab === 'security' && (
+              <>
+                <GlassCard>
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-red-500/20 to-rose-500/20">
+                        <Shield className="w-5 h-5 text-red-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white">Security Settings</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Password */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Password</h3>
+                        <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <Key className="w-5 h-5 text-white/60" />
+                              <div>
+                                <p className="text-white">Password</p>
+                                <p className="text-white/40 text-sm">Last changed 30 days ago</p>
+                              </div>
+                            </div>
+                            <Button variant="secondary" size="sm">
+                              Change Password
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Two-Factor Authentication */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Two-Factor Authentication</h3>
+                        <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Lock className="w-5 h-5 text-white/60" />
+                              <div>
+                                <p className="text-white">2FA Status</p>
+                                <p className="text-white/40 text-sm">Not enabled</p>
+                              </div>
+                            </div>
+                            <Button variant="primary" size="sm">
+                              Enable 2FA
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Active Sessions */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Active Sessions</h3>
+                        <div className="space-y-2">
+                          <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <UserCheck className="w-4 h-4 text-green-400" />
+                                <div>
+                                  <p className="text-white text-sm">Chrome on Mac</p>
+                                  <p className="text-white/40 text-xs">Current session</p>
+                                </div>
+                              </div>
+                              <Badge variant="glow">Active</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Danger Zone */}
+                      <div>
+                        <h3 className="text-red-400 font-medium mb-3">Danger Zone</h3>
+                        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+                          <p className="text-white/80 mb-3">
+                            Permanently delete your account and all associated data.
+                          </p>
+                          <p className="text-white/60 text-sm mb-4">
+                            This action cannot be undone. You will lose all your data including subjects, tasks, and study history.
+                          </p>
+                          <Button variant="ghost" className="border-red-500 text-red-400 hover:bg-red-500/20">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Account
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
