@@ -7,6 +7,7 @@ import Badge from '@/components/Badge';
 import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
+import NotificationToast from '@/components/ui/notification-toast';
 import {
   User, Shield, Bell, Palette, Clock, Globe, BookOpen, GraduationCap,
   Target, ChevronRight, Save, AlertTriangle, Moon, Sun, Monitor,
@@ -16,6 +17,9 @@ import {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [darkMode, setDarkMode] = useState('system');
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('success');
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -79,7 +83,9 @@ export default function SettingsPage() {
 
   const handleSave = () => {
     // Mock save functionality
-    alert('Settings saved successfully!');
+    setToastMessage('Settings saved successfully!');
+    setToastType('success');
+    setShowToast(true);
   };
 
   return (
@@ -552,6 +558,14 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Notification Toast */}
+      <NotificationToast
+        message={toastMessage}
+        type={toastType}
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+      />
     </div>
   );
 }

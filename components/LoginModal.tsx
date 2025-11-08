@@ -12,6 +12,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import OnboardingModal from './OnboardingModal';
+import TermsModal from '@/components/ui/terms-modal';
+import NotificationToast from '@/components/ui/notification-toast';
 import { AuthService } from '@/lib/api/auth';
 import { OnboardingService } from '@/lib/api/onboarding';
 import { OnboardingData } from '@/lib/api/onboarding';
@@ -30,12 +32,25 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info');
+  const [showToast, setShowToast] = useState(false);
 
   const resetForm = () => {
     setEmail('');
     setPassword('');
     setFullName('');
     setError(null);
+    setAgreedToTerms(false);
+  };
+
+  const showNotification = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,7 +128,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-2xl font-heading font-bold">
@@ -176,6 +192,46 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             />
           </div>
 
+          {/* User Agreement Checkbox - Only show for sign up */}
+          {isSignUp && (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  required
+                />
+                <label htmlFor="terms" className="text-sm text-muted-foreground">
+                  I agree to the{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-primary underline hover:text-primary/80"
+                  >
+                    Terms of Service
+                  </button>
+                  {' '}and{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowPrivacyModal(true)}
+                    className="text-primary underline hover:text-primary/80"
+                  >
+                    Privacy Policy
+                  </button>
+                  , including the processing of my data to enhance my personalized learning experience.
+                </label>
+              </div>
+              {!agreedToTerms && isSignUp && (
+                <p className="text-xs text-destructive">
+                  You must accept the terms to create an account
+                </p>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="bg-destructive/10 border border-destructive/50 text-destructive px-4 py-3 rounded-md text-sm">
               {error}
@@ -184,8 +240,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
           <Button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={isLoading || (isSignUp && !agreedToTerms)}
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </Button>
@@ -206,8 +262,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             variant="outline"
             className="w-full border-border hover:bg-accent"
             onClick={() => {
-              // Social login placeholder
-              alert('Social login coming soon!');
+              showNotification('Social login coming soon!', 'info');
             }}
           >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -236,8 +291,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             variant="outline"
             className="w-full border-border hover:bg-accent"
             onClick={() => {
-              // Social login placeholder
-              alert('Social login coming soon!');
+              showNotification('Social login coming soon!', 'info');
             }}
           >
             <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
@@ -253,6 +307,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError(null);
+              setAgreedToTerms(false); // Reset checkbox when switching modes
             }}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -271,5 +326,28 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Terms Modal */}
+    <TermsModal
+      isOpen={showTermsModal}
+      onClose={() => setShowTermsModal(false)}
+      type="terms"
+    />
+
+    {/* Privacy Modal */}
+    <TermsModal
+      isOpen={showPrivacyModal}
+      onClose={() => setShowPrivacyModal(false)}
+      type="privacy"
+    />
+
+    {/* Notification Toast */}
+    <NotificationToast
+      message={toastMessage}
+      type={toastType}
+      isOpen={showToast}
+      onClose={() => setShowToast(false)}
+    />
+    </>
   );
 }

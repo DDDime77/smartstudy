@@ -35,6 +35,7 @@ export interface OnboardingData {
   timezone: string;
   education_system: string;
   education_program: string;
+  grade_level?: string; // Grade or year level
   import_method: string;
   subjects: SubjectInput[];
   availability: DayAvailability[];

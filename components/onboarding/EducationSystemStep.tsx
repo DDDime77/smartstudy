@@ -5,29 +5,60 @@ import { EDUCATION_SYSTEMS } from '@/lib/education-config';
 interface EducationSystemStepProps {
   educationSystem: string;
   educationProgram: string;
-  onChange: (system: string, program: string) => void;
+  gradeLevel: string;
+  onChange: (system: string, program: string, grade?: string) => void;
 }
 
 export default function EducationSystemStep({
   educationSystem,
   educationProgram,
+  gradeLevel,
   onChange,
 }: EducationSystemStepProps) {
   const systems = Object.keys(EDUCATION_SYSTEMS);
 
   const handleSystemSelect = (system: string) => {
-    // Reset program when system changes
-    onChange(system, '');
+    // Reset program and grade when system changes
+    onChange(system, '', '');
   };
 
   const handleProgramSelect = (program: string) => {
-    onChange(educationSystem, program);
+    onChange(educationSystem, program, '');
+  };
+
+  const handleGradeSelect = (grade: string) => {
+    onChange(educationSystem, educationProgram, grade);
   };
 
   const getPrograms = () => {
     if (!educationSystem) return [];
     const system = EDUCATION_SYSTEMS[educationSystem as keyof typeof EDUCATION_SYSTEMS];
     return Object.keys(system.programs);
+  };
+
+  const getGradeOptions = () => {
+    if (!educationSystem || !educationProgram) return [];
+
+    // Define grade/year options for each education system and program
+    const gradeOptions: Record<string, Record<string, string[]>> = {
+      'IB': {
+        'IBDP': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)'],
+        'IBCP': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)'],
+        'IB Courses': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)']
+      },
+      'A-Level': {
+        'AS Level': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)'],
+        'A2 Level': ['Year 13 (Upper Sixth)'],
+        'Combined': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)']
+      },
+      'American': {
+        'Standard': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)'],
+        'AP': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)'],
+        'Honors': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)']
+      }
+    };
+
+    return gradeOptions[educationSystem]?.[educationProgram] || [];
   };
 
   const systemIcons: Record<string, string> = {
@@ -135,15 +166,44 @@ export default function EducationSystemStep({
         </div>
       )}
 
+      {/* Grade Level Selection (only shows when program is selected) */}
       {educationSystem && educationProgram && (
+        <div className="space-y-4 animate-slide-up">
+          <label className="block text-sm font-medium text-slate-300 mb-3">
+            Grade / Year Level
+          </label>
+          <div className="relative">
+            <select
+              value={gradeLevel}
+              onChange={(e) => handleGradeSelect(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white focus:border-white/30 focus:outline-none appearance-none cursor-pointer hover:border-white/20 transition-colors"
+              required
+            >
+              <option value="" className="bg-black text-white/60">Select your grade level</option>
+              {getGradeOptions().map((grade) => (
+                <option key={grade} value={grade} className="bg-black text-white">
+                  {grade}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-5 h-5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {educationSystem && educationProgram && gradeLevel && (
         <div className="p-4 rounded-lg bg-white-500/10 border border-white-500/20 text-white-400 text-sm flex items-start gap-3 animate-fade-in">
           <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div>
-            <div className="font-medium">Education System Selected</div>
+            <div className="font-medium">Education Details Complete</div>
             <div className="text-xs mt-1 text-white-300">
-              {educationSystem} - {educationProgram}
+              {educationSystem} - {educationProgram} - {gradeLevel}
             </div>
           </div>
         </div>

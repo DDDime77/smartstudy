@@ -77,7 +77,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
       case 1:
         return !!onboardingData.timezone;
       case 2:
-        return !!onboardingData.education_system && !!onboardingData.education_program;
+        return !!onboardingData.education_system && !!onboardingData.education_program && !!onboardingData.grade_level;
       case 3:
         return !!onboardingData.import_method;
       case 4:
@@ -135,8 +135,9 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
             <EducationSystemStep
               educationSystem={onboardingData.education_system || ''}
               educationProgram={onboardingData.education_program || ''}
-              onChange={(education_system, education_program) =>
-                updateData({ education_system, education_program })
+              gradeLevel={onboardingData.grade_level || ''}
+              onChange={(education_system, education_program, grade_level) =>
+                updateData({ education_system, education_program, grade_level })
               }
             />
           )}
