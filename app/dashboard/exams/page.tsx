@@ -128,6 +128,22 @@ export default function ExamsPage() {
     }
   };
 
+  // Pure string comparison - NO Date object conversions
+  const getExamsForDateString = (dateStr: string): ExamResponse[] => {
+    const matchingExams = exams.filter(exam => exam.exam_date === dateStr);
+
+    // Debug logging
+    if (matchingExams.length > 0) {
+      console.log('✓ Found exam(s) for date string:', {
+        dateStr,
+        examDates: matchingExams.map(e => e.exam_date),
+        examTypes: matchingExams.map(e => e.exam_type)
+      });
+    }
+
+    return matchingExams;
+  };
+
   const getDaysInMonth = (date: Date): DayCell[] => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -186,22 +202,6 @@ export default function ExamsPage() {
     }
 
     return [...prevMonthDays, ...currentMonthDays, ...nextMonthDays];
-  };
-
-  // Pure string comparison - NO Date object conversions
-  const getExamsForDateString = (dateStr: string): ExamResponse[] => {
-    const matchingExams = exams.filter(exam => exam.exam_date === dateStr);
-
-    // Debug logging
-    if (matchingExams.length > 0) {
-      console.log('✓ Found exam(s) for date string:', {
-        dateStr,
-        examDates: matchingExams.map(e => e.exam_date),
-        examTypes: matchingExams.map(e => e.exam_type)
-      });
-    }
-
-    return matchingExams;
   };
 
   const handleDayClick = (day: DayCell) => {
