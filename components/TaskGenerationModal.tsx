@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import Button from './Button';
 import GlassCard from './GlassCard';
+import { SubjectsService, SubjectResponse } from '@/lib/api/subjects';
 
 interface TaskGenerationModalProps {
   isOpen: boolean;
@@ -27,12 +28,9 @@ export default function TaskGenerationModal({
   const [difficulty, setDifficulty] = useState('');
   const [error, setError] = useState('');
 
-  // Common subjects based on study system
-  const commonSubjects = [
-    'Mathematics', 'Physics', 'Chemistry', 'Biology',
-    'Computer Science', 'Economics', 'History',
-    'English Literature', 'Psychology', 'Geography'
-  ];
+  // User's subjects from API
+  const [userSubjects, setUserSubjects] = useState<SubjectResponse[]>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
 
   const difficultyLevels = [
     { value: 'easy', label: 'Easy', emoji: '🌱', description: 'Foundation concepts and basic practice' },
@@ -50,8 +48,24 @@ export default function TaskGenerationModal({
       setTopic('');
       setDifficulty('');
       setError('');
+
+      // Fetch user's subjects
+      fetchUserSubjects();
     }
   }, [isOpen]);
+
+  const fetchUserSubjects = async () => {
+    setLoadingSubjects(true);
+    try {
+      const subjects = await SubjectsService.getAll();
+      setUserSubjects(subjects);
+    } catch (err) {
+      console.error('Failed to fetch subjects:', err);
+      setError('Failed to load your subjects. Please try again.');
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
 
   const handleSubjectSubmit = () => {
     if (!subject.trim()) {
@@ -121,36 +135,40 @@ export default function TaskGenerationModal({
                 </div>
 
                 <div className="space-y-4">
-                  <label className="block text-sm font-medium text-white/80">Choose a subject</label>
+                  <label className="block text-sm font-medium text-white/80">Choose from your subjects</label>
 
-                  {/* Quick selection buttons */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {commonSubjects.map((subj) => (
-                      <button
-                        key={subj}
-                        onClick={() => setSubject(subj)}
-                        className={`px-4 py-3 rounded-lg border transition-all ${
-                          subject === subj
-                            ? 'border-white/30 bg-white/10 text-white'
-                            : 'border-white/10 text-white/60 hover:border-white/20 hover:text-white'
-                        }`}
-                      >
-                        {subj}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom input */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSubjectSubmit()}
-                      placeholder="Or type a custom subject..."
-                      className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
-                    />
-                  </div>
+                  {loadingSubjects ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    </div>
+                  ) : userSubjects.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-white/60 mb-4">No subjects found. Please add subjects in your profile first.</p>
+                      <Button variant="secondary" onClick={onClose}>
+                        Close
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {userSubjects.map((subj) => (
+                        <button
+                          key={subj.id}
+                          onClick={() => setSubject(subj.name)}
+                          className={`px-4 py-3 rounded-lg border transition-all ${
+                            subject === subj.name
+                              ? 'border-white/30 bg-white/10 text-white'
+                              : 'border-white/10 text-white/60 hover:border-white/20 hover:text-white'
+                          }`}
+                          style={{
+                            borderLeftWidth: '3px',
+                            borderLeftColor: subj.color || '#3b82f6'
+                          }}
+                        >
+                          {subj.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {error && (
                     <p className="text-red-400 text-sm">{error}</p>
