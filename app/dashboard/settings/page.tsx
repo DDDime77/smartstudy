@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import GlassCard from '@/components/GlassCard';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
@@ -8,6 +8,8 @@ import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
 import NotificationToast from '@/components/ui/notification-toast';
+import { AuthService } from '@/lib/api/auth';
+import { handleApiError } from '@/lib/api/client';
 import {
   User, Shield, Bell, Palette, Clock, Globe, BookOpen, GraduationCap,
   Target, ChevronRight, Save, AlertTriangle, Moon, Sun, Monitor,
@@ -31,11 +33,36 @@ export default function SettingsPage() {
 
   // Profile form state
   const [profileData, setProfileData] = useState({
-    name: 'Student',
-    email: 'student@example.com',
+    name: 'Loading...',
+    email: 'Loading...',
     timezone: 'UTC+00:00',
     studyGoal: 20
   });
+
+  // Fetch current user data
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await AuthService.getCurrentUser();
+        setProfileData({
+          name: user.full_name || 'Student',
+          email: user.email,
+          timezone: 'UTC+00:00',
+          studyGoal: 20
+        });
+      } catch (error) {
+        handleApiError(error, 'Failed to load user data');
+        setProfileData({
+          name: 'Unknown User',
+          email: 'Unknown',
+          timezone: 'UTC+00:00',
+          studyGoal: 20
+        });
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   // Education form state
   const [educationData, setEducationData] = useState({
