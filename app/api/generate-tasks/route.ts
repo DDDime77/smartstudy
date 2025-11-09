@@ -49,22 +49,49 @@ OUTPUT FORMAT:
 
 Please generate the practice tasks now.`;
 
-    // Use o4-mini with high reasoning effort
-    const completion = await client.chat.completions.create({
+    // Use o4-mini with high reasoning effort and streaming
+    const stream = await client.chat.completions.create({
       model: 'o4-mini',
       messages: [
         { role: 'user', content: fullPrompt }
       ],
       reasoning_effort: 'high',
+      stream: true,
       max_completion_tokens: 10000,
     });
 
-    const content = completion.choices[0]?.message?.content || '';
+    // Stream the response in real-time
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) {
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ delta })}\n\n`)
+              );
+            }
 
-    // Return as JSON
-    return NextResponse.json({
-      content,
-      done: true
+            if (chunk.choices[0]?.finish_reason === 'stop' || chunk.choices[0]?.finish_reason === 'length') {
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
+              );
+              controller.close();
+            }
+          }
+        } catch (error) {
+          console.error('Streaming error:', error);
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readableStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
   } catch (error: any) {
     console.error('Error generating tasks:', error);

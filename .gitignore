@@ -25,10 +25,13 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-# .env*.local
-# .env
-# NOTE: Keeping .env files for team collaboration
-# IMPORTANT: Do NOT commit sensitive credentials in production!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+build-output.log
 
 # vercel
 .vercel

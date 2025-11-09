@@ -107,15 +107,39 @@ export default function TaskGenerationModal({
         throw new Error('Failed to generate tasks');
       }
 
-      // o1-mini returns full response at once (no streaming)
-      const data = await response.json();
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-      if (data.content) {
-        setGeneratedTasks(data.content);
-        setIsGenerating(false);
-        setCurrentStep('preview');
-      } else {
-        throw new Error('No content received from AI');
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.delta) {
+                accumulatedText += data.delta;
+                setGeneratedTasks(accumulatedText);
+              }
+              if (data.done) {
+                setIsGenerating(false);
+                setCurrentStep('preview');
+              }
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to generate tasks');
