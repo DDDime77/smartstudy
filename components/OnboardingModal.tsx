@@ -15,6 +15,7 @@ import EducationSystemStep from './onboarding/EducationSystemStep';
 import ImportMethodStep from './onboarding/ImportMethodStep';
 import SubjectsStep from './onboarding/SubjectsStep';
 import AvailabilityStep from './onboarding/AvailabilityStep';
+import GoogleClassroomImportStep from './onboarding/GoogleClassroomImportStep';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -149,7 +150,17 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
             />
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 4 && onboardingData.import_method === 'google_classroom' && (
+            <GoogleClassroomImportStep
+              educationSystem={onboardingData.education_system || ''}
+              onImportComplete={(subjects) => {
+                updateData({ subjects });
+                nextStep();
+              }}
+            />
+          )}
+
+          {currentStep === 4 && onboardingData.import_method === 'manual' && (
             <SubjectsStep
               subjects={onboardingData.subjects || []}
               educationSystem={onboardingData.education_system || ''}
@@ -167,34 +178,36 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-card">
-          <Button
-            onClick={previousStep}
-            disabled={currentStep === 1}
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Back
-          </Button>
+        {!(currentStep === 4 && onboardingData.import_method === 'google_classroom') && (
+          <div className="px-8 py-6 border-t border-border flex items-center justify-between bg-card">
+            <Button
+              onClick={previousStep}
+              disabled={currentStep === 1}
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Back
+            </Button>
 
-          {currentStep < totalSteps ? (
-            <Button
-              onClick={nextStep}
-              disabled={!canProceed()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Continue
-            </Button>
-          ) : (
-            <Button
-              onClick={handleComplete}
-              disabled={isLoading || !canProceed()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {isLoading ? 'Completing...' : 'Complete Setup'}
-            </Button>
-          )}
-        </div>
+            {currentStep < totalSteps ? (
+              <Button
+                onClick={nextStep}
+                disabled={!canProceed()}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                onClick={handleComplete}
+                disabled={isLoading || !canProceed()}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {isLoading ? 'Completing...' : 'Complete Setup'}
+              </Button>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

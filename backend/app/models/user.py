@@ -23,6 +23,9 @@ class User(Base):
     oauth_provider = Column(String, nullable=True)  # 'google', 'github', etc.
     oauth_id = Column(String, nullable=True)
 
+    # Google Classroom API key
+    google_classroom_api_key = Column(String, nullable=True)
+
     # Relationships
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     subjects = relationship("Subject", back_populates="user", cascade="all, delete-orphan")

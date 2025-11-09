@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, onboarding, subjects, schedule, exams, tasks, sessions
+from app.routers import auth, onboarding, subjects, schedule, exams, tasks, sessions, google_classroom
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -31,6 +31,7 @@ app.include_router(schedule.router)
 app.include_router(exams.router)
 app.include_router(tasks.router)
 app.include_router(sessions.router)
+app.include_router(google_classroom.router)
 
 
 @app.get("/")

@@ -25,6 +25,10 @@ class Subject(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     archived = Column(Boolean, default=False)
 
+    # Google Classroom import tracking
+    imported_from = Column(String, nullable=True)  # 'google_classroom', 'manual', null
+    google_classroom_id = Column(String, nullable=True)  # Google's course ID
+
     # Relationships
     user = relationship("User", back_populates="subjects")
     tasks = relationship("Task", back_populates="subject", cascade="all, delete-orphan")

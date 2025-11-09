@@ -19,8 +19,8 @@ export default function ImportMethodStep({ value, onChange }: ImportMethodStepPr
       title: 'Google Classroom',
       description: 'Import subjects from Google Classroom',
       icon: '📱',
-      features: ['Auto-import', 'Sync assignments', 'Coming soon'],
-      disabled: true,
+      features: ['Auto-import subjects', 'Quick setup', 'Requires API key'],
+      disabled: false,
     },
   ];
 
@@ -115,14 +115,14 @@ export default function ImportMethodStep({ value, onChange }: ImportMethodStepPr
       </div>
 
       {value === 'google_classroom' && (
-        <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm flex items-start gap-3 animate-fade-in">
+        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-white text-sm flex items-start gap-3 animate-fade-in">
           <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div>
-            <div className="font-medium">Google Classroom Integration Coming Soon</div>
-            <div className="text-xs mt-1 text-yellow-300">
-              We're working on this feature. For now, please use manual entry.
+            <div className="font-medium">Google Classroom Selected</div>
+            <div className="text-xs mt-1 text-blue-300">
+              You'll need your Google Classroom API key to import subjects
             </div>
           </div>
         </div>
