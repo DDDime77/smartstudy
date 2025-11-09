@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -128,9 +128,18 @@ async def google_auth(auth_data: GoogleAuthRequest, db: Session = Depends(get_db
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(token: str, db: Session = Depends(get_db)):
+async def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
     """Get current logged-in user"""
     from app.core.security import decode_access_token
+
+    # Extract token from Authorization header
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header"
+        )
+
+    token = authorization.replace("Bearer ", "")
 
     # Decode token
     payload = decode_access_token(token)
