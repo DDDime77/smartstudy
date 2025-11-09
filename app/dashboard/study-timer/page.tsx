@@ -1033,18 +1033,53 @@ export default function StudyTimerPage() {
                 ) : (
                   <>
                     {/* Task Display */}
-                    <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
-                      {isGenerating ? (
-                        taskText ? (
-                          <MarkdownRenderer content={taskText} />
+                    <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4 relative">
+                      {/* Action Buttons - Top Right Corner */}
+                      <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <button
+                          onClick={() => handleMarkCorrectIncorrect(true)}
+                          disabled={isGenerating}
+                          className="w-10 h-10 rounded-full bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Mark Correct"
+                        >
+                          <Check className="w-5 h-5 text-green-400" />
+                        </button>
+                        <button
+                          onClick={() => handleMarkCorrectIncorrect(false)}
+                          disabled={isGenerating}
+                          className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Mark Incorrect"
+                        >
+                          <X className="w-5 h-5 text-red-400" />
+                        </button>
+                        <button
+                          onClick={handleNextTask}
+                          disabled={isGenerating}
+                          className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 hover:border-blue-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Skip to Next Task"
+                        >
+                          {isGenerating ? (
+                            <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-blue-400 rotate-[-90deg]" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Task Content */}
+                      <div className="pr-32">
+                        {isGenerating ? (
+                          taskText ? (
+                            <MarkdownRenderer content={taskText} />
+                          ) : (
+                            <div className="flex items-center justify-center py-8">
+                              <p className="text-white/40">Waiting for response...</p>
+                            </div>
+                          )
                         ) : (
-                          <div className="flex items-center justify-center py-8">
-                            <p className="text-white/40">Waiting for response...</p>
-                          </div>
-                        )
-                      ) : (
-                        currentTask && <MarkdownRenderer content={currentTask.task} />
-                      )}
+                          currentTask && <MarkdownRenderer content={currentTask.task} />
+                        )}
+                      </div>
                     </div>
 
                     {/* Action Buttons */}
@@ -1067,54 +1102,16 @@ export default function StudyTimerPage() {
                       </Button>
                     </div>
 
-                    {/* Mark Correct/Incorrect & Ask Question Buttons */}
-                    <div className="flex gap-3 mb-4">
-                      {/* Small circular buttons for correct/incorrect */}
-                      <button
-                        onClick={() => handleMarkCorrectIncorrect(true)}
-                        disabled={isGenerating}
-                        className="w-12 h-12 rounded-full bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Mark Correct"
-                      >
-                        <Check className="w-6 h-6 text-green-400" />
-                      </button>
-                      <button
-                        onClick={() => handleMarkCorrectIncorrect(false)}
-                        disabled={isGenerating}
-                        className="w-12 h-12 rounded-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Mark Incorrect"
-                      >
-                        <X className="w-6 h-6 text-red-400" />
-                      </button>
-
-                      {/* Ask Question button fills remaining space */}
+                    {/* Ask Question Button */}
+                    <div className="mb-4">
                       <Button
                         variant="ghost"
                         onClick={() => setShowChatModal(true)}
                         disabled={isGenerating}
-                        className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30"
+                        className="w-full bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 flex items-center justify-center"
                       >
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        Ask Question
-                      </Button>
-                    </div>
-
-                    {/* Next Task Button */}
-                    <div className="mb-4">
-                      <Button
-                        variant="primary"
-                        onClick={handleNextTask}
-                        disabled={isGenerating}
-                        className="w-full"
-                      >
-                        {isGenerating ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                            Generating...
-                          </>
-                        ) : (
-                          'Next Task'
-                        )}
+                        <MessageCircle className="w-4 h-4" />
+                        <span className="ml-2">Ask Question</span>
                       </Button>
                     </div>
 

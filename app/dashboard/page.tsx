@@ -432,14 +432,14 @@ export default function DashboardPage() {
             </div>
             <div className="flex-1 text-center md:text-left">
               <GradientText gradient="from-purple-400 to-pink-400">
-                <h3 className="text-xl font-bold mb-1">Add Your Preparation Dates</h3>
+                <h3 className="text-xl font-bold mb-1">Add Your Exam Dates</h3>
               </GradientText>
               <p className="text-white/60 text-sm">
-                Enable AI-powered spaced repetition and preparation timelines
+                Enable AI-powered spaced repetition and exam preparation timelines
               </p>
             </div>
             <Button variant="primary" onClick={() => router.push('/dashboard/exams')}>
-              + Add Preparation
+              + Add Exams
             </Button>
           </div>
         </GlassCard>
