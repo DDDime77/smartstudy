@@ -128,7 +128,7 @@ async def google_auth(auth_data: GoogleAuthRequest, db: Session = Depends(get_db
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
+async def get_current_user(authorization: str = Header(None, alias="Authorization"), db: Session = Depends(get_db)):
     """Get current logged-in user"""
     from app.core.security import decode_access_token
 
