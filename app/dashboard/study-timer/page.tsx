@@ -83,20 +83,24 @@ export default function StudyTimerPage() {
     fetchRecentSessions();
     fetchWeeklyStats();
 
-    // Load generated tasks from sessionStorage
-    const tasks = sessionStorage.getItem('generatedTasks');
-    const subject = sessionStorage.getItem('taskSubject');
-    if (tasks) {
-      setGeneratedTasks(tasks);
-      setTaskSubject(subject);
+    // Load generated tasks from sessionStorage (client-side only)
+    if (typeof window !== 'undefined') {
+      const tasks = sessionStorage.getItem('generatedTasks');
+      const subject = sessionStorage.getItem('taskSubject');
+      if (tasks) {
+        setGeneratedTasks(tasks);
+        setTaskSubject(subject);
+      }
     }
   }, []);
 
   const handleDismissTasks = () => {
     setGeneratedTasks(null);
     setTaskSubject(null);
-    sessionStorage.removeItem('generatedTasks');
-    sessionStorage.removeItem('taskSubject');
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('generatedTasks');
+      sessionStorage.removeItem('taskSubject');
+    }
   };
 
   // Update time remaining when technique changes
