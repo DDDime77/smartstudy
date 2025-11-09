@@ -712,6 +712,129 @@ export default function StudyTimerPage() {
           </GlassCard>
         </div>
 
+        {/* Current Task Section */}
+        {(currentTask || isGenerating) && (
+          <GlassCard className="mb-8 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                    <Brain className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
+                      {isGenerating ? 'Generating Practice Task...' : 'Practice Task'}
+                    </h3>
+                    {currentTask && (
+                      <p className="text-white/60 text-sm">
+                        {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {isGenerating && (
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                )}
+              </div>
+
+              {/* Task Display */}
+              <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
+                {isGenerating ? (
+                  taskText ? (
+                    <MarkdownRenderer content={taskText} />
+                  ) : (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-white/40">Waiting for response...</p>
+                    </div>
+                  )
+                ) : (
+                  currentTask && <MarkdownRenderer content={currentTask.task} />
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3 mb-4">
+                <Button
+                  variant={showSolution ? "secondary" : "ghost"}
+                  onClick={() => setShowSolution(!showSolution)}
+                  className="flex-1 min-w-[150px]"
+                  disabled={isGenerating && !solutionText}
+                >
+                  {showSolution ? 'Hide Solution' : 'Show Solution'}
+                </Button>
+                <Button
+                  variant={showAnswer ? "secondary" : "ghost"}
+                  onClick={() => setShowAnswer(!showAnswer)}
+                  className="flex-1 min-w-[150px]"
+                  disabled={isGenerating && !answerText}
+                >
+                  {showAnswer ? 'Hide Answer' : 'Show Answer'}
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleNextTask}
+                  disabled={isGenerating}
+                  className="flex-1 min-w-[150px]"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Next Task'
+                  )}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {taskError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {taskError}
+                </div>
+              )}
+
+              {/* Solution Display */}
+              {showSolution && (
+                <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
+                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                    Solution
+                  </h4>
+                  {isGenerating ? (
+                    solutionText ? (
+                      <MarkdownRenderer content={solutionText} />
+                    ) : (
+                      <p className="text-white/40 text-sm">Generating solution...</p>
+                    )
+                  ) : (
+                    currentTask && <MarkdownRenderer content={currentTask.solution} />
+                  )}
+                </div>
+              )}
+
+              {/* Answer Display */}
+              {showAnswer && (
+                <div className="bg-black/20 rounded-lg p-6 border border-white/10">
+                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                    Answer
+                  </h4>
+                  {isGenerating ? (
+                    answerText ? (
+                      <MarkdownRenderer content={answerText} />
+                    ) : (
+                      <p className="text-white/40 text-sm">Generating answer...</p>
+                    )
+                  ) : (
+                    currentTask && <MarkdownRenderer content={currentTask.answer} />
+                  )}
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        )}
+
         {/* Study Techniques */}
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-white mb-4">Study Techniques</h3>
@@ -849,129 +972,6 @@ export default function StudyTimerPage() {
             </div>
           </GlassCard>
         </div>
-
-        {/* Current Task Section */}
-        {(currentTask || isGenerating) && (
-          <GlassCard className="mt-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
-                    <Brain className="w-5 h-5 text-indigo-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">
-                      {isGenerating ? 'Generating Practice Task...' : 'Practice Task'}
-                    </h3>
-                    {currentTask && (
-                      <p className="text-white/60 text-sm">
-                        {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {isGenerating && (
-                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                )}
-              </div>
-
-              {/* Task Display */}
-              <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
-                {isGenerating ? (
-                  taskText ? (
-                    <MarkdownRenderer content={taskText} />
-                  ) : (
-                    <div className="flex items-center justify-center py-8">
-                      <p className="text-white/40">Waiting for response...</p>
-                    </div>
-                  )
-                ) : (
-                  currentTask && <MarkdownRenderer content={currentTask.task} />
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-3 mb-4">
-                <Button
-                  variant={showSolution ? "secondary" : "ghost"}
-                  onClick={() => setShowSolution(!showSolution)}
-                  className="flex-1 min-w-[150px]"
-                  disabled={isGenerating && !solutionText}
-                >
-                  {showSolution ? 'Hide Solution' : 'Show Solution'}
-                </Button>
-                <Button
-                  variant={showAnswer ? "secondary" : "ghost"}
-                  onClick={() => setShowAnswer(!showAnswer)}
-                  className="flex-1 min-w-[150px]"
-                  disabled={isGenerating && !answerText}
-                >
-                  {showAnswer ? 'Hide Answer' : 'Show Answer'}
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleNextTask}
-                  disabled={isGenerating}
-                  className="flex-1 min-w-[150px]"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    'Next Task'
-                  )}
-                </Button>
-              </div>
-
-              {/* Error Display */}
-              {taskError && (
-                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                  {taskError}
-                </div>
-              )}
-
-              {/* Solution Display */}
-              {showSolution && (
-                <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
-                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                    Solution
-                  </h4>
-                  {isGenerating ? (
-                    solutionText ? (
-                      <MarkdownRenderer content={solutionText} />
-                    ) : (
-                      <p className="text-white/40 text-sm">Generating solution...</p>
-                    )
-                  ) : (
-                    currentTask && <MarkdownRenderer content={currentTask.solution} />
-                  )}
-                </div>
-              )}
-
-              {/* Answer Display */}
-              {showAnswer && (
-                <div className="bg-black/20 rounded-lg p-6 border border-white/10">
-                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                    Answer
-                  </h4>
-                  {isGenerating ? (
-                    answerText ? (
-                      <MarkdownRenderer content={answerText} />
-                    ) : (
-                      <p className="text-white/40 text-sm">Generating answer...</p>
-                    )
-                  ) : (
-                    currentTask && <MarkdownRenderer content={currentTask.answer} />
-                  )}
-                </div>
-              )}
-            </div>
-          </GlassCard>
-        )}
 
         {/* Motivational Quote */}
         <GlassCard className="mt-6 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30">

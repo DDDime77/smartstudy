@@ -58,7 +58,11 @@ IMPORTANT FORMATTING RULES:
   * Inline math: Single dollar signs like $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
   * Display math: Double dollar signs like $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
   * Do NOT use \\[...\\] or \\(...\\) delimiters
+  * CRITICAL: ALL mathematical expressions, variables, equations, and formulas MUST be wrapped in $ or $$ delimiters
+  * Examples: Write $v = \\sqrt{\\frac{T}{\\mu}}$ NOT just v = T/μ
+  * Keep entire formulas on single lines within delimiters - do NOT split formulas across multiple lines
 - Use the section headers exactly as shown: # TASK, # SOLUTION, # ANSWER
+- Write formulas inline with text using $...$ for better readability
 
 Generate the problem now.`;
 
