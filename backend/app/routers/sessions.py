@@ -26,10 +26,12 @@ class StudySessionCreate(BaseModel):
 class StudySessionUpdate(BaseModel):
     end_time: datetime | None = None
     duration_minutes: int | None = None
+    elapsed_seconds: int | None = None  # Actual time studied in seconds
     focus_rating: int | None = None
     break_time_minutes: int | None = None
     interruptions_count: int | None = None
     notes: str | None = None
+    is_paused: bool | None = None
 
 
 class StudySessionResponse(BaseModel):
@@ -132,12 +134,11 @@ async def update_session(
     # Update fields
     if session_data.end_time is not None:
         session.end_time = session_data.end_time
-        # Calculate duration if both start and end times exist
-        if session.start_time:
-            duration = (session.end_time - session.start_time).total_seconds() / 60
-            session.duration_minutes = int(duration)
 
-    if session_data.duration_minutes is not None:
+    # If elapsed_seconds is provided, use it to calculate duration (more accurate)
+    if session_data.elapsed_seconds is not None:
+        session.duration_minutes = int(session_data.elapsed_seconds / 60)
+    elif session_data.duration_minutes is not None:
         session.duration_minutes = session_data.duration_minutes
 
     if session_data.focus_rating is not None:

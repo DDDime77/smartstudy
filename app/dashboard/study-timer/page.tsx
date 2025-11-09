@@ -17,9 +17,11 @@ export default function StudyTimerPage() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedTechnique, setSelectedTechnique] = useState('pomodoro');
   const [sessionGoal, setSessionGoal] = useState(2);
-  const [timeRemaining, setTimeRemaining] = useState(25 * 60); // 25 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState(25 * 60); // Countdown timer in seconds
+  const [elapsedSeconds, setElapsedSeconds] = useState(0); // Actual elapsed time
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState(0);
+  const [interruptions, setInterruptions] = useState(0);
 
   // Data from API
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
@@ -28,6 +30,8 @@ export default function StudyTimerPage() {
   const [todayMinutes, setTodayMinutes] = useState(0);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionStartTimeRef = useRef<number>(0); // Timestamp when current session segment started
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const techniques = [
     {
@@ -83,10 +87,13 @@ export default function StudyTimerPage() {
     }
   }, [selectedTechnique]);
 
-  // Timer countdown
+  // Timer countdown and elapsed time tracking
   useEffect(() => {
-    if (isRunning && timeRemaining > 0) {
+    if (isRunning) {
+      sessionStartTimeRef.current = Date.now();
+
       timerRef.current = setInterval(() => {
+        // Update countdown
         setTimeRemaining(prev => {
           if (prev <= 1) {
             handleTimerComplete();
@@ -94,6 +101,9 @@ export default function StudyTimerPage() {
           }
           return prev - 1;
         });
+
+        // Update elapsed time (actual time studied)
+        setElapsedSeconds(prev => prev + 1);
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -107,7 +117,63 @@ export default function StudyTimerPage() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isRunning, timeRemaining]);
+  }, [isRunning]);
+
+  // Auto-save elapsed time every 10 seconds while running
+  useEffect(() => {
+    if (isRunning && currentSessionId) {
+      saveTimeoutRef.current = setInterval(() => {
+        saveElapsedTime(false);
+      }, 10000); // Save every 10 seconds
+    } else {
+      if (saveTimeoutRef.current) {
+        clearInterval(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearInterval(saveTimeoutRef.current);
+      }
+    };
+  }, [isRunning, currentSessionId, elapsedSeconds]);
+
+  // Handle page visibility changes (tab switch, minimize, etc.)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isRunning && currentSessionId) {
+        // User switched tab or minimized - pause and save
+        handlePause();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isRunning, currentSessionId, elapsedSeconds, interruptions]);
+
+  // Handle page close/reload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRunning && currentSessionId) {
+        // Save current session before page closes
+        saveElapsedTime(true);
+
+        // Show warning to user
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isRunning, currentSessionId, elapsedSeconds, interruptions]);
 
   const fetchSubjects = async () => {
     try {
@@ -146,6 +212,22 @@ export default function StudyTimerPage() {
     }
   };
 
+  const saveElapsedTime = async (isFinal: boolean = false) => {
+    if (!currentSessionId) return;
+
+    try {
+      await SessionsService.update(currentSessionId, {
+        elapsed_seconds: elapsedSeconds,
+        interruptions_count: interruptions,
+        ...(isFinal && { end_time: new Date().toISOString(), focus_rating: 3 })
+      });
+    } catch (error) {
+      if (!isFinal) {
+        console.error('Failed to save elapsed time:', error);
+      }
+    }
+  };
+
   const handleStart = async () => {
     if (!selectedSubject) {
       alert('Please select a subject first');
@@ -153,28 +235,55 @@ export default function StudyTimerPage() {
     }
 
     try {
-      // Create a new session in the backend
-      const session = await SessionsService.create({
-        subject_id: selectedSubject,
-        start_time: new Date().toISOString(),
-      });
-      setCurrentSessionId(session.id);
-      setIsRunning(true);
+      if (currentSessionId) {
+        // Resume existing session
+        setIsRunning(true);
+        setInterruptions(prev => prev + 1);
+        sessionStartTimeRef.current = Date.now();
+      } else {
+        // Create new session
+        const session = await SessionsService.create({
+          subject_id: selectedSubject,
+          start_time: new Date().toISOString(),
+        });
+        setCurrentSessionId(session.id);
+        setElapsedSeconds(0);
+        setInterruptions(0);
+        setIsRunning(true);
+        sessionStartTimeRef.current = Date.now();
+      }
     } catch (error) {
       handleApiError(error, 'Failed to start session');
     }
   };
 
-  const handlePause = () => {
+  const handlePause = async () => {
     setIsRunning(false);
+    setInterruptions(prev => prev + 1);
+
+    // Save current elapsed time
+    await saveElapsedTime(false);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setIsRunning(false);
+
+    // Save final state if session exists
+    if (currentSessionId && elapsedSeconds > 0) {
+      await saveElapsedTime(true);
+
+      // Refresh data
+      fetchRecentSessions();
+      fetchWeeklyStats();
+    }
+
+    // Reset state
     const technique = techniques.find(t => t.id === selectedTechnique);
     if (technique) {
       setTimeRemaining(technique.focusTime * 60);
     }
+    setElapsedSeconds(0);
+    setInterruptions(0);
     setCurrentSessionId(null);
   };
 
@@ -183,17 +292,20 @@ export default function StudyTimerPage() {
 
     if (currentSessionId) {
       try {
-        const technique = techniques.find(t => t.id === selectedTechnique);
-        const duration = technique ? technique.focusTime : 25;
-
+        // Save final session with actual elapsed time
         await SessionsService.update(currentSessionId, {
           end_time: new Date().toISOString(),
-          duration_minutes: duration,
-          focus_rating: 4, // Default good focus
+          elapsed_seconds: elapsedSeconds,
+          interruptions_count: interruptions,
+          focus_rating: 4, // Default good focus for completed sessions
         });
 
         setCompletedSessions(prev => prev + 1);
+
+        // Reset for next session
         setCurrentSessionId(null);
+        setElapsedSeconds(0);
+        setInterruptions(0);
 
         // Refresh data
         fetchRecentSessions();
@@ -295,6 +407,11 @@ export default function StudyTimerPage() {
                     <span className="text-6xl font-bold">{formatTime(timeRemaining)}</span>
                   </GradientText>
                   <p className="text-white/60 mt-2">Focus Time</p>
+                  {elapsedSeconds > 0 && (
+                    <p className="text-white/40 text-sm mt-1">
+                      Studied: {formatTime(elapsedSeconds)}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -344,15 +461,22 @@ export default function StudyTimerPage() {
                   ) : (
                     <>
                       <Play className="w-5 h-5 mr-2" />
-                      Start
+                      {currentSessionId ? 'Resume' : 'Start'}
                     </>
                   )}
                 </Button>
                 <Button variant="secondary" size="lg" onClick={handleReset}>
                   <RotateCcw className="w-5 h-5 mr-2" />
-                  Reset
+                  {currentSessionId && elapsedSeconds > 0 ? 'Finish' : 'Reset'}
                 </Button>
               </div>
+
+              {/* Interruptions indicator */}
+              {interruptions > 0 && (
+                <div className="mt-4 text-white/60 text-sm">
+                  Interruptions: {interruptions}
+                </div>
+              )}
             </div>
           </GlassCard>
 
@@ -415,9 +539,9 @@ export default function StudyTimerPage() {
                 <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white/80 text-sm">Streak</span>
+                    <span className="text-white/80 text-sm">Current</span>
                   </div>
-                  <span className="text-white font-bold">0 days</span>
+                  <span className="text-white font-bold">{formatTime(elapsedSeconds)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                   <div className="flex items-center gap-2">
@@ -493,15 +617,22 @@ export default function StudyTimerPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-white/60 text-sm">{formatDate(session.start_time)}</span>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span
-                              key={star}
-                              className={star <= (session.focus_rating || 0) ? 'text-yellow-400' : 'text-white/20'}
-                            >
-                              ★
+                        <div className="flex items-center gap-2">
+                          {session.interruptions_count > 0 && (
+                            <span className="text-white/40 text-xs">
+                              {session.interruptions_count} interruptions
                             </span>
-                          ))}
+                          )}
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <span
+                                key={star}
+                                className={star <= (session.focus_rating || 0) ? 'text-yellow-400' : 'text-white/20'}
+                              >
+                                ★
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>

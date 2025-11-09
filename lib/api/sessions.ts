@@ -11,10 +11,12 @@ export interface StudySessionCreate {
 export interface StudySessionUpdate {
   end_time?: string;
   duration_minutes?: number;
+  elapsed_seconds?: number;
   focus_rating?: number;
   break_time_minutes?: number;
   interruptions_count?: number;
   notes?: string;
+  is_paused?: boolean;
 }
 
 export interface StudySessionResponse {
