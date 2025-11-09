@@ -238,7 +238,6 @@ export default function StudyTimerPage() {
       if (currentSessionId) {
         // Resume existing session
         setIsRunning(true);
-        setInterruptions(prev => prev + 1);
         sessionStartTimeRef.current = Date.now();
       } else {
         // Create new session
@@ -259,6 +258,7 @@ export default function StudyTimerPage() {
 
   const handlePause = async () => {
     setIsRunning(false);
+    setInterruptions(prev => prev + 1);
 
     // Save current elapsed time
     await saveElapsedTime(false);
