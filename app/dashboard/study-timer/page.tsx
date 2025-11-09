@@ -259,7 +259,6 @@ export default function StudyTimerPage() {
 
   const handlePause = async () => {
     setIsRunning(false);
-    setInterruptions(prev => prev + 1);
 
     // Save current elapsed time
     await saveElapsedTime(false);
