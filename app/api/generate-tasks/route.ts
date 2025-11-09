@@ -18,28 +18,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Prompt for o4-mini Responses API
-    const prompt = `You are an expert ${studySystem || 'IB'} ${subject} teacher.
+    const prompt = `You are an expert educational content generator specializing in creating practice tasks and exercises for students.
 
-Generate a comprehensive set of study tasks on the topic: "${topic}".
-Difficulty: ${difficulty}.
+CONTEXT:
+- Study System: ${studySystem || 'IB (International Baccalaureate)'}
+- Subject: ${subject}
+- Topic: ${topic}
+- Difficulty Level: ${difficulty}
+
+TASK:
+Generate practice tasks and exercises aligned with the ${studySystem || 'IB'} curriculum for ${subject}, specifically focusing on the topic "${topic}" at ${difficulty} difficulty level.
 
 REQUIREMENTS:
 1. Create 5-8 diverse tasks that test different skills and understanding levels
 2. Include a mix of question types: conceptual, analytical, problem-solving, and application-based
 3. Adjust the complexity and depth according to the ${difficulty} difficulty level
 4. Make tasks relevant to real-world applications where possible
-5. For ${studySystem || 'IB'} curriculum: align with assessment objectives and command terms
+5. Provide clear, unambiguous task descriptions
+6. For IB curriculum: align with assessment objectives and command terms
 
 OUTPUT FORMAT:
-- Use proper **Markdown** formatting with headers, lists, and emphasis
+- Use proper markdown formatting with headers, lists, and emphasis
 - Use LaTeX notation for all mathematical formulas:
-  * Inline math: \\(ax + b = 0\\)
-  * Display math: $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
+  * Inline math: enclosed in $ symbols (e.g., $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$)
+  * Display math: enclosed in $$ symbols (e.g., $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$)
 - Structure each task clearly with a task number, description, and any necessary context
+- For mathematics, physics, or chemistry: include proper LaTeX formatting for equations, symbols, and expressions
 - Start with a brief introduction about the topic
 - End with a note about the expected approach or skills being tested
 
-Generate the practice tasks now.`;
+Please generate the practice tasks now.`;
 
     // Use o4-mini Responses API with streaming
     const stream = await client.responses.create({

@@ -338,21 +338,27 @@ export default function TaskGenerationModal({
               </div>
             )}
 
-            {/* Step 4: Generating (Loading) */}
+            {/* Step 4: Generating (Loading with streaming preview) */}
             {currentStep === 'generating' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="text-center mb-6">
-                  <div className="text-5xl mb-4 animate-bounce">🤖</div>
+                  <div className="flex items-center justify-center gap-3 mb-4">
+                    <div className="text-5xl animate-bounce">🤖</div>
+                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+                  </div>
                   <h3 className="text-2xl font-bold text-white mb-2">Generating Tasks...</h3>
                   <p className="text-white/60">AI is creating personalized practice tasks for you</p>
                 </div>
 
-                <div className="max-h-96 overflow-y-auto">
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 className="w-12 h-12 text-purple-400 animate-spin mb-4" />
-                    <p className="text-white/40 mb-2">This may take a few seconds...</p>
-                    <p className="text-white/30 text-xs">Generating high-quality educational content</p>
-                  </div>
+                <div className="max-h-96 overflow-y-auto border border-white/10 rounded-lg p-4 bg-black/20">
+                  {generatedTasks ? (
+                    <MarkdownRenderer content={generatedTasks} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <p className="text-white/40 mb-2">Waiting for response...</p>
+                      <p className="text-white/30 text-xs">This may take a few seconds</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
