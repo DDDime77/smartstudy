@@ -166,7 +166,11 @@ export default function ExamsPage() {
   };
 
   const getExamsForDate = (date: Date): ExamResponse[] => {
-    const dateStr = date.toISOString().split('T')[0];
+    // Use local date instead of UTC to avoid timezone shifting
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     return exams.filter(exam => exam.exam_date === dateStr);
   };
 
