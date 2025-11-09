@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Date, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, Date, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -15,17 +15,8 @@ class Exam(Base):
 
     # Exam details
     exam_date = Column(Date, nullable=False)
-    exam_type = Column(String, nullable=False)  # Paper 1, Paper 2, Paper 3, IA, etc.
-    title = Column(String, nullable=True)  # Optional custom title
-    description = Column(Text, nullable=True)  # Additional notes
-
-    # Time (optional)
-    start_time = Column(String, nullable=True)  # HH:MM format
-    end_time = Column(String, nullable=True)  # HH:MM format
-    duration_minutes = Column(String, nullable=True)  # e.g., "90", "120"
-
-    # Location (optional)
-    location = Column(String, nullable=True)
+    exam_type = Column(String, nullable=False)  # Paper type (Paper 1, Paper 2, IA, etc.)
+    units = Column(JSON, nullable=True)  # Array of units covered in exam (max 5)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

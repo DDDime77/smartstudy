@@ -3,25 +3,15 @@ import { ApiClient } from './client';
 export interface ExamInput {
   subject_id: string;
   exam_date: string; // ISO date format YYYY-MM-DD
-  exam_type: string; // Paper 1, Paper 2, Paper 3, IA, etc.
-  title?: string;
-  description?: string;
-  start_time?: string; // HH:MM format
-  end_time?: string; // HH:MM format
-  duration_minutes?: string;
-  location?: string;
+  exam_type: string; // Paper type (Paper 1, Paper 2, IA, etc.)
+  units?: string[]; // Units covered in exam (max 5)
 }
 
 export interface UpdateExam {
   subject_id?: string;
   exam_date?: string;
   exam_type?: string;
-  title?: string;
-  description?: string;
-  start_time?: string;
-  end_time?: string;
-  duration_minutes?: string;
-  location?: string;
+  units?: string[];
 }
 
 export interface ExamResponse {
@@ -30,12 +20,7 @@ export interface ExamResponse {
   subject_id: string;
   exam_date: string;
   exam_type: string;
-  title: string | null;
-  description: string | null;
-  start_time: string | null;
-  end_time: string | null;
-  duration_minutes: string | null;
-  location: string | null;
+  units: string[] | null;
 }
 
 export const ExamsService = {

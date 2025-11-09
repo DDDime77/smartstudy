@@ -1,5 +1,5 @@
-from pydantic import BaseModel, field_serializer
-from typing import Optional
+from pydantic import BaseModel, field_serializer, field_validator
+from typing import Optional, List
 from datetime import date
 from uuid import UUID
 
@@ -8,13 +8,19 @@ class ExamInput(BaseModel):
     """Input schema for creating/updating an exam"""
     subject_id: str
     exam_date: date
-    exam_type: str  # Paper 1, Paper 2, Paper 3, IA, etc.
-    title: Optional[str] = None
-    description: Optional[str] = None
-    start_time: Optional[str] = None  # HH:MM format
-    end_time: Optional[str] = None  # HH:MM format
-    duration_minutes: Optional[str] = None
-    location: Optional[str] = None
+    exam_type: str  # Paper type (Paper 1, Paper 2, IA, etc.)
+    units: Optional[List[str]] = None  # Units covered in exam (max 5)
+
+    @field_validator('units')
+    @classmethod
+    def validate_units(cls, v):
+        if v is not None:
+            # Filter out empty strings
+            v = [unit.strip() for unit in v if unit.strip()]
+            # Ensure max 5 units
+            if len(v) > 5:
+                raise ValueError('Maximum 5 units allowed')
+        return v
 
 
 class UpdateExam(BaseModel):
@@ -22,12 +28,18 @@ class UpdateExam(BaseModel):
     subject_id: Optional[str] = None
     exam_date: Optional[date] = None
     exam_type: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    duration_minutes: Optional[str] = None
-    location: Optional[str] = None
+    units: Optional[List[str]] = None
+
+    @field_validator('units')
+    @classmethod
+    def validate_units(cls, v):
+        if v is not None:
+            # Filter out empty strings
+            v = [unit.strip() for unit in v if unit.strip()]
+            # Ensure max 5 units
+            if len(v) > 5:
+                raise ValueError('Maximum 5 units allowed')
+        return v
 
 
 class ExamResponse(BaseModel):
@@ -37,12 +49,7 @@ class ExamResponse(BaseModel):
     subject_id: UUID
     exam_date: date
     exam_type: str
-    title: Optional[str]
-    description: Optional[str]
-    start_time: Optional[str]
-    end_time: Optional[str]
-    duration_minutes: Optional[str]
-    location: Optional[str]
+    units: Optional[List[str]]
 
     @field_serializer('id', 'user_id', 'subject_id')
     def serialize_uuid(self, value: UUID) -> str:

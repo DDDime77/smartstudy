@@ -13,12 +13,25 @@ import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/o
 import { handleApiError } from '@/lib/api/client';
 import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award } from 'lucide-react';
 
-const examTypesBySystem: { [key: string]: string[] } = {
-  IB: ['Paper 1', 'Paper 2', 'Paper 3', 'Internal Assessment (IA)', 'Extended Essay', 'TOK Essay', 'TOK Presentation'],
-  'A-Level': ['Paper 1', 'Paper 2', 'Paper 3', 'Practical Endorsement', 'Non-Exam Assessment (NEA)', 'Coursework'],
-  AP: ['Section 1 (Multiple Choice)', 'Section 2 (Free Response)', 'Full Exam'],
-  American: ['Midterm', 'Final', 'Unit Test', 'Quiz', 'Project', 'Presentation'],
-};
+// Universal paper types for all education systems
+const PAPER_TYPES = [
+  'Paper 1',
+  'Paper 2',
+  'Paper 3',
+  'Paper 4',
+  'Section I',
+  'Section II',
+  'Internal Assessment (IA)',
+  'Extended Essay',
+  'Coursework',
+  'Non-Exam Assessment (NEA)',
+  'Practical Assessment',
+  'Performance Assessment',
+  'TOK Essay',
+  'TOK Presentation',
+  'Mock Exam',
+  'Final Exam',
+];
 
 interface DayCell {
   date: Date;
@@ -39,13 +52,51 @@ export default function ExamsPage() {
     subject_id: '',
     exam_date: '',
     exam_type: '',
-    title: '',
-    description: '',
-    start_time: '',
-    end_time: '',
-    duration_minutes: '',
-    location: '',
+    units: ['', '', '', '', ''], // 5 unit inputs
   });
+  const [dateInput, setDateInput] = useState(''); // For dd/mm/yyyy input
+  const [dateError, setDateError] = useState('');
+
+  // Format date input with auto-slash (dd/mm/yyyy)
+  const formatDateInput = (value: string) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+
+    // Add slashes automatically
+    let formatted = digits;
+    if (digits.length >= 2) {
+      formatted = digits.slice(0, 2) + '/' + digits.slice(2);
+    }
+    if (digits.length >= 4) {
+      formatted = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4, 8);
+    }
+
+    return formatted;
+  };
+
+  // Convert dd/mm/yyyy to yyyy-mm-dd (ISO format)
+  const convertToISODate = (ddmmyyyy: string): string | null => {
+    const parts = ddmmyyyy.split('/');
+    if (parts.length !== 3) return null;
+
+    const day = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const year = parseInt(parts[2]);
+
+    // Validate
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      return null;
+    }
+
+    // Return ISO format
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  // Convert yyyy-mm-dd (ISO format) to dd/mm/yyyy
+  const convertToDisplayDate = (isoDate: string): string => {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}/${month}/${year}`;
+  };
 
   useEffect(() => {
     loadData();
@@ -122,33 +173,31 @@ export default function ExamsPage() {
   const handleDayClick = (day: DayCell) => {
     setSelectedDate(day.date);
     setEditingExam(null);
+    const isoDate = day.date.toISOString().split('T')[0];
     setFormData({
       subject_id: '',
-      exam_date: day.date.toISOString().split('T')[0],
+      exam_date: isoDate,
       exam_type: '',
-      title: '',
-      description: '',
-      start_time: '',
-      end_time: '',
-      duration_minutes: '',
-      location: '',
+      units: ['', '', '', '', ''],
     });
+    setDateInput(convertToDisplayDate(isoDate));
+    setDateError('');
     setDialogOpen(true);
   };
 
   const handleEditExam = (exam: ExamResponse) => {
     setEditingExam(exam);
+    const units = exam.units || [];
+    // Ensure we always have 5 slots
+    const paddedUnits = [...units, '', '', '', '', ''].slice(0, 5);
     setFormData({
       subject_id: exam.subject_id,
       exam_date: exam.exam_date,
       exam_type: exam.exam_type,
-      title: exam.title || '',
-      description: exam.description || '',
-      start_time: exam.start_time || '',
-      end_time: exam.end_time || '',
-      duration_minutes: exam.duration_minutes || '',
-      location: exam.location || '',
+      units: paddedUnits,
     });
+    setDateInput(convertToDisplayDate(exam.exam_date));
+    setDateError('');
     setDialogOpen(true);
   };
 
@@ -158,10 +207,18 @@ export default function ExamsPage() {
         return;
       }
 
+      // Filter out empty units
+      const filledUnits = formData.units?.filter(unit => unit.trim() !== '') || [];
+
+      const submitData = {
+        ...formData,
+        units: filledUnits.length > 0 ? filledUnits : undefined,
+      };
+
       if (editingExam) {
-        await ExamsService.update(editingExam.id, formData as UpdateExam);
+        await ExamsService.update(editingExam.id, submitData as UpdateExam);
       } else {
-        await ExamsService.create(formData);
+        await ExamsService.create(submitData);
       }
 
       setDialogOpen(false);
@@ -194,7 +251,6 @@ export default function ExamsPage() {
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const days = getDaysInMonth(currentDate);
-  const examTypes = profile ? examTypesBySystem[profile.education_system] || examTypesBySystem['IB'] : examTypesBySystem['IB'];
 
   const upcomingExams = exams
     .filter(exam => new Date(exam.exam_date) >= new Date())
@@ -236,17 +292,15 @@ export default function ExamsPage() {
           <Button variant="primary" onClick={() => {
             setSelectedDate(new Date());
             setEditingExam(null);
+            const isoDate = new Date().toISOString().split('T')[0];
             setFormData({
               subject_id: '',
-              exam_date: new Date().toISOString().split('T')[0],
+              exam_date: isoDate,
               exam_type: '',
-              title: '',
-              description: '',
-              start_time: '',
-              end_time: '',
-              duration_minutes: '',
-              location: '',
+              units: ['', '', '', '', ''],
             });
+            setDateInput(convertToDisplayDate(isoDate));
+            setDateError('');
             setDialogOpen(true);
           }}>
             <Plus className="w-4 h-4 mr-2" />
@@ -492,111 +546,104 @@ export default function ExamsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-white/80 text-sm mb-2">Subject *</label>
-                      <select
-                        value={formData.subject_id}
-                        onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                      >
-                        <option value="">Select subject</option>
-                        {subjects.map(subject => (
-                          <option key={subject.id} value={subject.id}>
-                            {subject.name} {subject.level && `(${subject.level})`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-white/80 text-sm mb-2">Exam Type *</label>
-                      <select
-                        value={formData.exam_type}
-                        onChange={(e) => setFormData({ ...formData, exam_type: e.target.value })}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                      >
-                        <option value="">Select type</option>
-                        {examTypes.map(type => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
+                  {/* Subject Selection */}
                   <div>
-                    <label className="block text-white/80 text-sm mb-2">Date *</label>
-                    <input
-                      type="date"
-                      value={formData.exam_date}
-                      onChange={(e) => setFormData({ ...formData, exam_date: e.target.value })}
+                    <label className="block text-white/80 text-sm mb-2">Subject *</label>
+                    <select
+                      value={formData.subject_id}
+                      onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                    />
+                    >
+                      <option value="">Select subject</option>
+                      {subjects.map(subject => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name} {subject.level && `(${subject.level})`}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-white/80 text-sm mb-2">Start Time</label>
-                      <input
-                        type="time"
-                        value={formData.start_time}
-                        onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-white/80 text-sm mb-2">End Time</label>
-                      <input
-                        type="time"
-                        value={formData.end_time}
-                        onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-white/80 text-sm mb-2">Duration (min)</label>
-                      <input
-                        type="text"
-                        placeholder="90"
-                        value={formData.duration_minutes}
-                        onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                      />
-                    </div>
-                  </div>
-
+                  {/* Paper Type Selection */}
                   <div>
-                    <label className="block text-white/80 text-sm mb-2">Location</label>
+                    <label className="block text-white/80 text-sm mb-2">Paper Type *</label>
+                    <select
+                      value={formData.exam_type}
+                      onChange={(e) => setFormData({ ...formData, exam_type: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+                    >
+                      <option value="">Select paper type</option>
+                      {PAPER_TYPES.map(type => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date Input (dd/mm/yyyy) */}
+                  <div>
+                    <label className="block text-white/80 text-sm mb-2">Exam Date * (dd/mm/yyyy)</label>
                     <input
                       type="text"
-                      placeholder="Exam Hall A"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      value={dateInput}
+                      onChange={(e) => {
+                        const formatted = formatDateInput(e.target.value);
+                        setDateInput(formatted);
+                        setDateError('');
+
+                        // If complete, validate and convert
+                        if (formatted.length === 10) {
+                          const isoDate = convertToISODate(formatted);
+                          if (isoDate) {
+                            setFormData({ ...formData, exam_date: isoDate });
+                          } else {
+                            setDateError('The format is wrong, refer to the correct format of input');
+                          }
+                        }
+                      }}
+                      placeholder="dd/mm/yyyy"
+                      maxLength={10}
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
                     />
+                    {dateError && (
+                      <p className="text-red-400 text-xs mt-1">{dateError}</p>
+                    )}
                   </div>
 
+                  {/* Units Input (5 fields, appearing as user fills) */}
                   <div>
-                    <label className="block text-white/80 text-sm mb-2">Title (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="Custom title"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                    />
-                  </div>
+                    <label className="block text-white/80 text-sm mb-2">
+                      Units Covered (Maximum 5)
+                    </label>
+                    <div className="space-y-2">
+                      {formData.units?.map((unit, index) => {
+                        // Show field if: it's the first field, or previous field has content
+                        const shouldShow = index === 0 || (formData.units && formData.units[index - 1].trim() !== '');
+                        // Show error if trying to fill beyond limit
+                        const isOverLimit = index === 4 && formData.units?.filter(u => u.trim() !== '').length === 5;
 
-                  <div>
-                    <label className="block text-white/80 text-sm mb-2">Description</label>
-                    <textarea
-                      placeholder="Additional notes"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-                      rows={3}
-                    />
+                        if (!shouldShow) return null;
+
+                        return (
+                          <div key={index}>
+                            <input
+                              type="text"
+                              value={unit}
+                              onChange={(e) => {
+                                const newUnits = [...(formData.units || [])];
+                                newUnits[index] = e.target.value;
+                                setFormData({ ...formData, units: newUnits });
+                              }}
+                              placeholder={`Unit ${index + 1}`}
+                              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+                            />
+                            {isOverLimit && (
+                              <p className="text-yellow-400 text-xs mt-1">Maximum 5 units reached</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -607,7 +654,7 @@ export default function ExamsPage() {
                   <Button
                     variant="primary"
                     onClick={handleSubmit}
-                    disabled={!formData.subject_id || !formData.exam_date || !formData.exam_type}
+                    disabled={!formData.subject_id || !formData.exam_date || !formData.exam_type || !!dateError}
                   >
                     {editingExam ? 'Update Exam' : 'Add Exam'}
                   </Button>

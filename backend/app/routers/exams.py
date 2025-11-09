@@ -90,12 +90,7 @@ async def create_exam(
         subject_id=exam_data.subject_id,
         exam_date=exam_data.exam_date,
         exam_type=exam_data.exam_type,
-        title=exam_data.title,
-        description=exam_data.description,
-        start_time=exam_data.start_time,
-        end_time=exam_data.end_time,
-        duration_minutes=exam_data.duration_minutes,
-        location=exam_data.location
+        units=exam_data.units
     )
 
     db.add(exam)
@@ -143,18 +138,8 @@ async def update_exam(
         exam.exam_date = exam_data.exam_date
     if exam_data.exam_type is not None:
         exam.exam_type = exam_data.exam_type
-    if exam_data.title is not None:
-        exam.title = exam_data.title
-    if exam_data.description is not None:
-        exam.description = exam_data.description
-    if exam_data.start_time is not None:
-        exam.start_time = exam_data.start_time
-    if exam_data.end_time is not None:
-        exam.end_time = exam_data.end_time
-    if exam_data.duration_minutes is not None:
-        exam.duration_minutes = exam_data.duration_minutes
-    if exam_data.location is not None:
-        exam.location = exam_data.location
+    if exam_data.units is not None:
+        exam.units = exam_data.units
 
     db.commit()
     db.refresh(exam)
