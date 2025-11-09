@@ -318,16 +318,16 @@ export default function TaskGenerationModal({
             {currentStep === 'generating' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="text-center mb-6">
-                  <div className="text-5xl mb-4 animate-bounce">🧠</div>
+                  <div className="text-5xl mb-4 animate-bounce">🤖</div>
                   <h3 className="text-2xl font-bold text-white mb-2">Generating Tasks...</h3>
-                  <p className="text-white/60">o1-mini is reasoning deeply to create high-quality practice tasks</p>
+                  <p className="text-white/60">AI is creating personalized practice tasks for you</p>
                 </div>
 
                 <div className="max-h-96 overflow-y-auto">
                   <div className="flex flex-col items-center justify-center py-12">
                     <Loader2 className="w-12 h-12 text-purple-400 animate-spin mb-4" />
-                    <p className="text-white/40 mb-2">Using advanced reasoning (this takes 10-30 seconds)...</p>
-                    <p className="text-white/30 text-xs">The AI is thinking through the best tasks for you</p>
+                    <p className="text-white/40 mb-2">This may take a few seconds...</p>
+                    <p className="text-white/30 text-xs">Generating high-quality educational content</p>
                   </div>
                 </div>
               </div>

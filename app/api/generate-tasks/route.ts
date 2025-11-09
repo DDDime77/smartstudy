@@ -49,9 +49,9 @@ OUTPUT FORMAT:
 
 Please generate the practice tasks now.`;
 
-    // Use o1-mini with high reasoning effort (no streaming support)
+    // Use o4-mini with high reasoning effort
     const completion = await client.chat.completions.create({
-      model: 'o1-mini',
+      model: 'o4-mini',
       messages: [
         { role: 'user', content: fullPrompt }
       ],
@@ -61,7 +61,7 @@ Please generate the practice tasks now.`;
 
     const content = completion.choices[0]?.message?.content || '';
 
-    // Return as JSON since o1-mini doesn't support streaming
+    // Return as JSON
     return NextResponse.json({
       content,
       done: true
