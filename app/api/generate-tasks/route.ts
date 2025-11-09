@@ -65,9 +65,9 @@ export async function POST(req: NextRequest) {
 
     const userPrompt = `Generate practice tasks for studying ${subject}, specifically on the topic of "${topic}" at ${difficulty} difficulty level.`;
 
-    // Use streaming with GPT-4 Chat Completions API
+    // Use GPT-4 Turbo with Chat Completions API (fallback until GPT-5 org is verified)
     const stream = await client.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4-turbo',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
               );
             }
 
-            if (chunk.choices[0]?.finish_reason === 'stop') {
+            if (chunk.choices[0]?.finish_reason === 'stop' || chunk.choices[0]?.finish_reason === 'length') {
               controller.enqueue(
                 new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
               );
@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
             }
           }
         } catch (error) {
+          console.error('Streaming error:', error);
           controller.error(error);
         }
       },
