@@ -17,98 +17,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // XML-style system prompt
-    const systemPrompt = `<system>
-<role>You are an expert educational content generator specializing in creating practice tasks and exercises for students.</role>
+    // Combined prompt for o1-mini (doesn't use system messages)
+    const fullPrompt = `You are an expert educational content generator specializing in creating practice tasks and exercises for students.
 
-<context>
-  <study_system>${studySystem || 'IB (International Baccalaureate)'}</study_system>
-  <subject>${subject}</subject>
-  <topic>${topic}</topic>
-  <difficulty>${difficulty}</difficulty>
-</context>
+CONTEXT:
+- Study System: ${studySystem || 'IB (International Baccalaureate)'}
+- Subject: ${subject}
+- Topic: ${topic}
+- Difficulty Level: ${difficulty}
 
-<instructions>
-  <instruction>Generate practice tasks and exercises aligned with the ${studySystem || 'IB'} curriculum for ${subject}.</instruction>
-  <instruction>Focus specifically on the topic: "${topic}"</instruction>
-  <instruction>Adjust the complexity and depth according to the difficulty level: ${difficulty}</instruction>
-  <instruction>Create 5-8 diverse tasks that test different skills and understanding levels.</instruction>
-  <instruction>Include a mix of question types: conceptual, analytical, problem-solving, and application-based.</instruction>
-</instructions>
+TASK:
+Generate practice tasks and exercises aligned with the ${studySystem || 'IB'} curriculum for ${subject}, specifically focusing on the topic "${topic}" at ${difficulty} difficulty level.
 
-<output_format>
-  <format_type>Markdown</format_type>
-  <requirements>
-    <requirement>Use proper markdown formatting with headers, lists, and emphasis.</requirement>
-    <requirement>Use LaTeX notation for all mathematical formulas, enclosed in $ for inline math or $$ for display math.</requirement>
-    <requirement>Structure each task clearly with a task number, description, and any necessary context.</requirement>
-    <requirement>For mathematics, physics, or chemistry: include proper LaTeX formatting for equations, symbols, and expressions.</requirement>
-    <requirement>Start with a brief introduction about the topic.</requirement>
-    <requirement>End with a note about the expected approach or skills being tested.</requirement>
-  </requirements>
+REQUIREMENTS:
+1. Create 5-8 diverse tasks that test different skills and understanding levels
+2. Include a mix of question types: conceptual, analytical, problem-solving, and application-based
+3. Adjust the complexity and depth according to the ${difficulty} difficulty level
+4. Make tasks relevant to real-world applications where possible
+5. Provide clear, unambiguous task descriptions
+6. For IB curriculum: align with assessment objectives and command terms
 
-  <example_latex>
-    Inline math: The quadratic formula is $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
+OUTPUT FORMAT:
+- Use proper markdown formatting with headers, lists, and emphasis
+- Use LaTeX notation for all mathematical formulas:
+  * Inline math: enclosed in $ symbols (e.g., $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$)
+  * Display math: enclosed in $$ symbols (e.g., $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$)
+- Structure each task clearly with a task number, description, and any necessary context
+- For mathematics, physics, or chemistry: include proper LaTeX formatting for equations, symbols, and expressions
+- Start with a brief introduction about the topic
+- End with a note about the expected approach or skills being tested
 
-    Display math:
-    $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
-  </example_latex>
-</output_format>
+Please generate the practice tasks now.`;
 
-<quality_standards>
-  <standard>Ensure tasks are appropriate for ${difficulty} difficulty level.</standard>
-  <standard>Make tasks relevant to real-world applications where possible.</standard>
-  <standard>Provide clear, unambiguous task descriptions.</standard>
-  <standard>For IB curriculum: align with assessment objectives and command terms.</standard>
-</quality_standards>
-</system>`;
-
-    const userPrompt = `Generate practice tasks for studying ${subject}, specifically on the topic of "${topic}" at ${difficulty} difficulty level.`;
-
-    // Try GPT-4o-mini with TRUE streaming (should not require org verification)
-    const stream = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+    // Use o1-mini with high reasoning effort (no streaming support)
+    const completion = await client.chat.completions.create({
+      model: 'o1-mini',
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: fullPrompt }
       ],
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 2000,
+      reasoning_effort: 'high',
+      max_completion_tokens: 10000,
     });
 
-    // Stream the response in real-time
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of stream) {
-            const delta = chunk.choices[0]?.delta?.content;
-            if (delta) {
-              controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify({ delta })}\n\n`)
-              );
-            }
+    const content = completion.choices[0]?.message?.content || '';
 
-            if (chunk.choices[0]?.finish_reason === 'stop' || chunk.choices[0]?.finish_reason === 'length') {
-              controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
-              );
-              controller.close();
-            }
-          }
-        } catch (error) {
-          console.error('Streaming error:', error);
-          controller.error(error);
-        }
-      },
-    });
-
-    return new Response(readableStream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    // Return as JSON since o1-mini doesn't support streaming
+    return NextResponse.json({
+      content,
+      done: true
     });
   } catch (error: any) {
     console.error('Error generating tasks:', error);

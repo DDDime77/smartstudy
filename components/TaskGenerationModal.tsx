@@ -107,38 +107,15 @@ export default function TaskGenerationModal({
         throw new Error('Failed to generate tasks');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
+      // o1-mini returns full response at once (no streaming)
+      const data = await response.json();
 
-      const decoder = new TextDecoder();
-      let accumulatedText = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.delta) {
-                accumulatedText += data.delta;
-                setGeneratedTasks(accumulatedText);
-              }
-              if (data.done) {
-                setIsGenerating(false);
-                setCurrentStep('preview');
-              }
-            } catch (e) {
-              // Ignore parsing errors
-            }
-          }
-        }
+      if (data.content) {
+        setGeneratedTasks(data.content);
+        setIsGenerating(false);
+        setCurrentStep('preview');
+      } else {
+        throw new Error('No content received from AI');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to generate tasks');
@@ -341,20 +318,17 @@ export default function TaskGenerationModal({
             {currentStep === 'generating' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="text-center mb-6">
-                  <div className="text-5xl mb-4 animate-bounce">🤖</div>
+                  <div className="text-5xl mb-4 animate-bounce">🧠</div>
                   <h3 className="text-2xl font-bold text-white mb-2">Generating Tasks...</h3>
-                  <p className="text-white/60">AI is creating personalized practice tasks for you</p>
+                  <p className="text-white/60">o1-mini is reasoning deeply to create high-quality practice tasks</p>
                 </div>
 
                 <div className="max-h-96 overflow-y-auto">
-                  {generatedTasks ? (
-                    <MarkdownRenderer content={generatedTasks} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <Loader2 className="w-12 h-12 text-purple-400 animate-spin mb-4" />
-                      <p className="text-white/40">This may take a few moments...</p>
-                    </div>
-                  )}
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="w-12 h-12 text-purple-400 animate-spin mb-4" />
+                    <p className="text-white/40 mb-2">Using advanced reasoning (this takes 10-30 seconds)...</p>
+                    <p className="text-white/30 text-xs">The AI is thinking through the best tasks for you</p>
+                  </div>
                 </div>
               </div>
             )}
