@@ -80,18 +80,17 @@ async def get_latest_task_for_subject(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get the most recent completed practice task for a specific subject"""
+    """Get the most recent practice task for a specific subject"""
 
     task = db.query(PracticeTask).filter(
         PracticeTask.user_id == current_user.id,
-        PracticeTask.subject == subject,
-        PracticeTask.completed == True
+        PracticeTask.subject == subject
     ).order_by(PracticeTask.created_at.desc()).first()
 
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No completed practice tasks found for subject: {subject}"
+            detail=f"No practice tasks found for subject: {subject}"
         )
 
     return task
