@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -30,25 +30,48 @@ Your role is to:
 - Provide hints without giving away the entire answer immediately
 - Encourage critical thinking
 - Use clear, educational language
+- Use LaTeX notation for mathematical expressions (wrap inline math in $ and block math in $$)
 
 Be patient, supportive, and adapt your explanations to the student's level of understanding.`,
     };
 
-    const completion = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [systemMessage, ...messages],
       temperature: 0.7,
       max_tokens: 1000,
+      stream: true,
     });
 
-    const aiMessage = completion.choices[0].message.content;
+    // Create a ReadableStream for streaming the response
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              controller.enqueue(encoder.encode(content));
+            }
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
 
-    return NextResponse.json({ message: aiMessage });
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      },
+    });
   } catch (error: any) {
     console.error('Chat error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get AI response', details: error.message },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: 'Failed to get AI response', details: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

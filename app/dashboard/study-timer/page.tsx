@@ -69,6 +69,7 @@ export default function StudyTimerPage() {
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState('');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionStartTimeRef = useRef<number>(0); // Timestamp when current session segment started
@@ -377,6 +378,7 @@ export default function StudyTimerPage() {
     setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsChatLoading(true);
+    setStreamingMessage('');
 
     try {
       const response = await fetch('/api/chat-task', {
@@ -392,14 +394,32 @@ export default function StudyTimerPage() {
 
       if (!response.ok) throw new Error('Failed to get AI response');
 
-      const data = await response.json();
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullMessage = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          fullMessage += chunk;
+          setStreamingMessage(fullMessage);
+        }
+
+        // Add complete message to chat history
+        setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage }]);
+        setStreamingMessage('');
+      }
     } catch (error) {
       handleApiError(error, 'Failed to get AI response');
       setChatMessages(prev => [
         ...prev,
         { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
       ]);
+      setStreamingMessage('');
     } finally {
       setIsChatLoading(false);
     }
@@ -1457,7 +1477,19 @@ export default function StudyTimerPage() {
                   </div>
                 ))
               )}
-              {isChatLoading && (
+              {/* Streaming Message */}
+              {streamingMessage && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Brain className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white/10 text-white/90 border border-white/20">
+                    <MarkdownRenderer content={streamingMessage} />
+                  </div>
+                </div>
+              )}
+              {/* Loading Indicator - only show when not streaming */}
+              {isChatLoading && !streamingMessage && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                     <Brain className="w-4 h-4 text-blue-400" />
