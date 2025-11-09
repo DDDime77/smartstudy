@@ -12,6 +12,13 @@ interface MarkdownRendererProps {
 }
 
 export default function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
+  // Normalize LaTeX delimiters: convert \[...\] to $$...$$ and \(...\) to $...$
+  const normalizedContent = content
+    .replace(/\\\[/g, '$$')
+    .replace(/\\\]/g, '$$')
+    .replace(/\\\(/g, '$')
+    .replace(/\\\)/g, '$');
+
   return (
     <div className={`markdown-content ${className}`}>
       <ReactMarkdown
@@ -86,7 +93,7 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
           ),
         }}
       >
-        {content}
+        {normalizedContent}
       </ReactMarkdown>
     </div>
   );

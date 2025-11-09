@@ -39,9 +39,10 @@ REQUIREMENTS:
 
 OUTPUT FORMAT:
 - Use proper markdown formatting with headers, lists, and emphasis
-- Use LaTeX notation for all mathematical formulas:
-  * Inline math: enclosed in $ symbols (e.g., $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$)
-  * Display math: enclosed in $$ symbols (e.g., $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$)
+- IMPORTANT: For mathematical formulas, use ONLY these specific delimiters:
+  * Inline math: Single dollar signs like $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
+  * Display math (centered): Double dollar signs like $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
+  * Do NOT use \\[...\\] or \\(...\\) delimiters - use ONLY $ and $$ delimiters
 - Structure each task clearly with a task number, description, and any necessary context
 - For mathematics, physics, or chemistry: include proper LaTeX formatting for equations, symbols, and expressions
 - Start with a brief introduction about the topic
