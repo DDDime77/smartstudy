@@ -110,6 +110,14 @@ export default function ExamsPage() {
         SubjectsService.getAll(),
         OnboardingService.getProfile(),
       ]);
+
+      // Debug: Log all exam dates
+      console.log('Loaded exams from API:', examsData.map(e => ({
+        date: e.exam_date,
+        type: e.exam_type,
+        typeof_date: typeof e.exam_date
+      })));
+
       setExams(examsData);
       setSubjects(subjectsData);
       setProfile(profileData);
@@ -130,48 +138,70 @@ export default function ExamsPage() {
     const firstDayOfWeek = firstDay.getDay();
     const adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
+    // Previous month days
     const prevMonthDays: DayCell[] = [];
-    for (let i = adjustedFirstDay - 1; i >= 0; i--) {
-      const date = new Date(year, month, -i);
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    const prevMonthStart = prevMonthLastDay - adjustedFirstDay + 1;
+    for (let day = prevMonthStart; day <= prevMonthLastDay; day++) {
+      const date = new Date(year, month - 1, day);
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       prevMonthDays.push({
         date,
         isCurrentMonth: false,
-        exams: getExamsForDate(date),
+        exams: getExamsForDateString(dateStr),
       });
     }
 
+    // Current month days - USE STRING COMPARISON ONLY
     const currentMonthDays: DayCell[] = [];
+    const displayYear = year;
+    const displayMonth = month + 1; // JavaScript months are 0-indexed, but we need 1-indexed for display
+
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day);
+      // Build date string directly from year/month/day - NO timezone conversion
+      const dateStr = `${displayYear}-${String(displayMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
       currentMonthDays.push({
         date,
         isCurrentMonth: true,
-        exams: getExamsForDate(date),
+        exams: getExamsForDateString(dateStr),
       });
     }
 
+    // Next month days
     const totalCells = prevMonthDays.length + currentMonthDays.length;
     const remainingCells = 42 - totalCells;
     const nextMonthDays: DayCell[] = [];
+    const nextMonth = month + 2; // +1 for next month, +1 because JS is 0-indexed
+    const nextYear = month === 11 ? year + 1 : year;
     for (let day = 1; day <= remainingCells; day++) {
       const date = new Date(year, month + 1, day);
+      const dateStr = `${nextYear}-${String(nextMonth > 12 ? 1 : nextMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       nextMonthDays.push({
         date,
         isCurrentMonth: false,
-        exams: getExamsForDate(date),
+        exams: getExamsForDateString(dateStr),
       });
     }
 
     return [...prevMonthDays, ...currentMonthDays, ...nextMonthDays];
   };
 
-  const getExamsForDate = (date: Date): ExamResponse[] => {
-    // Use local date instead of UTC to avoid timezone shifting
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-    return exams.filter(exam => exam.exam_date === dateStr);
+  // Pure string comparison - NO Date object conversions
+  const getExamsForDateString = (dateStr: string): ExamResponse[] => {
+    const matchingExams = exams.filter(exam => exam.exam_date === dateStr);
+
+    // Debug logging
+    if (matchingExams.length > 0) {
+      console.log('✓ Found exam(s) for date string:', {
+        dateStr,
+        examDates: matchingExams.map(e => e.exam_date),
+        examTypes: matchingExams.map(e => e.exam_type)
+      });
+    }
+
+    return matchingExams;
   };
 
   const handleDayClick = (day: DayCell) => {
