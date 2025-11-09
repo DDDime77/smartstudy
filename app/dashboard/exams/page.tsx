@@ -177,7 +177,11 @@ export default function ExamsPage() {
   const handleDayClick = (day: DayCell) => {
     setSelectedDate(day.date);
     setEditingExam(null);
-    const isoDate = day.date.toISOString().split('T')[0];
+    // Use local date to avoid timezone issues
+    const year = day.date.getFullYear();
+    const month = String(day.date.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(day.date.getDate()).padStart(2, '0');
+    const isoDate = `${year}-${month}-${dayNum}`;
     setFormData({
       subject_id: '',
       exam_date: isoDate,
@@ -294,9 +298,14 @@ export default function ExamsPage() {
             </p>
           </div>
           <Button variant="primary" onClick={() => {
-            setSelectedDate(new Date());
+            const today = new Date();
+            setSelectedDate(today);
             setEditingExam(null);
-            const isoDate = new Date().toISOString().split('T')[0];
+            // Use local date to avoid timezone issues
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const isoDate = `${year}-${month}-${day}`;
             setFormData({
               subject_id: '',
               exam_date: isoDate,
