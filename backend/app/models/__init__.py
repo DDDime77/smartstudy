@@ -6,6 +6,7 @@ from app.models.study_session import StudySession, TimeOfDay
 from app.models.availability import BusySchedule
 from app.models.exam import Exam
 from app.models.task_stage import TaskStage, Question, UserAnswer, StageType, QuestionType
+from app.models.practice_task import PracticeTask
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "UserAnswer",
     "StageType",
     "QuestionType",
+    "PracticeTask",
 ]

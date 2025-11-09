@@ -35,3 +35,4 @@ class User(Base):
     exams = relationship("Exam", back_populates="user", cascade="all, delete-orphan")
     task_stages = relationship("TaskStage", back_populates="user", cascade="all, delete-orphan")
     user_answers = relationship("UserAnswer", back_populates="user", cascade="all, delete-orphan")
+    practice_tasks = relationship("PracticeTask", back_populates="user", cascade="all, delete-orphan")

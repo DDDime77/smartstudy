@@ -33,8 +33,12 @@ class StudySession(Base):
     notes = Column(String, nullable=True)
     time_of_day = Column(Enum(TimeOfDay), nullable=True)
 
+    # Topic tracking (one session = one topic)
+    topic = Column(String, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     user = relationship("User", back_populates="study_sessions")
     task = relationship("Task", back_populates="study_sessions")
+    practice_tasks = relationship("PracticeTask", back_populates="study_session")

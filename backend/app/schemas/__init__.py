@@ -40,6 +40,11 @@ from app.schemas.task import (
     StageWithQuestionsResponse,
     ResourceInput,
 )
+from app.schemas.practice_task import (
+    PracticeTaskCreate,
+    PracticeTaskUpdate,
+    PracticeTaskResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -75,4 +80,7 @@ __all__ = [
     "TaskWithStagesResponse",
     "StageWithQuestionsResponse",
     "ResourceInput",
+    "PracticeTaskCreate",
+    "PracticeTaskUpdate",
+    "PracticeTaskResponse",
 ]
