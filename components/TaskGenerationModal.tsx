@@ -9,11 +9,11 @@ import MarkdownRenderer from './MarkdownRenderer';
 interface TaskGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (subject: string, generatedTasks?: string) => void;
+  onComplete: (subject: string, topic: string, difficulty: string, task: string, solution: string, answer: string) => void;
   studySystem?: string;
 }
 
-type Step = 'subject' | 'ask-generate' | 'task-details' | 'generating' | 'preview';
+type Step = 'subject' | 'ask-generate' | 'task-details' | 'generating';
 
 export default function TaskGenerationModal({
   isOpen,
@@ -138,14 +138,26 @@ export default function TaskGenerationModal({
                   cleanedText = cleanedText.replace(/^```markdown\s*\n/, '');
                 }
                 if (cleanedText.startsWith('```')) {
-                  cleanedText = cleanedText.replace(/^```\s*\n/, '');
+                  cleanedText.replace(/^```\s*\n/, '');
                 }
                 if (cleanedText.endsWith('```')) {
                   cleanedText = cleanedText.replace(/\n```\s*$/, '');
                 }
-                setGeneratedTasks(cleanedText);
+
+                // Parse the three sections
+                const taskMatch = cleanedText.match(/# TASK\s*([\s\S]*?)(?=# SOLUTION|$)/i);
+                const solutionMatch = cleanedText.match(/# SOLUTION\s*([\s\S]*?)(?=# ANSWER|$)/i);
+                const answerMatch = cleanedText.match(/# ANSWER\s*([\s\S]*?)$/i);
+
+                const taskText = taskMatch ? taskMatch[1].trim() : '';
+                const solutionText = solutionMatch ? solutionMatch[1].trim() : '';
+                const answerText = answerMatch ? answerMatch[1].trim() : '';
+
                 setIsGenerating(false);
-                setCurrentStep('preview');
+
+                // Close modal and pass all data to study timer page
+                onComplete(subject, topic, difficulty, taskText, solutionText, answerText);
+                onClose();
               }
             } catch (e) {
               // Ignore parsing errors
@@ -158,16 +170,6 @@ export default function TaskGenerationModal({
       setIsGenerating(false);
       setCurrentStep('task-details');
     }
-  };
-
-  const handleAcceptTasks = () => {
-    onComplete(subject, generatedTasks);
-    onClose();
-  };
-
-  const handleRegenerate = () => {
-    setCurrentStep('task-details');
-    setGeneratedTasks('');
   };
 
   if (!isOpen) return null;
@@ -375,29 +377,6 @@ export default function TaskGenerationModal({
               </div>
             )}
 
-            {/* Step 5: Preview Generated Tasks */}
-            {currentStep === 'preview' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">✅</div>
-                  <h3 className="text-xl font-bold text-white mb-1">Tasks Generated!</h3>
-                  <p className="text-white/60 text-sm">Review your personalized practice tasks</p>
-                </div>
-
-                <div className="max-h-96 overflow-y-auto border border-white/10 rounded-lg p-4 bg-black/20">
-                  <MarkdownRenderer content={generatedTasks} />
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <Button variant="secondary" onClick={handleRegenerate}>
-                    Regenerate
-                  </Button>
-                  <Button onClick={handleAcceptTasks}>
-                    Accept & Continue
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
         </GlassCard>
       </div>

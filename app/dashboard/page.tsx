@@ -68,12 +68,23 @@ export default function DashboardPage() {
     setIsTaskModalOpen(true);
   };
 
-  const handleTaskModalComplete = (subject: string, generatedTasks?: string) => {
-    // Store generated tasks in sessionStorage if provided
-    if (generatedTasks) {
-      sessionStorage.setItem('generatedTasks', generatedTasks);
-      sessionStorage.setItem('taskSubject', subject);
-    }
+  const handleTaskModalComplete = (
+    subject: string,
+    topic: string,
+    difficulty: string,
+    task: string,
+    solution: string,
+    answer: string
+  ) => {
+    // Store all task data in sessionStorage
+    sessionStorage.setItem('currentTask', JSON.stringify({
+      subject,
+      topic,
+      difficulty,
+      task,
+      solution,
+      answer
+    }));
     // Navigate to study timer
     router.push('/dashboard/study-timer');
   };

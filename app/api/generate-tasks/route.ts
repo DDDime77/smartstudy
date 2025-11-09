@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prompt for o4-mini Responses API
-    const prompt = `You are an expert educational content generator specializing in creating practice tasks and exercises for students.
+    // Prompt for o4-mini Responses API - Generate single task with solution and answer
+    const prompt = `You are an expert ${studySystem || 'IB'} ${subject} teacher creating a practice problem for students.
 
 CONTEXT:
 - Study System: ${studySystem || 'IB (International Baccalaureate)'}
@@ -27,28 +27,40 @@ CONTEXT:
 - Difficulty Level: ${difficulty}
 
 TASK:
-Generate practice tasks and exercises aligned with the ${studySystem || 'IB'} curriculum for ${subject}, specifically focusing on the topic "${topic}" at ${difficulty} difficulty level.
+Generate ONE complete practice problem with the following THREE sections:
+
+1. TASK section - The actual problem/question for the student
+2. SOLUTION section - Step-by-step worked solution showing the methodology
+3. ANSWER section - The final answer(s) only
 
 REQUIREMENTS:
-1. Create 5-8 diverse tasks that test different skills and understanding levels
-2. Include a mix of question types: conceptual, analytical, problem-solving, and application-based
-3. Adjust the complexity and depth according to the ${difficulty} difficulty level
-4. Make tasks relevant to real-world applications where possible
-5. Provide clear, unambiguous task descriptions
-6. For IB curriculum: align with assessment objectives and command terms
+- Align with ${studySystem || 'IB'} curriculum standards and command terms
+- Adjust complexity to ${difficulty} difficulty level
+- Make the problem relevant and engaging
+- Solution should teach the methodology clearly
+- For mathematics, physics, or chemistry: include proper LaTeX formatting
 
-OUTPUT FORMAT:
-- Use proper markdown formatting with headers, lists, and emphasis
-- IMPORTANT: For mathematical formulas, use ONLY these specific delimiters:
+OUTPUT FORMAT - CRITICAL:
+You MUST structure your output EXACTLY like this:
+
+# TASK
+[Write the problem statement here - what the student needs to solve]
+
+# SOLUTION
+[Write the step-by-step solution with clear explanations]
+
+# ANSWER
+[Write only the final answer(s) here]
+
+IMPORTANT FORMATTING RULES:
+- Use proper markdown formatting
+- For mathematical formulas, use ONLY these delimiters:
   * Inline math: Single dollar signs like $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
-  * Display math (centered): Double dollar signs like $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
-  * Do NOT use \\[...\\] or \\(...\\) delimiters - use ONLY $ and $$ delimiters
-- Structure each task clearly with a task number, description, and any necessary context
-- For mathematics, physics, or chemistry: include proper LaTeX formatting for equations, symbols, and expressions
-- Start with a brief introduction about the topic
-- End with a note about the expected approach or skills being tested
+  * Display math: Double dollar signs like $$\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
+  * Do NOT use \\[...\\] or \\(...\\) delimiters
+- Use the section headers exactly as shown: # TASK, # SOLUTION, # ANSWER
 
-Please generate the practice tasks now.`;
+Generate the problem now.`;
 
     // Use o4-mini Responses API with streaming
     const stream = await client.responses.create({
