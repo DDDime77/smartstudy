@@ -524,15 +524,21 @@ export default function StudyTimerPage() {
 
   const fetchRecentSessions = async () => {
     try {
-      const data = await SessionsService.getRecent(3);
-      setRecentSessions(data);
+      const data = await SessionsService.getRecent(20); // Fetch more to get all of today's sessions
+      setRecentSessions(data.slice(0, 3)); // Only keep first 3 for display
 
-      // Calculate today's minutes
+      // Calculate today's minutes and completed sessions
       const today = new Date().toISOString().split('T')[0];
-      const todaySessionsMinutes = data
-        .filter(s => s.start_time.split('T')[0] === today && s.duration_minutes)
+      const todaySessions = data.filter(s => s.start_time.split('T')[0] === today);
+
+      const todaySessionsMinutes = todaySessions
+        .filter(s => s.duration_minutes)
         .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
       setTodayMinutes(todaySessionsMinutes);
+
+      // Count completed sessions (those with end_time)
+      const completedCount = todaySessions.filter(s => s.end_time).length;
+      setCompletedSessions(completedCount);
     } catch (error) {
       handleApiError(error, 'Failed to load recent sessions');
     }
