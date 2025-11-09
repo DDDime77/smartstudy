@@ -11,7 +11,7 @@ import { ExamsService, ExamInput, ExamResponse, UpdateExam } from '@/lib/api/exa
 import { SubjectsService } from '@/lib/api/subjects';
 import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award } from 'lucide-react';
 
 // Universal paper types for all education systems
 const PAPER_TYPES = [
