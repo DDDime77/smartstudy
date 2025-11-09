@@ -11,7 +11,7 @@ import { ExamsService, ExamInput, ExamResponse, UpdateExam } from '@/lib/api/exa
 import { SubjectsService } from '@/lib/api/subjects';
 import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
-import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award } from 'lucide-react';
 
 // Universal paper types for all education systems
 const PAPER_TYPES = [
@@ -492,20 +492,6 @@ export default function ExamsPage() {
                           </Badge>
                         </div>
                         <p className="text-white/60 text-sm mb-1">{exam.exam_type}</p>
-                        <div className="flex items-center gap-3 text-xs text-white/40">
-                          {exam.start_time && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {exam.start_time}
-                            </div>
-                          )}
-                          {exam.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {exam.location}
-                            </div>
-                          )}
-                        </div>
                         <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleEditExam(exam)}
