@@ -8,8 +8,9 @@ import Badge from '@/components/Badge';
 import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
+import TaskGenerationModal from '@/components/TaskGenerationModal';
 import { SubjectsService } from '@/lib/api/subjects';
-import { SubjectResponse } from '@/lib/api/onboarding';
+import { SubjectResponse, OnboardingService, ProfileResponse } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
 import { Calendar, Clock, BookOpen, TrendingUp, Award, Target, Activity, Zap } from 'lucide-react';
 
@@ -19,6 +20,8 @@ export default function DashboardPage() {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<ProfileResponse | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -36,19 +39,43 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadSubjects();
+    loadUserProfile();
   }, []);
 
   const loadSubjects = async () => {
     try {
       const data = await SubjectsService.getAll();
       // Sort by priority_coefficient descending (higher priority first)
-      const sorted = data.sort((a, b) => (b.priority_coefficient || 0) - (a.priority_coefficient || 0));
-      setSubjects(sorted);
+      // const sorted = data.sort((a, b) => (b.priority_coefficient || 0) - (a.priority_coefficient || 0));
+      setSubjects(data);
     } catch (error) {
       handleApiError(error, 'Failed to load subjects');
     } finally {
       setLoadingSubjects(false);
     }
+  };
+
+  const loadUserProfile = async () => {
+    try {
+      const profile = await OnboardingService.getProfile();
+      setUserProfile(profile);
+    } catch (error) {
+      handleApiError(error, 'Failed to load user profile');
+    }
+  };
+
+  const handleScheduleSession = () => {
+    setIsTaskModalOpen(true);
+  };
+
+  const handleTaskModalComplete = (subject: string, generatedTasks?: string) => {
+    // Store generated tasks in sessionStorage if provided
+    if (generatedTasks) {
+      sessionStorage.setItem('generatedTasks', generatedTasks);
+      sessionStorage.setItem('taskSubject', subject);
+    }
+    // Navigate to study timer
+    router.push('/dashboard/study-timer');
   };
 
   const handleDragStart = (index: number) => {
@@ -73,37 +100,37 @@ export default function DashboardPage() {
     newSubjects.splice(dropIndex, 0, draggedSubject);
 
     // Recalculate priority coefficients based on new order
-    const maxCoef = 3.0;
-    const minCoef = 0.5;
-    const step = newSubjects.length > 1 ? (maxCoef - minCoef) / (newSubjects.length - 1) : 0;
+    // const maxCoef = 3.0;
+    // const minCoef = 0.5;
+    // const step = newSubjects.length > 1 ? (maxCoef - minCoef) / (newSubjects.length - 1) : 0;
 
-    const updatedSubjects = newSubjects.map((subject, index) => ({
-      ...subject,
-      priority_coefficient: maxCoef - (step * index),
-    }));
+    // const updatedSubjects = newSubjects.map((subject, index) => ({
+    //   ...subject,
+    //   priority_coefficient: maxCoef - (step * index),
+    // }));
 
-    setSubjects(updatedSubjects);
+    setSubjects(newSubjects);
     setDraggedIndex(null);
 
     // Update priority coefficients in the backend
-    try {
-      await Promise.all(
-        updatedSubjects.map(subject =>
-          SubjectsService.update(subject.id, {
-            name: subject.name,
-            level: subject.level || undefined,
-            category: subject.category || undefined,
-            current_grade: subject.current_grade || undefined,
-            target_grade: subject.target_grade || undefined,
-            color: subject.color || undefined,
-            priority_coefficient: subject.priority_coefficient,
-          })
-        )
-      );
-    } catch (error) {
-      handleApiError(error, 'Failed to update subject priorities');
-      loadSubjects();
-    }
+    // try {
+    //   await Promise.all(
+    //     updatedSubjects.map(subject =>
+    //       SubjectsService.update(subject.id, {
+    //         name: subject.name,
+    //         level: subject.level || undefined,
+    //         category: subject.category || undefined,
+    //         current_grade: subject.current_grade || undefined,
+    //         target_grade: subject.target_grade || undefined,
+    //         color: subject.color || undefined,
+    //         priority_coefficient: subject.priority_coefficient,
+    //       })
+    //     )
+    //   );
+    // } catch (error) {
+    //   handleApiError(error, 'Failed to update subject priorities');
+    //   loadSubjects();
+    // }
   };
 
   const quickStats = [
@@ -204,7 +231,7 @@ export default function DashboardPage() {
                 <div className="text-center">
                   <div className="text-6xl opacity-20 mb-4">📅</div>
                   <p className="text-white/60">No study sessions scheduled</p>
-                  <Button className="mt-4" size="sm" onClick={() => router.push('/dashboard/study-timer')}>
+                  <Button className="mt-4" size="sm" onClick={handleScheduleSession}>
                     + Schedule Session
                   </Button>
                 </div>
@@ -314,7 +341,7 @@ export default function DashboardPage() {
                       <div className="text-right">
                         <div className="text-xs text-white/40">Priority</div>
                         <div className="text-sm font-bold text-white">
-                          {subject.priority_coefficient?.toFixed(1)}
+                          N/A
                         </div>
                       </div>
                     </div>
@@ -421,6 +448,14 @@ export default function DashboardPage() {
           </div>
         </GlassCard>
       </div>
+
+      {/* Task Generation Modal */}
+      <TaskGenerationModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        onComplete={handleTaskModalComplete}
+        studySystem={userProfile?.education_system || 'IB'}
+      />
     </div>
   );
 }

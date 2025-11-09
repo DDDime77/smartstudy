@@ -4,6 +4,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { AuthService } from '@/lib/api/auth';
+import { handleApiError } from '@/lib/api/client';
 
 interface NavItem {
   icon: React.ReactNode;
@@ -15,22 +17,26 @@ interface NavItem {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState('');
+  const [userEmail, setUserEmail] = useState('Loading...');
 
-  // Get user email from localStorage
+  // Fetch current user email
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      // TODO: Decode token to get email
-      setUserEmail('user@example.com');
-    }
+    const fetchUser = async () => {
+      try {
+        const user = await AuthService.getCurrentUser();
+        setUserEmail(user.email);
+      } catch (error) {
+        handleApiError(error, 'Failed to load user');
+        setUserEmail('Unknown User');
+      }
+    };
+
+    fetchUser();
   }, []);
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-      router.push('/');
-    }
+    AuthService.logout();
+    router.push('/');
   };
 
   const navItems: NavItem[] = [
@@ -73,7 +79,7 @@ export default function Sidebar() {
         </svg>
       ),
       label: 'Study Timer',
-      path: '/dashboard/timer'
+      path: '/dashboard/study-timer'
     },
     {
       icon: (

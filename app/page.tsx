@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AnimatedText from '@/components/AnimatedText';
 import Button from '@/components/Button';
 import GlassCard from '@/components/GlassCard';
@@ -10,9 +11,19 @@ import MagicBento, { FeatureBentoCard } from '@/components/MagicBento';
 import GradientText from '@/components/GradientText';
 import Badge from '@/components/Badge';
 import StepCard from '@/components/StepCard';
+import { ApiClient } from '@/lib/api/client';
 
 export default function HomePage() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const router = useRouter();
+
+  // Auto-redirect to dashboard if user is already logged in
+  useEffect(() => {
+    const token = ApiClient.getToken();
+    if (token) {
+      router.push('/dashboard');
+    }
+  }, [router]);
 
   return (
     <main className="min-h-screen">

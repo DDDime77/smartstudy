@@ -1,3 +1,5 @@
+import { setCookie, getCookie, deleteCookie } from '../cookies';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface ApiError {
@@ -36,14 +38,17 @@ export class ApiClient {
   static setToken(token: string) {
     this.token = token;
     if (typeof window !== 'undefined') {
+      // Store in both localStorage (for backwards compatibility) and cookies (for persistence)
       localStorage.setItem('auth_token', token);
+      setCookie('auth_token', token, 30); // 30 days
     }
   }
 
   static getToken(): string | null {
     if (this.token) return this.token;
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token');
+      // Try cookie first, then fall back to localStorage
+      this.token = getCookie('auth_token') || localStorage.getItem('auth_token');
     }
     return this.token;
   }
@@ -52,6 +57,7 @@ export class ApiClient {
     this.token = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
+      deleteCookie('auth_token');
     }
   }
 
