@@ -8,9 +8,10 @@ import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
-import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award, X } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award, X, Check, ChevronDown, History } from 'lucide-react';
 import { SubjectsService, SubjectResponse } from '@/lib/api/subjects';
 import { SessionsService, StudySessionResponse, WeeklyStats } from '@/lib/api/sessions';
+import { PracticeTasksService, PracticeTask } from '@/lib/api/practice-tasks';
 import { handleApiError } from '@/lib/api/client';
 
 export default function StudyTimerPage() {
@@ -39,9 +40,23 @@ export default function StudyTimerPage() {
     solution: string;
     answer: string;
   } | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [taskLoadedAt, setTaskLoadedAt] = useState<number | null>(null);
   const [showSolution, setShowSolution] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [taskError, setTaskError] = useState('');
+
+  // Inline topic/difficulty form state
+  const [inlineTopic, setInlineTopic] = useState('');
+  const [inlineDifficulty, setInlineDifficulty] = useState('medium');
+
+  // Next task difficulty selector
+  const [nextTaskDifficulty, setNextTaskDifficulty] = useState('medium');
+  const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false);
+
+  // Task history panel
+  const [taskHistory, setTaskHistory] = useState<PracticeTask[]>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
   // Streaming state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -212,6 +227,27 @@ export default function StudyTimerPage() {
                 setTaskText('');
                 setSolutionText('');
                 setAnswerText('');
+
+                // Save task to database
+                try {
+                  const savedTask = await PracticeTasksService.create({
+                    subject: params.subject,
+                    topic: params.topic,
+                    difficulty: params.difficulty,
+                    task_content: finalTask,
+                    solution_content: finalSolution,
+                    answer_content: finalAnswer,
+                    study_session_id: currentSessionId || undefined,
+                  });
+                  setCurrentTaskId(savedTask.id);
+                  setTaskLoadedAt(Date.now());
+                  setNextTaskDifficulty(params.difficulty);
+
+                  // Refresh task history
+                  await fetchTaskHistory(params.subject);
+                } catch (err) {
+                  console.error('Failed to save task to database:', err);
+                }
               }
             } catch (e) {
               // Ignore parsing errors
@@ -225,16 +261,157 @@ export default function StudyTimerPage() {
     }
   };
 
+  const fetchTaskHistory = async (subject: string) => {
+    try {
+      const history = await PracticeTasksService.getAll({ subject, limit: 10 });
+      setTaskHistory(history);
+    } catch (error) {
+      console.error('Failed to fetch task history:', error);
+    }
+  };
+
+  const loadLatestTaskForSubject = async (subjectName: string) => {
+    try {
+      const latestTask = await PracticeTasksService.getLatestForSubject(subjectName);
+      if (latestTask) {
+        // Load the task
+        setCurrentTask({
+          subject: latestTask.subject,
+          topic: latestTask.topic,
+          difficulty: latestTask.difficulty,
+          task: latestTask.task_content,
+          solution: latestTask.solution_content,
+          answer: latestTask.answer_content,
+        });
+        setCurrentTaskId(latestTask.id);
+        setTaskLoadedAt(Date.now());
+        setNextTaskDifficulty(latestTask.difficulty);
+        setShowSolution(false);
+        setShowAnswer(false);
+
+        // Fetch history for this subject
+        await fetchTaskHistory(subjectName);
+      }
+    } catch (error) {
+      // No task found, which is fine - user can generate one
+      console.log('No latest task found for subject:', subjectName);
+    }
+  };
+
+  const handleSubjectChange = async (subjectId: string) => {
+    setSelectedSubject(subjectId);
+
+    // Find the subject name
+    const subject = subjects.find(s => s.id === subjectId);
+    if (subject) {
+      // Load latest task for this subject
+      await loadLatestTaskForSubject(subject.name);
+    }
+  };
+
+  const handleGenerateInlineTask = () => {
+    if (!inlineTopic.trim()) {
+      alert('Please enter a topic');
+      return;
+    }
+
+    const subject = subjects.find(s => s.id === selectedSubject);
+    if (!subject) return;
+
+    startTaskGeneration({
+      subject: subject.name,
+      topic: inlineTopic,
+      difficulty: inlineDifficulty,
+      studySystem: 'IB',
+    });
+  };
+
   const handleNextTask = () => {
     if (!currentTask) return;
 
-    // Use the same generation function
+    // Use the selected difficulty from the dropdown
     startTaskGeneration({
       subject: currentTask.subject,
       topic: currentTask.topic,
-      difficulty: currentTask.difficulty,
-      studySystem: 'IB', // Default to IB
+      difficulty: nextTaskDifficulty,
+      studySystem: 'IB',
     });
+  };
+
+  const handleMarkCorrectIncorrect = async (isCorrect: boolean) => {
+    if (!currentTaskId || !taskLoadedAt) return;
+
+    const actualTimeSeconds = Math.floor((Date.now() - taskLoadedAt) / 1000);
+
+    try {
+      await PracticeTasksService.update(currentTaskId, {
+        is_correct: isCorrect,
+        completed: true,
+        actual_time_seconds: actualTimeSeconds,
+      });
+
+      // Load next task with same topic and selected difficulty
+      if (currentTask) {
+        startTaskGeneration({
+          subject: currentTask.subject,
+          topic: currentTask.topic,
+          difficulty: nextTaskDifficulty,
+          studySystem: 'IB',
+        });
+      }
+    } catch (error) {
+      handleApiError(error, 'Failed to mark task');
+    }
+  };
+
+  const handleLoadHistoryTask = (task: PracticeTask) => {
+    setCurrentTask({
+      subject: task.subject,
+      topic: task.topic,
+      difficulty: task.difficulty,
+      task: task.task_content,
+      solution: task.solution_content,
+      answer: task.answer_content,
+    });
+    setCurrentTaskId(task.id);
+    setTaskLoadedAt(Date.now());
+    setNextTaskDifficulty(task.difficulty);
+    setShowSolution(false);
+    setShowAnswer(false);
+  };
+
+  const handleResetSession = async () => {
+    // End current study session
+    if (currentSessionId && elapsedSeconds > 0) {
+      try {
+        await SessionsService.update(currentSessionId, {
+          end_time: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('Failed to end session:', error);
+      }
+    }
+
+    // Reset timer
+    setIsRunning(false);
+    const technique = techniques.find(t => t.id === selectedTechnique);
+    if (technique) {
+      setTimeRemaining(technique.focusTime * 60);
+    }
+    setElapsedSeconds(0);
+    setInterruptions(0);
+    setCurrentSessionId(null);
+
+    // Clear current task
+    setCurrentTask(null);
+    setCurrentTaskId(null);
+    setTaskLoadedAt(null);
+    setShowSolution(false);
+    setShowAnswer(false);
+
+    // Refresh data
+    fetchRecentSessions();
+    fetchWeeklyStats();
   };
 
   // Update time remaining when technique changes
@@ -582,7 +759,7 @@ export default function StudyTimerPage() {
                     subjects.map((subject) => (
                       <button
                         key={subject.id}
-                        onClick={() => setSelectedSubject(subject.id)}
+                        onClick={() => handleSubjectChange(subject.id)}
                         disabled={isRunning}
                         className={`px-4 py-2 rounded-lg border transition-all ${
                           selectedSubject === subject.id
@@ -625,6 +802,10 @@ export default function StudyTimerPage() {
                 <Button variant="secondary" size="lg" onClick={handleReset}>
                   <RotateCcw className="w-5 h-5 mr-2" />
                   {currentSessionId && elapsedSeconds > 0 ? 'Finish' : 'Reset'}
+                </Button>
+                <Button variant="ghost" size="lg" onClick={handleResetSession}>
+                  <X className="w-5 h-5 mr-2" />
+                  Reset Session
                 </Button>
               </div>
 
@@ -712,128 +893,307 @@ export default function StudyTimerPage() {
           </GlassCard>
         </div>
 
-        {/* Current Task Section */}
-        {(currentTask || isGenerating) && (
-          <GlassCard className="mb-8 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
-                    <Brain className="w-5 h-5 text-indigo-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">
-                      {isGenerating ? 'Generating Practice Task...' : 'Practice Task'}
-                    </h3>
-                    {currentTask && (
-                      <p className="text-white/60 text-sm">
-                        {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
-                      </p>
-                    )}
-                  </div>
+        {/* Practice Task Section - Always Visible */}
+        <GlassCard className="mb-8 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                  <Brain className="w-5 h-5 text-indigo-400" />
                 </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {isGenerating ? 'Generating Practice Task...' : 'Practice Task'}
+                  </h3>
+                  {currentTask && (
+                    <p className="text-white/60 text-sm">
+                      {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
                 {isGenerating && (
                   <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 )}
+                {taskHistory.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    History
+                  </Button>
+                )}
               </div>
+            </div>
 
-              {/* Task Display */}
-              <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
-                {isGenerating ? (
-                  taskText ? (
-                    <MarkdownRenderer content={taskText} />
-                  ) : (
-                    <div className="flex items-center justify-center py-8">
-                      <p className="text-white/40">Waiting for response...</p>
+            {/* Main Content Grid with History Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Task Area */}
+              <div className={showHistoryPanel ? "lg:col-span-2" : "lg:col-span-3"}>
+                {!currentTask && !isGenerating ? (
+                  /* Inline Topic/Difficulty Form */
+                  <div className="bg-black/20 rounded-lg p-6 border border-white/10">
+                    <h4 className="text-white font-semibold mb-4">Generate New Practice Task</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Topic</label>
+                        <input
+                          type="text"
+                          value={inlineTopic}
+                          onChange={(e) => setInlineTopic(e.target.value)}
+                          placeholder="Enter topic (e.g., Quadratic equations)"
+                          className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Difficulty</label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {[
+                            { value: 'easy', label: 'Easy', emoji: '🟢' },
+                            { value: 'medium', label: 'Medium', emoji: '🟡' },
+                            { value: 'hard', label: 'Hard', emoji: '🟠' },
+                            { value: 'expert', label: 'Expert', emoji: '🔴' },
+                          ].map((diff) => (
+                            <button
+                              key={diff.value}
+                              onClick={() => setInlineDifficulty(diff.value)}
+                              className={`px-3 py-2 rounded-lg border transition-all ${
+                                inlineDifficulty === diff.value
+                                  ? 'bg-white/20 border-white/40'
+                                  : 'bg-white/5 border-white/10 hover:bg-white/10'
+                              }`}
+                            >
+                              <span className="mr-2">{diff.emoji}</span>
+                              <span className="text-white text-sm">{diff.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        onClick={handleGenerateInlineTask}
+                        disabled={!inlineTopic.trim() || !selectedSubject}
+                        className="w-full"
+                      >
+                        <Brain className="w-4 h-4 mr-2" />
+                        Generate Task
+                      </Button>
                     </div>
-                  )
+                  </div>
                 ) : (
-                  currentTask && <MarkdownRenderer content={currentTask.task} />
+                  <>
+                    {/* Task Display */}
+                    <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
+                      {isGenerating ? (
+                        taskText ? (
+                          <MarkdownRenderer content={taskText} />
+                        ) : (
+                          <div className="flex items-center justify-center py-8">
+                            <p className="text-white/40">Waiting for response...</p>
+                          </div>
+                        )
+                      ) : (
+                        currentTask && <MarkdownRenderer content={currentTask.task} />
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-3 mb-4">
+                      <Button
+                        variant={showSolution ? "secondary" : "ghost"}
+                        onClick={() => setShowSolution(!showSolution)}
+                        className="flex-1 min-w-[120px]"
+                        disabled={isGenerating && !solutionText}
+                      >
+                        {showSolution ? 'Hide Solution' : 'Show Solution'}
+                      </Button>
+                      <Button
+                        variant={showAnswer ? "secondary" : "ghost"}
+                        onClick={() => setShowAnswer(!showAnswer)}
+                        className="flex-1 min-w-[120px]"
+                        disabled={isGenerating && !answerText}
+                      >
+                        {showAnswer ? 'Hide Answer' : 'Show Answer'}
+                      </Button>
+                    </div>
+
+                    {/* Mark Correct/Incorrect & Next Task Buttons */}
+                    <div className="flex flex-wrap gap-3 mb-4">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleMarkCorrectIncorrect(true)}
+                        disabled={isGenerating}
+                        className="flex-1 min-w-[140px] bg-green-500/10 hover:bg-green-500/20 border-green-500/30"
+                      >
+                        <Check className="w-4 h-4 mr-2" />
+                        Mark Correct
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleMarkCorrectIncorrect(false)}
+                        disabled={isGenerating}
+                        className="flex-1 min-w-[140px] bg-red-500/10 hover:bg-red-500/20 border-red-500/30"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Mark Incorrect
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={handleNextTask}
+                        disabled={isGenerating}
+                        className="flex-1 min-w-[140px]"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                            Generating...
+                          </>
+                        ) : (
+                          'Next Task'
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Difficulty Selector for Next Task */}
+                    <div className="mb-4 relative">
+                      <button
+                        onClick={() => setShowDifficultyDropdown(!showDifficultyDropdown)}
+                        className="text-white/60 hover:text-white/80 text-sm flex items-center gap-1 transition-colors"
+                      >
+                        Difficulty: <span className="capitalize">{nextTaskDifficulty}</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                      {showDifficultyDropdown && (
+                        <div className="absolute top-full mt-2 bg-black/90 border border-white/20 rounded-lg p-2 z-10 min-w-[150px]">
+                          {[
+                            { value: 'easy', label: 'Easy', emoji: '🟢' },
+                            { value: 'medium', label: 'Medium', emoji: '🟡' },
+                            { value: 'hard', label: 'Hard', emoji: '🟠' },
+                            { value: 'expert', label: 'Expert', emoji: '🔴' },
+                          ].map((diff) => (
+                            <button
+                              key={diff.value}
+                              onClick={() => {
+                                setNextTaskDifficulty(diff.value);
+                                setShowDifficultyDropdown(false);
+                              }}
+                              className={`w-full px-3 py-2 rounded-lg text-left transition-all ${
+                                nextTaskDifficulty === diff.value
+                                  ? 'bg-white/20 text-white'
+                                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+                              }`}
+                            >
+                              <span className="mr-2">{diff.emoji}</span>
+                              {diff.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Error Display */}
+                    {taskError && (
+                      <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                        {taskError}
+                      </div>
+                    )}
+
+                    {/* Solution Display */}
+                    {showSolution && (
+                      <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
+                        <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                          Solution
+                        </h4>
+                        {isGenerating ? (
+                          solutionText ? (
+                            <MarkdownRenderer content={solutionText} />
+                          ) : (
+                            <p className="text-white/40 text-sm">Generating solution...</p>
+                          )
+                        ) : (
+                          currentTask && <MarkdownRenderer content={currentTask.solution} />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Answer Display */}
+                    {showAnswer && (
+                      <div className="bg-black/20 rounded-lg p-6 border border-white/10">
+                        <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                          Answer
+                        </h4>
+                        {isGenerating ? (
+                          answerText ? (
+                            <MarkdownRenderer content={answerText} />
+                          ) : (
+                            <p className="text-white/40 text-sm">Generating answer...</p>
+                          )
+                        ) : (
+                          currentTask && <MarkdownRenderer content={currentTask.answer} />
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-3 mb-4">
-                <Button
-                  variant={showSolution ? "secondary" : "ghost"}
-                  onClick={() => setShowSolution(!showSolution)}
-                  className="flex-1 min-w-[150px]"
-                  disabled={isGenerating && !solutionText}
-                >
-                  {showSolution ? 'Hide Solution' : 'Show Solution'}
-                </Button>
-                <Button
-                  variant={showAnswer ? "secondary" : "ghost"}
-                  onClick={() => setShowAnswer(!showAnswer)}
-                  className="flex-1 min-w-[150px]"
-                  disabled={isGenerating && !answerText}
-                >
-                  {showAnswer ? 'Hide Answer' : 'Show Answer'}
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleNextTask}
-                  disabled={isGenerating}
-                  className="flex-1 min-w-[150px]"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    'Next Task'
-                  )}
-                </Button>
-              </div>
-
-              {/* Error Display */}
-              {taskError && (
-                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                  {taskError}
-                </div>
-              )}
-
-              {/* Solution Display */}
-              {showSolution && (
-                <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
-                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                    Solution
-                  </h4>
-                  {isGenerating ? (
-                    solutionText ? (
-                      <MarkdownRenderer content={solutionText} />
-                    ) : (
-                      <p className="text-white/40 text-sm">Generating solution...</p>
-                    )
-                  ) : (
-                    currentTask && <MarkdownRenderer content={currentTask.solution} />
-                  )}
-                </div>
-              )}
-
-              {/* Answer Display */}
-              {showAnswer && (
-                <div className="bg-black/20 rounded-lg p-6 border border-white/10">
-                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                    Answer
-                  </h4>
-                  {isGenerating ? (
-                    answerText ? (
-                      <MarkdownRenderer content={answerText} />
-                    ) : (
-                      <p className="text-white/40 text-sm">Generating answer...</p>
-                    )
-                  ) : (
-                    currentTask && <MarkdownRenderer content={currentTask.answer} />
-                  )}
+              {/* Task History Panel */}
+              {showHistoryPanel && taskHistory.length > 0 && (
+                <div className="lg:col-span-1">
+                  <div className="bg-black/20 rounded-lg p-4 border border-white/10 max-h-[600px] overflow-y-auto">
+                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4" />
+                      History
+                    </h4>
+                    <div className="space-y-2">
+                      {taskHistory.map((task) => {
+                        const difficultyEmojis: Record<string, string> = {
+                          easy: '🟢',
+                          medium: '🟡',
+                          hard: '🟠',
+                          expert: '🔴',
+                        };
+                        return (
+                          <button
+                            key={task.id}
+                            onClick={() => handleLoadHistoryTask(task)}
+                            className={`w-full p-3 rounded-lg border transition-all text-left ${
+                              currentTaskId === task.id
+                                ? 'bg-white/20 border-white/40'
+                                : 'bg-white/5 border-white/10 hover:bg-white/10'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-white text-sm font-medium truncate">
+                                {task.topic}
+                              </span>
+                              {task.is_correct !== null && (
+                                <span className={task.is_correct ? 'text-green-400' : 'text-red-400'}>
+                                  {task.is_correct ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-white/60">
+                              <span>{difficultyEmojis[task.difficulty] || '⚪'}</span>
+                              <span className="capitalize">{task.difficulty}</span>
+                              <span>•</span>
+                              <span>{new Date(task.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          </GlassCard>
-        )}
+          </div>
+        </GlassCard>
 
         {/* Study Techniques */}
         <div className="mb-8">
