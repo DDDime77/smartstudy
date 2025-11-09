@@ -64,38 +64,35 @@ export async function POST(req: NextRequest) {
 
     const userPrompt = `Generate practice tasks for studying ${subject}, specifically on the topic of "${topic}" at ${difficulty} difficulty level.`;
 
-    // Use streaming with GPT-5 Responses API
-    const stream = await client.responses.create({
-      model: 'gpt-5',
+    // Use streaming with GPT-4 Chat Completions API
+    const stream = await client.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
       stream: true,
-      instructions: systemPrompt,
-      input: userPrompt,
-      reasoning_effort: 'medium',
-      verbosity: 'medium',
       temperature: 0.7,
-      max_output_tokens: 2000,
+      max_tokens: 2000,
     });
 
     // Create a ReadableStream to stream the response
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const event of stream) {
-            if (event.type === 'response.output_text.delta') {
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) {
               controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify({ delta: event.delta })}\n\n`)
+                new TextEncoder().encode(`data: ${JSON.stringify({ delta })}\n\n`)
               );
             }
 
-            if (event.type === 'response.completed') {
+            if (chunk.choices[0]?.finish_reason === 'stop') {
               controller.enqueue(
                 new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
               );
               controller.close();
-            }
-
-            if (event.type === 'error') {
-              controller.error(event.error);
             }
           }
         } catch (error) {
