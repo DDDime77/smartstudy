@@ -7,7 +7,8 @@ import Badge from '@/components/Badge';
 import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
-import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award } from 'lucide-react';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award, X } from 'lucide-react';
 import { SubjectsService, SubjectResponse } from '@/lib/api/subjects';
 import { SessionsService, StudySessionResponse, WeeklyStats } from '@/lib/api/sessions';
 import { handleApiError } from '@/lib/api/client';
@@ -28,6 +29,10 @@ export default function StudyTimerPage() {
   const [recentSessions, setRecentSessions] = useState<StudySessionResponse[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
   const [todayMinutes, setTodayMinutes] = useState(0);
+
+  // Generated tasks
+  const [generatedTasks, setGeneratedTasks] = useState<string | null>(null);
+  const [taskSubject, setTaskSubject] = useState<string | null>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionStartTimeRef = useRef<number>(0); // Timestamp when current session segment started
@@ -77,7 +82,22 @@ export default function StudyTimerPage() {
     fetchSubjects();
     fetchRecentSessions();
     fetchWeeklyStats();
+
+    // Load generated tasks from sessionStorage
+    const tasks = sessionStorage.getItem('generatedTasks');
+    const subject = sessionStorage.getItem('taskSubject');
+    if (tasks) {
+      setGeneratedTasks(tasks);
+      setTaskSubject(subject);
+    }
   }, []);
+
+  const handleDismissTasks = () => {
+    setGeneratedTasks(null);
+    setTaskSubject(null);
+    sessionStorage.removeItem('generatedTasks');
+    sessionStorage.removeItem('taskSubject');
+  };
 
   // Update time remaining when technique changes
   useEffect(() => {
@@ -691,6 +711,37 @@ export default function StudyTimerPage() {
             </div>
           </GlassCard>
         </div>
+
+        {/* Generated Tasks Section */}
+        {generatedTasks && (
+          <GlassCard className="mt-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                    <Brain className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">AI-Generated Practice Tasks</h3>
+                    {taskSubject && (
+                      <p className="text-white/60 text-sm">Subject: {taskSubject}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleDismissTasks}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Dismiss tasks"
+                >
+                  <X className="w-5 h-5 text-white/60 hover:text-white" />
+                </button>
+              </div>
+              <div className="bg-black/20 rounded-lg p-6 border border-white/10 max-h-[600px] overflow-y-auto">
+                <MarkdownRenderer content={generatedTasks} />
+              </div>
+            </div>
+          </GlassCard>
+        )}
 
         {/* Motivational Quote */}
         <GlassCard className="mt-6 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30">
