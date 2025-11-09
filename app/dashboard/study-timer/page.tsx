@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import GlassCard from '@/components/GlassCard';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
@@ -8,19 +8,26 @@ import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
 import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award } from 'lucide-react';
+import { SubjectsService, SubjectResponse } from '@/lib/api/subjects';
+import { SessionsService, StudySessionResponse, WeeklyStats } from '@/lib/api/sessions';
+import { handleApiError } from '@/lib/api/client';
 
 export default function StudyTimerPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedTechnique, setSelectedTechnique] = useState('pomodoro');
   const [sessionGoal, setSessionGoal] = useState(2);
+  const [timeRemaining, setTimeRemaining] = useState(25 * 60); // 25 minutes in seconds
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [completedSessions, setCompletedSessions] = useState(0);
 
-  // Mock data for display
-  const subjects = [
-    { id: '1', name: 'Mathematics', color: '#3b82f6' },
-    { id: '2', name: 'Physics', color: '#10b981' },
-    { id: '3', name: 'Chemistry', color: '#f59e0b' },
-  ];
+  // Data from API
+  const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
+  const [recentSessions, setRecentSessions] = useState<StudySessionResponse[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
+  const [todayMinutes, setTodayMinutes] = useState(0);
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const techniques = [
     {
@@ -61,23 +68,175 @@ export default function StudyTimerPage() {
     },
   ];
 
-  const recentSessions = [
-    { id: '1', subject: 'Mathematics', duration: '45 min', date: 'Today, 2:30 PM', focusScore: 4 },
-    { id: '2', subject: 'Physics', duration: '30 min', date: 'Today, 10:00 AM', focusScore: 5 },
-    { id: '3', subject: 'Chemistry', duration: '60 min', date: 'Yesterday, 4:00 PM', focusScore: 3 },
-  ];
+  // Fetch data on mount
+  useEffect(() => {
+    fetchSubjects();
+    fetchRecentSessions();
+    fetchWeeklyStats();
+  }, []);
 
-  const weeklyStats = [
-    { day: 'Mon', hours: 2.5 },
-    { day: 'Tue', hours: 3.0 },
-    { day: 'Wed', hours: 1.5 },
-    { day: 'Thu', hours: 2.0 },
-    { day: 'Fri', hours: 3.5 },
-    { day: 'Sat', hours: 4.0 },
-    { day: 'Sun', hours: 0 },
-  ];
+  // Update time remaining when technique changes
+  useEffect(() => {
+    const technique = techniques.find(t => t.id === selectedTechnique);
+    if (technique && !isRunning) {
+      setTimeRemaining(technique.focusTime * 60);
+    }
+  }, [selectedTechnique]);
 
-  const maxHours = Math.max(...weeklyStats.map(s => s.hours));
+  // Timer countdown
+  useEffect(() => {
+    if (isRunning && timeRemaining > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            handleTimerComplete();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isRunning, timeRemaining]);
+
+  const fetchSubjects = async () => {
+    try {
+      const data = await SubjectsService.getAll();
+      setSubjects(data);
+      if (data.length > 0 && !selectedSubject) {
+        setSelectedSubject(data[0].id);
+      }
+    } catch (error) {
+      handleApiError(error, 'Failed to load subjects');
+    }
+  };
+
+  const fetchRecentSessions = async () => {
+    try {
+      const data = await SessionsService.getRecent(3);
+      setRecentSessions(data);
+
+      // Calculate today's minutes
+      const today = new Date().toISOString().split('T')[0];
+      const todaySessionsMinutes = data
+        .filter(s => s.start_time.split('T')[0] === today && s.duration_minutes)
+        .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+      setTodayMinutes(todaySessionsMinutes);
+    } catch (error) {
+      handleApiError(error, 'Failed to load recent sessions');
+    }
+  };
+
+  const fetchWeeklyStats = async () => {
+    try {
+      const data = await SessionsService.getWeeklyStats();
+      setWeeklyStats(data);
+    } catch (error) {
+      handleApiError(error, 'Failed to load weekly stats');
+    }
+  };
+
+  const handleStart = async () => {
+    if (!selectedSubject) {
+      alert('Please select a subject first');
+      return;
+    }
+
+    try {
+      // Create a new session in the backend
+      const session = await SessionsService.create({
+        subject_id: selectedSubject,
+        start_time: new Date().toISOString(),
+      });
+      setCurrentSessionId(session.id);
+      setIsRunning(true);
+    } catch (error) {
+      handleApiError(error, 'Failed to start session');
+    }
+  };
+
+  const handlePause = () => {
+    setIsRunning(false);
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    const technique = techniques.find(t => t.id === selectedTechnique);
+    if (technique) {
+      setTimeRemaining(technique.focusTime * 60);
+    }
+    setCurrentSessionId(null);
+  };
+
+  const handleTimerComplete = async () => {
+    setIsRunning(false);
+
+    if (currentSessionId) {
+      try {
+        const technique = techniques.find(t => t.id === selectedTechnique);
+        const duration = technique ? technique.focusTime : 25;
+
+        await SessionsService.update(currentSessionId, {
+          end_time: new Date().toISOString(),
+          duration_minutes: duration,
+          focus_rating: 4, // Default good focus
+        });
+
+        setCompletedSessions(prev => prev + 1);
+        setCurrentSessionId(null);
+
+        // Refresh data
+        fetchRecentSessions();
+        fetchWeeklyStats();
+
+        // Show completion message
+        alert('Session completed! Great work! 🎉');
+
+        // Reset timer for next session
+        const nextTechnique = techniques.find(t => t.id === selectedTechnique);
+        if (nextTechnique) {
+          setTimeRemaining(nextTechnique.focusTime * 60);
+        }
+      } catch (error) {
+        handleApiError(error, 'Failed to complete session');
+      }
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return `Today, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+  };
+
+  const progress = timeRemaining === 0 ? 1 : 1 - (timeRemaining / (techniques.find(t => t.id === selectedTechnique)?.focusTime! * 60));
+  const maxHours = Math.max(...weeklyStats.map(s => s.hours), 1);
+  const totalWeekHours = weeklyStats.reduce((sum, stat) => sum + stat.hours, 0);
 
   return (
     <div className="min-h-screen bg-black">
@@ -120,7 +279,7 @@ export default function StudyTimerPage() {
                     strokeWidth="8"
                     fill="none"
                     strokeDasharray={`${2 * Math.PI * 120}`}
-                    strokeDashoffset={`${2 * Math.PI * 120 * 0.25}`}
+                    strokeDashoffset={`${2 * Math.PI * 120 * (1 - progress)}`}
                     strokeLinecap="round"
                     className="transition-all duration-1000"
                   />
@@ -133,7 +292,7 @@ export default function StudyTimerPage() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <GradientText gradient="from-blue-400 to-purple-400">
-                    <span className="text-6xl font-bold">25:00</span>
+                    <span className="text-6xl font-bold">{formatTime(timeRemaining)}</span>
                   </GradientText>
                   <p className="text-white/60 mt-2">Focus Time</p>
                 </div>
@@ -143,23 +302,28 @@ export default function StudyTimerPage() {
               <div className="mb-6">
                 <label className="block text-white/80 text-sm mb-3">Select Subject</label>
                 <div className="flex flex-wrap justify-center gap-3">
-                  {subjects.map((subject) => (
-                    <button
-                      key={subject.id}
-                      onClick={() => setSelectedSubject(subject.id)}
-                      className={`px-4 py-2 rounded-lg border transition-all ${
-                        selectedSubject === subject.id
-                          ? 'bg-white/20 border-white/40 shadow-lg'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                      style={{
-                        borderLeftWidth: '3px',
-                        borderLeftColor: subject.color
-                      }}
-                    >
-                      <span className="text-white">{subject.name}</span>
-                    </button>
-                  ))}
+                  {subjects.length === 0 ? (
+                    <p className="text-white/40 text-sm">No subjects yet. Add subjects in onboarding.</p>
+                  ) : (
+                    subjects.map((subject) => (
+                      <button
+                        key={subject.id}
+                        onClick={() => setSelectedSubject(subject.id)}
+                        disabled={isRunning}
+                        className={`px-4 py-2 rounded-lg border transition-all ${
+                          selectedSubject === subject.id
+                            ? 'bg-white/20 border-white/40 shadow-lg'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        } ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        style={{
+                          borderLeftWidth: '3px',
+                          borderLeftColor: subject.color || '#3b82f6'
+                        }}
+                      >
+                        <span className="text-white">{subject.name}</span>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -168,8 +332,9 @@ export default function StudyTimerPage() {
                 <Button
                   variant={isRunning ? "ghost" : "primary"}
                   size="lg"
-                  onClick={() => setIsRunning(!isRunning)}
+                  onClick={isRunning ? handlePause : handleStart}
                   className="min-w-[140px]"
+                  disabled={!selectedSubject}
                 >
                   {isRunning ? (
                     <>
@@ -183,13 +348,9 @@ export default function StudyTimerPage() {
                     </>
                   )}
                 </Button>
-                <Button variant="secondary" size="lg">
+                <Button variant="secondary" size="lg" onClick={handleReset}>
                   <RotateCcw className="w-5 h-5 mr-2" />
                   Reset
-                </Button>
-                <Button variant="ghost" size="lg">
-                  <Coffee className="w-5 h-5 mr-2" />
-                  Break
                 </Button>
               </div>
             </div>
@@ -232,12 +393,12 @@ export default function StudyTimerPage() {
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-white/60">Progress</span>
-                  <span className="text-white">0 / {sessionGoal}</span>
+                  <span className="text-white">{completedSessions} / {sessionGoal}</span>
                 </div>
                 <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full transition-all"
-                    style={{ width: '0%' }}
+                    style={{ width: `${(completedSessions / sessionGoal) * 100}%` }}
                   />
                 </div>
               </div>
@@ -249,7 +410,7 @@ export default function StudyTimerPage() {
                     <Clock className="w-4 h-4 text-blue-400" />
                     <span className="text-white/80 text-sm">Today</span>
                   </div>
-                  <span className="text-white font-bold">0h 0m</span>
+                  <span className="text-white font-bold">{Math.floor(todayMinutes / 60)}h {todayMinutes % 60}m</span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                   <div className="flex items-center gap-2">
@@ -261,9 +422,9 @@ export default function StudyTimerPage() {
                 <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-green-400" />
-                    <span className="text-white/80 text-sm">Focus Score</span>
+                    <span className="text-white/80 text-sm">Completed</span>
                   </div>
-                  <span className="text-white font-bold">0/5</span>
+                  <span className="text-white font-bold">{completedSessions}</span>
                 </div>
               </div>
             </div>
@@ -275,9 +436,13 @@ export default function StudyTimerPage() {
           <h3 className="text-2xl font-bold text-white mb-4">Study Techniques</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {techniques.map((technique) => (
-              <div key={technique.id} onClick={() => setSelectedTechnique(technique.id)} className="cursor-pointer">
+              <div
+                key={technique.id}
+                onClick={() => !isRunning && setSelectedTechnique(technique.id)}
+                className={`cursor-pointer ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
               <GlassCard
-                hover
+                hover={!isRunning}
                 glow={selectedTechnique === technique.id}
               >
                 <div className={`bg-gradient-to-br ${technique.gradient} rounded-lg p-6`}>
@@ -311,34 +476,37 @@ export default function StudyTimerPage() {
                   </div>
                   <h3 className="text-xl font-bold text-white">Recent Sessions</h3>
                 </div>
-                <Button variant="ghost" size="sm">View All</Button>
               </div>
 
               <div className="space-y-3">
-                {recentSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className="p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-white">{session.subject}</h4>
-                      <Badge variant="gradient">{session.duration}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/60 text-sm">{session.date}</span>
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <span
-                            key={star}
-                            className={star <= session.focusScore ? 'text-yellow-400' : 'text-white/20'}
-                          >
-                            ★
-                          </span>
-                        ))}
+                {recentSessions.length === 0 ? (
+                  <p className="text-white/40 text-sm text-center py-8">No study sessions yet. Start your first session!</p>
+                ) : (
+                  recentSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-white">{session.subject_name || 'Unknown Subject'}</h4>
+                        <Badge variant="gradient">{session.duration_minutes || 0} min</Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60 text-sm">{formatDate(session.start_time)}</span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span
+                              key={star}
+                              className={star <= (session.focus_rating || 0) ? 'text-yellow-400' : 'text-white/20'}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </GlassCard>
@@ -353,7 +521,7 @@ export default function StudyTimerPage() {
                   </div>
                   <h3 className="text-xl font-bold text-white">Weekly Activity</h3>
                 </div>
-                <Badge variant="glow">16.5h total</Badge>
+                <Badge variant="glow">{totalWeekHours.toFixed(1)}h total</Badge>
               </div>
 
               <div className="flex items-end justify-between h-40 mb-4">
@@ -377,15 +545,17 @@ export default function StudyTimerPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <p className="text-white/60 text-xs mb-1">Daily Avg</p>
-                  <p className="text-white font-bold">2.4h</p>
+                  <p className="text-white font-bold">{(totalWeekHours / 7).toFixed(1)}h</p>
                 </div>
                 <div className="text-center">
                   <p className="text-white/60 text-xs mb-1">Best Day</p>
-                  <p className="text-white font-bold">Sat</p>
+                  <p className="text-white font-bold">
+                    {weeklyStats.reduce((max, stat) => stat.hours > max.hours ? stat : max, weeklyStats[0] || { day: '-', hours: 0 }).day}
+                  </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-white/60 text-xs mb-1">Streak</p>
-                  <p className="text-white font-bold">5 days</p>
+                  <p className="text-white/60 text-xs mb-1">Sessions</p>
+                  <p className="text-white font-bold">{recentSessions.length}</p>
                 </div>
               </div>
             </div>
