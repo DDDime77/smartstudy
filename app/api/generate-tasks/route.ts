@@ -65,35 +65,37 @@ export async function POST(req: NextRequest) {
 
     const userPrompt = `Generate practice tasks for studying ${subject}, specifically on the topic of "${topic}" at ${difficulty} difficulty level.`;
 
-    // Combine system and user prompts for GPT-5
-    const combinedInput = `${systemPrompt}\n\n${userPrompt}`;
-
-    // Try GPT-5 without streaming first (streaming requires verified org)
-    const response = await client.responses.create({
-      model: 'gpt-5',
-      input: combinedInput,
-      reasoning: { effort: 'medium' },
-      text: { verbosity: 'medium' },
-      max_output_tokens: 2000,
+    // Try GPT-4o-mini with TRUE streaming (should not require org verification)
+    const stream = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 2000,
     });
 
-    // Return the complete response as a stream-like format
+    // Stream the response in real-time
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
-          const outputText = response.output_text || '';
-          // Send the entire response as chunks to simulate streaming
-          const chunkSize = 50;
-          for (let i = 0; i < outputText.length; i += chunkSize) {
-            const chunk = outputText.slice(i, i + chunkSize);
-            controller.enqueue(
-              new TextEncoder().encode(`data: ${JSON.stringify({ delta: chunk })}\n\n`)
-            );
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) {
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ delta })}\n\n`)
+              );
+            }
+
+            if (chunk.choices[0]?.finish_reason === 'stop' || chunk.choices[0]?.finish_reason === 'length') {
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
+              );
+              controller.close();
+            }
           }
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
-          );
-          controller.close();
         } catch (error) {
           console.error('Streaming error:', error);
           controller.error(error);
