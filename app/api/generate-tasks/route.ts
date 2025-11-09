@@ -27,11 +27,12 @@ CONTEXT:
 - Difficulty Level: ${difficulty}
 
 TASK:
-Generate ONE complete practice problem with the following THREE sections:
+Generate ONE complete practice problem with the following FOUR sections:
 
-1. TASK section - The actual problem/question for the student
-2. SOLUTION section - Step-by-step worked solution showing the methodology
-3. ANSWER section - The final answer(s) only
+1. TIME_ESTIMATE section - Estimated time in minutes for a student to complete this task
+2. TASK section - The actual problem/question for the student
+3. SOLUTION section - Step-by-step worked solution showing the methodology
+4. ANSWER section - The final answer(s) only
 
 REQUIREMENTS:
 - Align with ${studySystem || 'IB'} curriculum standards and command terms
@@ -42,6 +43,9 @@ REQUIREMENTS:
 
 OUTPUT FORMAT - CRITICAL:
 You MUST structure your output EXACTLY like this:
+
+# TIME_ESTIMATE
+[Write only a number representing minutes, e.g., "5" or "10" or "15"]
 
 # TASK
 [Write the problem statement here - what the student needs to solve]
@@ -68,7 +72,7 @@ IMPORTANT FORMATTING RULES:
   * Use simple delimiters: () [] {} - avoid complex bracket sizing
   * Keep LaTeX as simple as possible - avoid advanced TeX commands
   * Every formula must be complete within ONE pair of $ or $$ - no splitting
-- Use the section headers exactly as shown: # TASK, # SOLUTION, # ANSWER
+- Use the section headers exactly as shown: # TIME_ESTIMATE, # TASK, # SOLUTION, # ANSWER
 - Write formulas inline with text using $...$ for better readability
 - Each step in the solution should be on a new line for clarity
 

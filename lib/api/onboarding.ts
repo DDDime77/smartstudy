@@ -60,6 +60,7 @@ export interface SubjectResponse {
   current_grade: string | null;
   target_grade: string | null;
   color: string | null;
+  priority_coefficient: number | null;
 }
 
 export interface UpdateProfileData {

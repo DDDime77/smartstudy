@@ -39,6 +39,7 @@ export default function StudyTimerPage() {
     task: string;
     solution: string;
     answer: string;
+    estimatedTime?: number;
   } | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [taskLoadedAt, setTaskLoadedAt] = useState<number | null>(null);
@@ -204,7 +205,8 @@ export default function StudyTimerPage() {
               if (data.delta) {
                 accumulatedText += data.delta;
 
-                // Parse and update all three sections in real-time
+                // Parse and update all sections in real-time
+                const timeMatch = accumulatedText.match(/# TIME_ESTIMATE\s*([\s\S]*?)(?=# TASK|$)/i);
                 const taskMatch = accumulatedText.match(/# TASK\s*([\s\S]*?)(?=# SOLUTION|$)/i);
                 const solutionMatch = accumulatedText.match(/# SOLUTION\s*([\s\S]*?)(?=# ANSWER|$)/i);
                 const answerMatch = accumulatedText.match(/# ANSWER\s*([\s\S]*?)$/i);
@@ -228,10 +230,12 @@ export default function StudyTimerPage() {
                 }
 
                 // Parse final sections
+                const timeMatch = cleanedText.match(/# TIME_ESTIMATE\s*([\s\S]*?)(?=# TASK|$)/i);
                 const taskMatch = cleanedText.match(/# TASK\s*([\s\S]*?)(?=# SOLUTION|$)/i);
                 const solutionMatch = cleanedText.match(/# SOLUTION\s*([\s\S]*?)(?=# ANSWER|$)/i);
                 const answerMatch = cleanedText.match(/# ANSWER\s*([\s\S]*?)$/i);
 
+                const estimatedTime = timeMatch ? parseInt(timeMatch[1].trim()) : undefined;
                 const finalTask = taskMatch ? taskMatch[1].trim() : '';
                 const finalSolution = solutionMatch ? solutionMatch[1].trim() : '';
                 const finalAnswer = answerMatch ? answerMatch[1].trim() : '';
@@ -241,6 +245,7 @@ export default function StudyTimerPage() {
                   subject: params.subject,
                   topic: params.topic,
                   difficulty: params.difficulty,
+                  estimatedTime,
                   task: finalTask,
                   solution: finalSolution,
                   answer: finalAnswer,
@@ -264,6 +269,7 @@ export default function StudyTimerPage() {
                     task_content: finalTask,
                     solution_content: finalSolution,
                     answer_content: finalAnswer,
+                    estimated_time_minutes: estimatedTime,
                     study_session_id: currentSessionId || undefined,
                   });
                   setCurrentTaskId(savedTask.id);
@@ -453,6 +459,7 @@ export default function StudyTimerPage() {
       task: task.task_content,
       solution: task.solution_content,
       answer: task.answer_content,
+      estimatedTime: task.estimated_time_minutes || undefined,
     });
     setCurrentTaskId(task.id);
     setTaskLoadedAt(Date.now());
@@ -1022,6 +1029,9 @@ export default function StudyTimerPage() {
                   {currentTask && (
                     <p className="text-white/60 text-sm">
                       {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
+                      {currentTask.estimatedTime && (
+                        <span className="text-white/40 ml-2">• Estimated time: {currentTask.estimatedTime} min</span>
+                      )}
                     </p>
                   )}
                 </div>

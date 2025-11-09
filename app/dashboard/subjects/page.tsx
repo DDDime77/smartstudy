@@ -344,6 +344,39 @@ export default function SubjectsPage() {
                     </div>
                   )}
 
+                  {subject.priority_coefficient !== null && subject.priority_coefficient !== undefined && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-white/60 text-sm flex items-center gap-1">
+                          <Target className="w-4 h-4" />
+                          Priority
+                        </span>
+                        <span className="text-white font-bold text-sm">
+                          {subject.priority_coefficient.toFixed(2)}×
+                        </span>
+                      </div>
+                      <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            subject.priority_coefficient >= 2.5
+                              ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                              : subject.priority_coefficient >= 1.5
+                              ? 'bg-gradient-to-r from-yellow-500 to-amber-500'
+                              : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min((subject.priority_coefficient / 3.0) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-white/40 text-xs mt-1">
+                        {subject.priority_coefficient >= 2.5
+                          ? 'High Priority'
+                          : subject.priority_coefficient >= 1.5
+                          ? 'Medium Priority'
+                          : 'Standard Priority'}
+                      </p>
+                    </div>
+                  )}
+
                   <Button
                     variant="secondary"
                     size="sm"
