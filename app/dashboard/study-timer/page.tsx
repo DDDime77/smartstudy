@@ -41,8 +41,13 @@ export default function StudyTimerPage() {
   } | null>(null);
   const [showSolution, setShowSolution] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [isLoadingNewTask, setIsLoadingNewTask] = useState(false);
   const [taskError, setTaskError] = useState('');
+
+  // Streaming state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [taskText, setTaskText] = useState('');
+  const [solutionText, setSolutionText] = useState('');
+  const [answerText, setAnswerText] = useState('');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionStartTimeRef = useRef<number>(0); // Timestamp when current session segment started
@@ -93,51 +98,52 @@ export default function StudyTimerPage() {
     fetchRecentSessions();
     fetchWeeklyStats();
 
-    // Load current task from sessionStorage (client-side only)
+    // Check for pending task generation first (client-side only)
     if (typeof window !== 'undefined') {
-      const taskData = sessionStorage.getItem('currentTask');
-      if (taskData) {
+      const pending = sessionStorage.getItem('pendingTaskGeneration');
+      if (pending) {
         try {
-          const parsedTask = JSON.parse(taskData);
-          setCurrentTask(parsedTask);
+          const params = JSON.parse(pending);
+          sessionStorage.removeItem('pendingTaskGeneration');
+          startTaskGeneration(params);
         } catch (e) {
-          console.error('Failed to parse current task:', e);
+          console.error('Failed to parse pending task generation:', e);
+        }
+      } else {
+        // Load existing task from sessionStorage
+        const taskData = sessionStorage.getItem('currentTask');
+        if (taskData) {
+          try {
+            const parsedTask = JSON.parse(taskData);
+            setCurrentTask(parsedTask);
+          } catch (e) {
+            console.error('Failed to parse current task:', e);
+          }
         }
       }
     }
   }, []);
 
-  const handleNextTask = async () => {
-    if (!currentTask) return;
-
-    setIsLoadingNewTask(true);
+  const startTaskGeneration = async (params: { subject: string, topic: string, difficulty: string, studySystem: string }) => {
+    setIsGenerating(true);
     setTaskError('');
+    setTaskText('');
+    setSolutionText('');
+    setAnswerText('');
     setShowSolution(false);
     setShowAnswer(false);
 
     try {
       const response = await fetch('/api/generate-tasks', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subject: currentTask.subject,
-          topic: currentTask.topic,
-          difficulty: currentTask.difficulty,
-          studySystem: 'IB', // Default to IB
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate new task');
-      }
+      if (!response.ok) throw new Error('Failed to generate task');
 
-      // Handle streaming response
       const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
+      if (!reader) throw new Error('No response body');
 
       const decoder = new TextDecoder();
       let accumulatedText = '';
@@ -155,7 +161,17 @@ export default function StudyTimerPage() {
               const data = JSON.parse(line.slice(6));
               if (data.delta) {
                 accumulatedText += data.delta;
+
+                // Parse and update all three sections in real-time
+                const taskMatch = accumulatedText.match(/# TASK\s*([\s\S]*?)(?=# SOLUTION|$)/i);
+                const solutionMatch = accumulatedText.match(/# SOLUTION\s*([\s\S]*?)(?=# ANSWER|$)/i);
+                const answerMatch = accumulatedText.match(/# ANSWER\s*([\s\S]*?)$/i);
+
+                if (taskMatch) setTaskText(taskMatch[1].trim());
+                if (solutionMatch) setSolutionText(solutionMatch[1].trim());
+                if (answerMatch) setAnswerText(answerMatch[1].trim());
               }
+
               if (data.done) {
                 // Clean up markdown code fences if present
                 let cleanedText = accumulatedText.trim();
@@ -169,33 +185,33 @@ export default function StudyTimerPage() {
                   cleanedText = cleanedText.replace(/\n```\s*$/, '');
                 }
 
-                // Parse the three sections
+                // Parse final sections
                 const taskMatch = cleanedText.match(/# TASK\s*([\s\S]*?)(?=# SOLUTION|$)/i);
                 const solutionMatch = cleanedText.match(/# SOLUTION\s*([\s\S]*?)(?=# ANSWER|$)/i);
                 const answerMatch = cleanedText.match(/# ANSWER\s*([\s\S]*?)$/i);
 
-                const taskText = taskMatch ? taskMatch[1].trim() : '';
-                const solutionText = solutionMatch ? solutionMatch[1].trim() : '';
-                const answerText = answerMatch ? answerMatch[1].trim() : '';
+                const finalTask = taskMatch ? taskMatch[1].trim() : '';
+                const finalSolution = solutionMatch ? solutionMatch[1].trim() : '';
+                const finalAnswer = answerMatch ? answerMatch[1].trim() : '';
 
-                // Update current task with new data
+                // Create and store task
                 const newTask = {
-                  subject: currentTask.subject,
-                  topic: currentTask.topic,
-                  difficulty: currentTask.difficulty,
-                  task: taskText,
-                  solution: solutionText,
-                  answer: answerText,
+                  subject: params.subject,
+                  topic: params.topic,
+                  difficulty: params.difficulty,
+                  task: finalTask,
+                  solution: finalSolution,
+                  answer: finalAnswer,
                 };
 
                 setCurrentTask(newTask);
+                sessionStorage.setItem('currentTask', JSON.stringify(newTask));
+                setIsGenerating(false);
 
-                // Update sessionStorage
-                if (typeof window !== 'undefined') {
-                  sessionStorage.setItem('currentTask', JSON.stringify(newTask));
-                }
-
-                setIsLoadingNewTask(false);
+                // Clear streaming states
+                setTaskText('');
+                setSolutionText('');
+                setAnswerText('');
               }
             } catch (e) {
               // Ignore parsing errors
@@ -204,9 +220,21 @@ export default function StudyTimerPage() {
         }
       }
     } catch (err: any) {
-      setTaskError(err.message || 'Failed to generate new task');
-      setIsLoadingNewTask(false);
+      setTaskError(err.message || 'Failed to generate task');
+      setIsGenerating(false);
     }
+  };
+
+  const handleNextTask = () => {
+    if (!currentTask) return;
+
+    // Use the same generation function
+    startTaskGeneration({
+      subject: currentTask.subject,
+      topic: currentTask.topic,
+      difficulty: currentTask.difficulty,
+      studySystem: 'IB', // Default to IB
+    });
   };
 
   // Update time remaining when technique changes
@@ -823,7 +851,7 @@ export default function StudyTimerPage() {
         </div>
 
         {/* Current Task Section */}
-        {currentTask && (
+        {(currentTask || isGenerating) && (
           <GlassCard className="mt-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -832,17 +860,34 @@ export default function StudyTimerPage() {
                     <Brain className="w-5 h-5 text-indigo-400" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white">Practice Task</h3>
-                    <p className="text-white/60 text-sm">
-                      {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
-                    </p>
+                    <h3 className="text-xl font-bold text-white">
+                      {isGenerating ? 'Generating Practice Task...' : 'Practice Task'}
+                    </h3>
+                    {currentTask && (
+                      <p className="text-white/60 text-sm">
+                        {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
+                      </p>
+                    )}
                   </div>
                 </div>
+                {isGenerating && (
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                )}
               </div>
 
               {/* Task Display */}
               <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
-                <MarkdownRenderer content={currentTask.task} />
+                {isGenerating ? (
+                  taskText ? (
+                    <MarkdownRenderer content={taskText} />
+                  ) : (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-white/40">Waiting for response...</p>
+                    </div>
+                  )
+                ) : (
+                  currentTask && <MarkdownRenderer content={currentTask.task} />
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -851,6 +896,7 @@ export default function StudyTimerPage() {
                   variant={showSolution ? "secondary" : "ghost"}
                   onClick={() => setShowSolution(!showSolution)}
                   className="flex-1 min-w-[150px]"
+                  disabled={isGenerating && !solutionText}
                 >
                   {showSolution ? 'Hide Solution' : 'Show Solution'}
                 </Button>
@@ -858,19 +904,20 @@ export default function StudyTimerPage() {
                   variant={showAnswer ? "secondary" : "ghost"}
                   onClick={() => setShowAnswer(!showAnswer)}
                   className="flex-1 min-w-[150px]"
+                  disabled={isGenerating && !answerText}
                 >
                   {showAnswer ? 'Hide Answer' : 'Show Answer'}
                 </Button>
                 <Button
                   variant="primary"
                   onClick={handleNextTask}
-                  disabled={isLoadingNewTask}
+                  disabled={isGenerating}
                   className="flex-1 min-w-[150px]"
                 >
-                  {isLoadingNewTask ? (
+                  {isGenerating ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                      Loading...
+                      Generating...
                     </>
                   ) : (
                     'Next Task'
@@ -892,7 +939,15 @@ export default function StudyTimerPage() {
                     <div className="w-2 h-2 rounded-full bg-blue-400"></div>
                     Solution
                   </h4>
-                  <MarkdownRenderer content={currentTask.solution} />
+                  {isGenerating ? (
+                    solutionText ? (
+                      <MarkdownRenderer content={solutionText} />
+                    ) : (
+                      <p className="text-white/40 text-sm">Generating solution...</p>
+                    )
+                  ) : (
+                    currentTask && <MarkdownRenderer content={currentTask.solution} />
+                  )}
                 </div>
               )}
 
@@ -903,7 +958,15 @@ export default function StudyTimerPage() {
                     <div className="w-2 h-2 rounded-full bg-green-400"></div>
                     Answer
                   </h4>
-                  <MarkdownRenderer content={currentTask.answer} />
+                  {isGenerating ? (
+                    answerText ? (
+                      <MarkdownRenderer content={answerText} />
+                    ) : (
+                      <p className="text-white/40 text-sm">Generating answer...</p>
+                    )
+                  ) : (
+                    currentTask && <MarkdownRenderer content={currentTask.answer} />
+                  )}
                 </div>
               )}
             </div>

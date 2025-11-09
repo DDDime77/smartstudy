@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Sparkles } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import Button from './Button';
 import GlassCard from './GlassCard';
-import MarkdownRenderer from './MarkdownRenderer';
 
 interface TaskGenerationModalProps {
   isOpen: boolean;
@@ -13,7 +12,7 @@ interface TaskGenerationModalProps {
   studySystem?: string;
 }
 
-type Step = 'subject' | 'ask-generate' | 'task-details' | 'generating';
+type Step = 'subject' | 'ask-generate' | 'task-details';
 
 export default function TaskGenerationModal({
   isOpen,
@@ -26,8 +25,6 @@ export default function TaskGenerationModal({
   const [wantsGeneration, setWantsGeneration] = useState<boolean | null>(null);
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState('');
-  const [generatedTasks, setGeneratedTasks] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
 
   // Common subjects based on study system
@@ -52,8 +49,6 @@ export default function TaskGenerationModal({
       setWantsGeneration(null);
       setTopic('');
       setDifficulty('');
-      setGeneratedTasks('');
-      setIsGenerating(false);
       setError('');
     }
   }, [isOpen]);
@@ -78,98 +73,27 @@ export default function TaskGenerationModal({
     }
   };
 
-  const handleGenerateTasks = async () => {
+  const handleGenerateTasks = () => {
     if (!topic.trim() || !difficulty) {
       setError('Please fill in all fields');
       return;
     }
 
     setError('');
-    setCurrentStep('generating');
-    setIsGenerating(true);
-    setGeneratedTasks('');
 
-    try {
-      const response = await fetch('/api/generate-tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subject,
-          topic,
-          difficulty,
-          studySystem,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate tasks');
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      const decoder = new TextDecoder();
-      let accumulatedText = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.delta) {
-                accumulatedText += data.delta;
-                setGeneratedTasks(accumulatedText);
-              }
-              if (data.done) {
-                // Clean up markdown code fences if present
-                let cleanedText = accumulatedText.trim();
-                if (cleanedText.startsWith('```markdown')) {
-                  cleanedText = cleanedText.replace(/^```markdown\s*\n/, '');
-                }
-                if (cleanedText.startsWith('```')) {
-                  cleanedText.replace(/^```\s*\n/, '');
-                }
-                if (cleanedText.endsWith('```')) {
-                  cleanedText = cleanedText.replace(/\n```\s*$/, '');
-                }
-
-                // Parse the three sections
-                const taskMatch = cleanedText.match(/# TASK\s*([\s\S]*?)(?=# SOLUTION|$)/i);
-                const solutionMatch = cleanedText.match(/# SOLUTION\s*([\s\S]*?)(?=# ANSWER|$)/i);
-                const answerMatch = cleanedText.match(/# ANSWER\s*([\s\S]*?)$/i);
-
-                const taskText = taskMatch ? taskMatch[1].trim() : '';
-                const solutionText = solutionMatch ? solutionMatch[1].trim() : '';
-                const answerText = answerMatch ? answerMatch[1].trim() : '';
-
-                setIsGenerating(false);
-
-                // Close modal and pass all data to study timer page
-                onComplete(subject, topic, difficulty, taskText, solutionText, answerText);
-                onClose();
-              }
-            } catch (e) {
-              // Ignore parsing errors
-            }
-          }
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate tasks');
-      setIsGenerating(false);
-      setCurrentStep('task-details');
+    // Store generation params in sessionStorage with pending flag
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('pendingTaskGeneration', JSON.stringify({
+        subject,
+        topic,
+        difficulty,
+        studySystem,
+      }));
     }
+
+    // Navigate to study-timer immediately (it will handle the streaming)
+    onComplete(subject, topic, difficulty, '', '', '');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -348,31 +272,6 @@ export default function TaskGenerationModal({
                     <Sparkles className="w-4 h-4 mr-2" />
                     Generate Tasks
                   </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Generating (Loading with streaming preview) */}
-            {currentStep === 'generating' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="text-center mb-6">
-                  <div className="flex items-center justify-center gap-3 mb-4">
-                    <div className="text-5xl animate-bounce">🤖</div>
-                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Generating Tasks...</h3>
-                  <p className="text-white/60">AI is creating personalized practice tasks for you</p>
-                </div>
-
-                <div className="max-h-96 overflow-y-auto border border-white/10 rounded-lg p-4 bg-black/20">
-                  {generatedTasks ? (
-                    <MarkdownRenderer content={generatedTasks} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <p className="text-white/40 mb-2">Waiting for response...</p>
-                      <p className="text-white/30 text-xs">This may take a few seconds</p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
