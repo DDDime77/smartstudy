@@ -70,6 +70,8 @@ export default function StudyTimerPage() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  // Store chat history per task ID
+  const [taskChatHistory, setTaskChatHistory] = useState<Record<string, { role: 'user' | 'assistant'; content: string }[]>>({});
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionStartTimeRef = useRef<number>(0); // Timestamp when current session segment started
@@ -145,6 +147,24 @@ export default function StudyTimerPage() {
       }
     }
   }, []);
+
+  // Load chat history when modal opens or task changes
+  useEffect(() => {
+    if (showChatModal && currentTaskId) {
+      const savedMessages = taskChatHistory[currentTaskId] || [];
+      setChatMessages(savedMessages);
+    }
+  }, [showChatModal, currentTaskId, taskChatHistory]);
+
+  // Save chat history when messages change
+  useEffect(() => {
+    if (currentTaskId && chatMessages.length > 0) {
+      setTaskChatHistory(prev => ({
+        ...prev,
+        [currentTaskId]: chatMessages
+      }));
+    }
+  }, [chatMessages, currentTaskId]);
 
   const startTaskGeneration = async (params: { subject: string, topic: string, difficulty: string, studySystem: string }) => {
     setIsGenerating(true);
@@ -1431,10 +1451,7 @@ export default function StudyTimerPage() {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setShowChatModal(false);
-                  setChatMessages([]);
-                }}
+                onClick={() => setShowChatModal(false)}
                 className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors"
               >
                 <X className="w-5 h-5 text-white/60" />
