@@ -42,8 +42,8 @@ export default function DashboardPage() {
     try {
       const data = await SubjectsService.getAll();
       // Sort by priority_coefficient descending (higher priority first)
-      const sorted = data.sort((a, b) => (b.priority_coefficient || 0) - (a.priority_coefficient || 0));
-      setSubjects(sorted);
+      // const sorted = data.sort((a, b) => (b.priority_coefficient || 0) - (a.priority_coefficient || 0));
+      setSubjects(data);
     } catch (error) {
       handleApiError(error, 'Failed to load subjects');
     } finally {
@@ -73,37 +73,37 @@ export default function DashboardPage() {
     newSubjects.splice(dropIndex, 0, draggedSubject);
 
     // Recalculate priority coefficients based on new order
-    const maxCoef = 3.0;
-    const minCoef = 0.5;
-    const step = newSubjects.length > 1 ? (maxCoef - minCoef) / (newSubjects.length - 1) : 0;
+    // const maxCoef = 3.0;
+    // const minCoef = 0.5;
+    // const step = newSubjects.length > 1 ? (maxCoef - minCoef) / (newSubjects.length - 1) : 0;
 
-    const updatedSubjects = newSubjects.map((subject, index) => ({
-      ...subject,
-      priority_coefficient: maxCoef - (step * index),
-    }));
+    // const updatedSubjects = newSubjects.map((subject, index) => ({
+    //   ...subject,
+    //   priority_coefficient: maxCoef - (step * index),
+    // }));
 
-    setSubjects(updatedSubjects);
+    setSubjects(newSubjects);
     setDraggedIndex(null);
 
     // Update priority coefficients in the backend
-    try {
-      await Promise.all(
-        updatedSubjects.map(subject =>
-          SubjectsService.update(subject.id, {
-            name: subject.name,
-            level: subject.level || undefined,
-            category: subject.category || undefined,
-            current_grade: subject.current_grade || undefined,
-            target_grade: subject.target_grade || undefined,
-            color: subject.color || undefined,
-            priority_coefficient: subject.priority_coefficient,
-          })
-        )
-      );
-    } catch (error) {
-      handleApiError(error, 'Failed to update subject priorities');
-      loadSubjects();
-    }
+    // try {
+    //   await Promise.all(
+    //     updatedSubjects.map(subject =>
+    //       SubjectsService.update(subject.id, {
+    //         name: subject.name,
+    //         level: subject.level || undefined,
+    //         category: subject.category || undefined,
+    //         current_grade: subject.current_grade || undefined,
+    //         target_grade: subject.target_grade || undefined,
+    //         color: subject.color || undefined,
+    //         priority_coefficient: subject.priority_coefficient,
+    //       })
+    //     )
+    //   );
+    // } catch (error) {
+    //   handleApiError(error, 'Failed to update subject priorities');
+    //   loadSubjects();
+    // }
   };
 
   const quickStats = [
@@ -314,7 +314,7 @@ export default function DashboardPage() {
                       <div className="text-right">
                         <div className="text-xs text-white/40">Priority</div>
                         <div className="text-sm font-bold text-white">
-                          {subject.priority_coefficient?.toFixed(1)}
+                          N/A
                         </div>
                       </div>
                     </div>

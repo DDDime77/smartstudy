@@ -248,7 +248,7 @@ export default function SettingsPage() {
                           onChange={(e) => setEducationData({...educationData, educationProgram: e.target.value})}
                           className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
                         >
-                          {educationPrograms[educationData.educationSystem]?.map((prog) => (
+                          {educationPrograms[educationData.educationSystem as keyof typeof educationPrograms]?.map((prog) => (
                             <option key={prog} value={prog} className="bg-gray-900">
                               {prog}
                             </option>
@@ -438,13 +438,13 @@ export default function SettingsPage() {
                                 <span className="text-white/80">{item.label}</span>
                               </div>
                               <button
-                                onClick={() => setNotifications({...notifications, [item.key]: !notifications[item.key]})}
+                                onClick={() => setNotifications({...notifications, [item.key]: !notifications[item.key as keyof typeof notifications]})}
                                 className={`w-12 h-6 rounded-full relative transition-colors ${
-                                  notifications[item.key] ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
+                                  notifications[item.key as keyof typeof notifications] ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
                                 }`}
                               >
                                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                                  notifications[item.key] ? 'translate-x-6' : 'translate-x-0.5'
+                                  notifications[item.key as keyof typeof notifications] ? 'translate-x-6' : 'translate-x-0.5'
                                 }`} />
                               </button>
                             </div>

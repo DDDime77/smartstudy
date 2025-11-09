@@ -1,5 +1,7 @@
 import { ApiClient } from './client';
-import { SubjectResponse, SubjectInput, UpdateSubject } from './onboarding';
+import type { SubjectResponse, SubjectInput, UpdateSubject } from './onboarding';
+
+export type { SubjectResponse };
 
 export interface SubjectStats {
   subject_id: string;

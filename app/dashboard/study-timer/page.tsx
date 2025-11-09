@@ -275,12 +275,10 @@ export default function StudyTimerPage() {
           <h3 className="text-2xl font-bold text-white mb-4">Study Techniques</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {techniques.map((technique) => (
+              <div key={technique.id} onClick={() => setSelectedTechnique(technique.id)} className="cursor-pointer">
               <GlassCard
-                key={technique.id}
                 hover
                 glow={selectedTechnique === technique.id}
-                className="cursor-pointer"
-                onClick={() => setSelectedTechnique(technique.id)}
               >
                 <div className={`bg-gradient-to-br ${technique.gradient} rounded-lg p-6`}>
                   <div className="text-4xl mb-3">{technique.icon}</div>
@@ -296,6 +294,7 @@ export default function StudyTimerPage() {
                   </div>
                 </div>
               </GlassCard>
+              </div>
             ))}
           </div>
         </div>

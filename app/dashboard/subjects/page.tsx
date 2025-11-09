@@ -162,9 +162,9 @@ export default function SubjectsPage() {
     const program = system.programs[programKey as keyof typeof system.programs];
     if (!program) return [];
 
-    if ('subjectGroups' in program && typeof program.subjectGroups === 'object') {
+    if ('subjectGroups' in program && typeof (program as any).subjectGroups === 'object') {
       const allSubjects: { name: string; category: string }[] = [];
-      Object.entries(program.subjectGroups).forEach(([group, subjects]) => {
+      Object.entries((program as any).subjectGroups).forEach(([group, subjects]) => {
         if (Array.isArray(subjects)) {
           subjects.forEach(subject => {
             allSubjects.push({ name: subject, category: group });
@@ -172,8 +172,8 @@ export default function SubjectsPage() {
         }
       });
       return allSubjects;
-    } else if ('subjects' in program && Array.isArray(program.subjects)) {
-      return program.subjects.map(subject => ({ name: subject, category: '' }));
+    } else if ('subjects' in program && Array.isArray((program as any).subjects)) {
+      return (program as any).subjects.map((subject: string) => ({ name: subject, category: '' }));
     }
 
     return [];
@@ -202,7 +202,7 @@ export default function SubjectsPage() {
     const program = system.programs[programKey as keyof typeof system.programs];
     if (!program || !('grading' in program)) return [];
 
-    const grading = program.grading;
+    const grading = (program as any).grading;
     if ('scale' in grading && Array.isArray(grading.scale)) {
       return grading.scale.map(String);
     } else if ('letterGrades' in grading && Array.isArray(grading.letterGrades)) {
@@ -333,12 +333,12 @@ export default function SubjectsPage() {
                       {subject.target_grade && (
                         <div className="flex items-center gap-1">
                           <span className="text-white/60 text-sm">Target:</span>
-                          <Badge
-                            className="text-white"
+                          <span
+                            className="text-white text-xs px-2 py-1 rounded-full"
                             style={{ backgroundColor: subject.color || '#6366f1' }}
                           >
                             {subject.target_grade}
-                          </Badge>
+                          </span>
                         </div>
                       )}
                     </div>
@@ -377,7 +377,7 @@ export default function SubjectsPage() {
                     <select
                       value={addForm.name}
                       onChange={(e) => {
-                        const subject = getAvailableSubjects().find(s => s.name === e.target.value);
+                        const subject = getAvailableSubjects().find((s: { name: string; category: string }) => s.name === e.target.value);
                         setAddForm({
                           ...addForm,
                           name: e.target.value,
@@ -387,7 +387,7 @@ export default function SubjectsPage() {
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
                     >
                       <option value="">Select a subject</option>
-                      {getAvailableSubjects().map((subject) => (
+                      {getAvailableSubjects().map((subject: { name: string; category: string }) => (
                         <option key={subject.name} value={subject.name}>
                           {subject.name} {subject.category && `(${subject.category})`}
                         </option>
@@ -420,7 +420,7 @@ export default function SubjectsPage() {
                         className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
                       >
                         <option value="">Select grade</option>
-                        {getAvailableGrades().map((grade) => (
+                        {getAvailableGrades().map((grade: string) => (
                           <option key={grade} value={grade}>{grade}</option>
                         ))}
                       </select>
@@ -433,7 +433,7 @@ export default function SubjectsPage() {
                         className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
                       >
                         <option value="">Select grade</option>
-                        {getAvailableGrades().map((grade) => (
+                        {getAvailableGrades().map((grade: string) => (
                           <option key={grade} value={grade}>{grade}</option>
                         ))}
                       </select>
@@ -622,12 +622,12 @@ export default function SubjectsPage() {
                           {subjectStats.target_grade && (
                             <div className="flex items-center gap-2">
                               <span className="text-white/60">Target:</span>
-                              <Badge
-                                className="text-lg px-3 text-white"
+                              <span
+                                className="text-lg px-3 py-1 rounded-full text-white"
                                 style={{ backgroundColor: subjectStats.subject_color || '#6366f1' }}
                               >
                                 {subjectStats.target_grade}
-                              </Badge>
+                              </span>
                             </div>
                           )}
                         </div>
