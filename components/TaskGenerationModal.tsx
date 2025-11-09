@@ -132,6 +132,18 @@ export default function TaskGenerationModal({
                 setGeneratedTasks(accumulatedText);
               }
               if (data.done) {
+                // Clean up markdown code fences if present
+                let cleanedText = accumulatedText.trim();
+                if (cleanedText.startsWith('```markdown')) {
+                  cleanedText = cleanedText.replace(/^```markdown\s*\n/, '');
+                }
+                if (cleanedText.startsWith('```')) {
+                  cleanedText = cleanedText.replace(/^```\s*\n/, '');
+                }
+                if (cleanedText.endsWith('```')) {
+                  cleanedText = cleanedText.replace(/\n```\s*$/, '');
+                }
+                setGeneratedTasks(cleanedText);
                 setIsGenerating(false);
                 setCurrentStep('preview');
               }

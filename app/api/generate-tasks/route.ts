@@ -53,7 +53,7 @@ Please generate the practice tasks now.`;
     const stream = await client.responses.create({
       model: 'o4-mini',
       stream: true,
-      instructions: 'You are a helpful tutor that returns clean Markdown only, no extra chatter.',
+      instructions: 'You are a helpful tutor. Return clean Markdown content directly. Do NOT wrap your response in markdown code fences (no ```markdown). Output the raw markdown content only.',
       input: prompt,
       reasoning: {
         effort: 'high',
