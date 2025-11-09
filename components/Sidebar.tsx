@@ -55,16 +55,6 @@ export default function Sidebar() {
     {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-5 w-5">
-          <path d="M9 11l3 3L22 4" />
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-        </svg>
-      ),
-      label: 'Tasks',
-      path: '/dashboard/tasks'
-    },
-    {
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-5 w-5">
           <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
         </svg>
       ),
@@ -90,7 +80,7 @@ export default function Sidebar() {
           <line x1="3" x2="21" y1="10" y2="10" />
         </svg>
       ),
-      label: 'Exams',
+      label: 'Preparation',
       path: '/dashboard/exams'
     },
     {

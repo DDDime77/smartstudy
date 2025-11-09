@@ -179,9 +179,9 @@ export default function DashboardPage() {
 
   const quickStats = [
     {
-      label: 'Tasks Due Today',
-      value: '0',
-      subtext: 'All caught up! 🎉',
+      label: 'Study Goal',
+      value: '0h',
+      subtext: 'Progress today',
       icon: <Clock className="w-5 h-5" />,
       gradient: 'from-blue-500/20 to-cyan-500/10'
     },
@@ -400,7 +400,7 @@ export default function DashboardPage() {
             )}
           </GlassCard>
 
-          {/* Upcoming Tasks */}
+          {/* Recent Activity */}
           <GlassCard>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -408,22 +408,17 @@ export default function DashboardPage() {
                   <Zap className="w-5 h-5 text-orange-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">Upcoming Tasks</h3>
-                  <p className="text-white/60 text-sm">Your pending assignments</p>
+                  <h3 className="text-xl font-bold text-white">Recent Activity</h3>
+                  <p className="text-white/60 text-sm">Your study progress</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/tasks')}>
-                View All
-              </Button>
             </div>
 
             <div className="space-y-3">
               <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
-                <div className="text-6xl opacity-20 mb-4">📝</div>
-                <p className="text-white/60">No tasks yet</p>
-                <Button className="mt-4" size="sm" onClick={() => router.push('/dashboard/tasks')}>
-                  + Add Task
-                </Button>
+                <div className="text-6xl opacity-20 mb-4">⚡</div>
+                <p className="text-white/60">No recent activity</p>
+                <p className="text-white/40 text-sm mt-2">Start studying to see your progress</p>
               </div>
             </div>
           </GlassCard>
@@ -437,14 +432,14 @@ export default function DashboardPage() {
             </div>
             <div className="flex-1 text-center md:text-left">
               <GradientText gradient="from-purple-400 to-pink-400">
-                <h3 className="text-xl font-bold mb-1">Add Your Exam Dates</h3>
+                <h3 className="text-xl font-bold mb-1">Add Your Preparation Dates</h3>
               </GradientText>
               <p className="text-white/60 text-sm">
-                Enable AI-powered spaced repetition and exam preparation timelines
+                Enable AI-powered spaced repetition and preparation timelines
               </p>
             </div>
             <Button variant="primary" onClick={() => router.push('/dashboard/exams')}>
-              + Add Exams
+              + Add Preparation
             </Button>
           </div>
         </GlassCard>

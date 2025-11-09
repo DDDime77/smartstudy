@@ -8,7 +8,7 @@ import AnimatedText from '@/components/AnimatedText';
 import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
-import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award, X, Check, ChevronDown, History } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Clock, Zap, BookOpen, Award, X, Check, ChevronDown, History, MessageCircle, Send } from 'lucide-react';
 import { SubjectsService, SubjectResponse } from '@/lib/api/subjects';
 import { SessionsService, StudySessionResponse, WeeklyStats } from '@/lib/api/sessions';
 import { PracticeTasksService, PracticeTask } from '@/lib/api/practice-tasks';
@@ -63,6 +63,12 @@ export default function StudyTimerPage() {
   const [taskText, setTaskText] = useState('');
   const [solutionText, setSolutionText] = useState('');
   const [answerText, setAnswerText] = useState('');
+
+  // AI Chat Modal state
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionStartTimeRef = useRef<number>(0); // Timestamp when current session segment started
@@ -361,6 +367,41 @@ export default function StudyTimerPage() {
       }
     } catch (error) {
       handleApiError(error, 'Failed to mark task');
+    }
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatInput.trim() || !currentTask) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsChatLoading(true);
+
+    try {
+      const response = await fetch('/api/chat-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...chatMessages, { role: 'user', content: userMessage }],
+          task: currentTask.task,
+          solution: currentTask.solution,
+          answer: currentTask.answer,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to get AI response');
+
+      const data = await response.json();
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+    } catch (error) {
+      handleApiError(error, 'Failed to get AI response');
+      setChatMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
+      ]);
+    } finally {
+      setIsChatLoading(false);
     }
   };
 
@@ -1026,31 +1067,45 @@ export default function StudyTimerPage() {
                       </Button>
                     </div>
 
-                    {/* Mark Correct/Incorrect & Next Task Buttons */}
-                    <div className="flex flex-wrap gap-3 mb-4">
-                      <Button
-                        variant="ghost"
+                    {/* Mark Correct/Incorrect & Ask Question Buttons */}
+                    <div className="flex gap-3 mb-4">
+                      {/* Small circular buttons for correct/incorrect */}
+                      <button
                         onClick={() => handleMarkCorrectIncorrect(true)}
                         disabled={isGenerating}
-                        className="flex-1 min-w-[140px] bg-green-500/10 hover:bg-green-500/20 border-green-500/30"
+                        className="w-12 h-12 rounded-full bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Mark Correct"
                       >
-                        <Check className="w-4 h-4 mr-2" />
-                        Mark Correct
-                      </Button>
-                      <Button
-                        variant="ghost"
+                        <Check className="w-6 h-6 text-green-400" />
+                      </button>
+                      <button
                         onClick={() => handleMarkCorrectIncorrect(false)}
                         disabled={isGenerating}
-                        className="flex-1 min-w-[140px] bg-red-500/10 hover:bg-red-500/20 border-red-500/30"
+                        className="w-12 h-12 rounded-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Mark Incorrect"
                       >
-                        <X className="w-4 h-4 mr-2" />
-                        Mark Incorrect
+                        <X className="w-6 h-6 text-red-400" />
+                      </button>
+
+                      {/* Ask Question button fills remaining space */}
+                      <Button
+                        variant="ghost"
+                        onClick={() => setShowChatModal(true)}
+                        disabled={isGenerating}
+                        className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30"
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Ask Question
                       </Button>
+                    </div>
+
+                    {/* Next Task Button */}
+                    <div className="mb-4">
                       <Button
                         variant="primary"
                         onClick={handleNextTask}
                         disabled={isGenerating}
-                        className="flex-1 min-w-[140px]"
+                        className="w-full"
                       >
                         {isGenerating ? (
                           <>
@@ -1350,6 +1405,109 @@ export default function StudyTimerPage() {
           </div>
         </GlassCard>
       </div>
+
+      {/* AI Chat Modal */}
+      {showChatModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-900 to-black border border-white/20 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Ask About This Task</h3>
+                  <p className="text-sm text-white/60">Get help understanding the problem and solution</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowChatModal(false);
+                  setChatMessages([]);
+                }}
+                className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-white/60" />
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {chatMessages.length === 0 ? (
+                <div className="text-center text-white/40 py-12">
+                  <Brain className="w-16 h-16 mx-auto mb-4 opacity-40" />
+                  <p className="text-lg">Ask me anything about this task!</p>
+                  <p className="text-sm mt-2">I can help explain concepts, walk through the solution, or clarify any doubts.</p>
+                </div>
+              ) : (
+                chatMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {msg.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                        <Brain className="w-4 h-4 text-blue-400" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                        msg.role === 'user'
+                          ? 'bg-blue-500/20 text-white border border-blue-500/30'
+                          : 'bg-white/10 text-white/90 border border-white/20'
+                      }`}
+                    >
+                      <MarkdownRenderer content={msg.content} />
+                    </div>
+                    {msg.role === 'user' && (
+                      <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-purple-400 font-bold">You</span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+              {isChatLoading && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Brain className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div className="bg-white/10 rounded-2xl px-4 py-3 border border-white/20">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input */}
+            <div className="p-6 border-t border-white/20">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !isChatLoading && handleSendChatMessage()}
+                  placeholder="Type your question..."
+                  disabled={isChatLoading}
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-blue-500/50 focus:bg-white/15 transition-all disabled:opacity-50"
+                />
+                <button
+                  onClick={handleSendChatMessage}
+                  disabled={!chatInput.trim() || isChatLoading}
+                  className="w-12 h-12 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105"
+                >
+                  <Send className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

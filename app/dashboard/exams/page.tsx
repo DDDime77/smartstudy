@@ -319,12 +319,12 @@ export default function ExamsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <AnimatedText
-              text="Exams"
+              text="Preparation"
               className="text-4xl md:text-5xl font-bold mb-2"
               variant="slide"
             />
             <p className="text-white/60 text-lg">
-              Manage your exam schedule and prepare effectively
+              Manage your preparation schedule and study effectively
             </p>
           </div>
           <Button variant="primary" onClick={() => {
@@ -347,7 +347,7 @@ export default function ExamsPage() {
             setDialogOpen(true);
           }}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Exam
+            Add Preparation
           </Button>
         </div>
 
@@ -360,11 +360,11 @@ export default function ExamsPage() {
                   <BookOpen className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-white/60 text-sm">Total Exams</p>
+                  <p className="text-white/60 text-sm">Total Preparations</p>
                   <p className="text-3xl font-bold text-white">{exams.length}</p>
                 </div>
               </div>
-              <p className="text-white/40 text-xs">All scheduled exams</p>
+              <p className="text-white/40 text-xs">All scheduled preparations</p>
             </div>
           </GlassCard>
 
@@ -396,7 +396,7 @@ export default function ExamsPage() {
                   </p>
                 </div>
               </div>
-              <p className="text-white/40 text-xs">With scheduled exams</p>
+              <p className="text-white/40 text-xs">With scheduled preparations</p>
             </div>
           </GlassCard>
         </div>
@@ -411,7 +411,7 @@ export default function ExamsPage() {
                   <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20">
                     <Calendar className="w-5 h-5 text-blue-400" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">Exam Calendar</h3>
+                  <h3 className="text-xl font-bold text-white">Preparation Calendar</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -507,14 +507,14 @@ export default function ExamsPage() {
                 <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20">
                   <Clock className="w-5 h-5 text-purple-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Upcoming Exams</h3>
+                <h3 className="text-xl font-bold text-white">Upcoming Preparations</h3>
               </div>
 
               {upcomingExams.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-6xl opacity-20 mb-4">📅</div>
-                  <p className="text-white/60">No upcoming exams</p>
-                  <p className="text-white/40 text-sm mt-2">Click any date to add an exam</p>
+                  <p className="text-white/60">No upcoming preparations</p>
+                  <p className="text-white/40 text-sm mt-2">Click any date to add a preparation</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -558,7 +558,7 @@ export default function ExamsPage() {
           </GlassCard>
         </div>
 
-        {/* Add/Edit Exam Dialog */}
+        {/* Add/Edit Preparation Dialog */}
         {dialogOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <GlassCard className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -566,11 +566,11 @@ export default function ExamsPage() {
                 <div>
                   <GradientText gradient="from-blue-400 to-purple-400">
                     <h2 className="text-3xl font-bold mb-2">
-                      {editingExam ? 'Edit Exam' : 'Add New Exam'}
+                      {editingExam ? 'Edit Preparation' : 'Add New Preparation'}
                     </h2>
                   </GradientText>
                   <p className="text-white/60">
-                    {editingExam ? 'Update exam details' : 'Schedule a new exam'}
+                    {editingExam ? 'Update preparation details' : 'Schedule a new preparation'}
                   </p>
                 </div>
 
@@ -611,7 +611,7 @@ export default function ExamsPage() {
 
                   {/* Date Input (dd/mm/yyyy) */}
                   <div>
-                    <label className="block text-white/80 text-sm mb-2">Exam Date * (dd/mm/yyyy)</label>
+                    <label className="block text-white/80 text-sm mb-2">Preparation Date * (dd/mm/yyyy)</label>
                     <input
                       type="text"
                       value={dateInput}
@@ -685,7 +685,7 @@ export default function ExamsPage() {
                     onClick={handleSubmit}
                     disabled={!formData.subject_id || !formData.exam_date || !formData.exam_type || !!dateError}
                   >
-                    {editingExam ? 'Update Exam' : 'Add Exam'}
+                    {editingExam ? 'Update Preparation' : 'Add Preparation'}
                   </Button>
                 </div>
               </div>
