@@ -61,8 +61,16 @@ IMPORTANT FORMATTING RULES:
   * CRITICAL: ALL mathematical expressions, variables, equations, and formulas MUST be wrapped in $ or $$ delimiters
   * Examples: Write $v = \\sqrt{\\frac{T}{\\mu}}$ NOT just v = T/μ
   * Keep entire formulas on single lines within delimiters - do NOT split formulas across multiple lines
+- LaTeX SIMPLICITY RULES (CRITICAL):
+  * Use \\frac NOT \\tfrac or \\dfrac
+  * Use \\left( and \\right) for auto-sizing parentheses, NOT \\bigl, \\bigr, \\Bigl, \\Bigr
+  * Do NOT use manual spacing commands like \\!, \\,, \\;, \\quad
+  * Use simple delimiters: () [] {} - avoid complex bracket sizing
+  * Keep LaTeX as simple as possible - avoid advanced TeX commands
+  * Every formula must be complete within ONE pair of $ or $$ - no splitting
 - Use the section headers exactly as shown: # TASK, # SOLUTION, # ANSWER
 - Write formulas inline with text using $...$ for better readability
+- Each step in the solution should be on a new line for clarity
 
 Generate the problem now.`;
 
