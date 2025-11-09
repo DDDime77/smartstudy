@@ -79,7 +79,7 @@ export default function Sidebar() {
         </svg>
       ),
       label: 'Study Timer',
-      path: '/dashboard/timer'
+      path: '/dashboard/study-timer'
     },
     {
       icon: (
