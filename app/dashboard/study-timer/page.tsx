@@ -1074,12 +1074,11 @@ export default function StudyTimerPage() {
                       </div>
                       <div>
                         <label className="block text-white/80 text-sm mb-2">Difficulty</label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           {[
-                            { value: 'easy', label: 'Easy', emoji: '🟢' },
-                            { value: 'medium', label: 'Medium', emoji: '🟡' },
-                            { value: 'hard', label: 'Hard', emoji: '🟠' },
-                            { value: 'expert', label: 'Expert', emoji: '🔴' },
+                            { value: 'easy', label: 'Easy' },
+                            { value: 'medium', label: 'Medium' },
+                            { value: 'hard', label: 'Hard' },
                           ].map((diff) => (
                             <button
                               key={diff.value}
@@ -1090,7 +1089,6 @@ export default function StudyTimerPage() {
                                   : 'bg-white/5 border-white/10 hover:bg-white/10'
                               }`}
                             >
-                              <span className="mr-2">{diff.emoji}</span>
                               <span className="text-white text-sm">{diff.label}</span>
                             </button>
                           ))}
@@ -1169,10 +1167,9 @@ export default function StudyTimerPage() {
                       {showDifficultyDropdown && (
                         <div className="absolute top-full mt-2 bg-black/90 border border-white/20 rounded-lg p-2 z-10 min-w-[150px]">
                           {[
-                            { value: 'easy', label: 'Easy', emoji: '🟢' },
-                            { value: 'medium', label: 'Medium', emoji: '🟡' },
-                            { value: 'hard', label: 'Hard', emoji: '🟠' },
-                            { value: 'expert', label: 'Expert', emoji: '🔴' },
+                            { value: 'easy', label: 'Easy' },
+                            { value: 'medium', label: 'Medium' },
+                            { value: 'hard', label: 'Hard' },
                           ].map((diff) => (
                             <button
                               key={diff.value}
@@ -1186,7 +1183,6 @@ export default function StudyTimerPage() {
                                   : 'text-white/60 hover:bg-white/10 hover:text-white'
                               }`}
                             >
-                              <span className="mr-2">{diff.emoji}</span>
                               {diff.label}
                             </button>
                           ))}
@@ -1252,12 +1248,6 @@ export default function StudyTimerPage() {
                     </h4>
                     <div className="space-y-2">
                       {taskHistory.map((task) => {
-                        const difficultyEmojis: Record<string, string> = {
-                          easy: '🟢',
-                          medium: '🟡',
-                          hard: '🟠',
-                          expert: '🔴',
-                        };
                         return (
                           <button
                             key={task.id}
@@ -1279,7 +1269,6 @@ export default function StudyTimerPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-white/60">
-                              <span>{difficultyEmojis[task.difficulty] || '⚪'}</span>
                               <span className="capitalize">{task.difficulty}</span>
                               <span>•</span>
                               <span>{new Date(task.created_at).toLocaleDateString()}</span>
