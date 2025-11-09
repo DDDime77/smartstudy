@@ -18,7 +18,7 @@ export default function StudyTimerPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedTechnique, setSelectedTechnique] = useState('pomodoro');
-  const [sessionGoal, setSessionGoal] = useState(2);
+  const [sessionGoal, setSessionGoal] = useState(60); // Goal in minutes
   const [timeRemaining, setTimeRemaining] = useState(25 * 60); // Countdown timer in seconds
   const [elapsedSeconds, setElapsedSeconds] = useState(0); // Actual elapsed time
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -836,20 +836,20 @@ export default function StudyTimerPage() {
 
               {/* Session Goal */}
               <div className="mb-6">
-                <label className="block text-white/80 text-sm mb-3">Session Goal</label>
+                <label className="block text-white/80 text-sm mb-3">Daily Goal</label>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setSessionGoal(Math.max(1, sessionGoal - 1))}
+                    onClick={() => setSessionGoal(Math.max(15, sessionGoal - 15))}
                     className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
                   >
                     <span className="text-white">-</span>
                   </button>
                   <div className="flex-1 text-center">
                     <span className="text-2xl font-bold text-white">{sessionGoal}</span>
-                    <span className="text-white/60 ml-2">sessions</span>
+                    <span className="text-white/60 ml-2">minutes</span>
                   </div>
                   <button
-                    onClick={() => setSessionGoal(sessionGoal + 1)}
+                    onClick={() => setSessionGoal(sessionGoal + 15)}
                     className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
                   >
                     <span className="text-white">+</span>
@@ -861,12 +861,12 @@ export default function StudyTimerPage() {
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-white/60">Progress</span>
-                  <span className="text-white">{completedSessions} / {sessionGoal}</span>
+                  <span className="text-white">{todayMinutes} / {sessionGoal} min</span>
                 </div>
                 <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full transition-all"
-                    style={{ width: `${(completedSessions / sessionGoal) * 100}%` }}
+                    style={{ width: `${Math.min((todayMinutes / sessionGoal) * 100, 100)}%` }}
                   />
                 </div>
               </div>
