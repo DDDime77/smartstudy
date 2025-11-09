@@ -11,6 +11,7 @@ import GridBackground from '@/components/GridBackground';
 import TaskGenerationModal from '@/components/TaskGenerationModal';
 import { SubjectsService } from '@/lib/api/subjects';
 import { SubjectResponse, OnboardingService, ProfileResponse } from '@/lib/api/onboarding';
+import { SessionsService, WeeklyStats, StudySessionResponse } from '@/lib/api/sessions';
 import { handleApiError } from '@/lib/api/client';
 import { Calendar, Clock, BookOpen, TrendingUp, Award, Target, Activity, Zap } from 'lucide-react';
 
@@ -22,6 +23,9 @@ export default function DashboardPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<ProfileResponse | null>(null);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
+  const [recentSessions, setRecentSessions] = useState<StudySessionResponse[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -40,6 +44,8 @@ export default function DashboardPage() {
   useEffect(() => {
     loadSubjects();
     loadUserProfile();
+    loadWeeklyStats();
+    loadRecentSessions();
   }, []);
 
   const loadSubjects = async () => {
@@ -61,6 +67,26 @@ export default function DashboardPage() {
       setUserProfile(profile);
     } catch (error) {
       handleApiError(error, 'Failed to load user profile');
+    }
+  };
+
+  const loadWeeklyStats = async () => {
+    try {
+      const stats = await SessionsService.getWeeklyStats();
+      setWeeklyStats(stats);
+    } catch (error) {
+      handleApiError(error, 'Failed to load weekly stats');
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const loadRecentSessions = async () => {
+    try {
+      const sessions = await SessionsService.getRecent(3);
+      setRecentSessions(sessions);
+    } catch (error) {
+      handleApiError(error, 'Failed to load recent sessions');
     }
   };
 
@@ -144,6 +170,13 @@ export default function DashboardPage() {
     // }
   };
 
+  // Calculate statistics from data
+  const totalWeeklyHours = weeklyStats.reduce((sum, day) => sum + day.hours, 0);
+  const sessionsThisWeek = recentSessions.length;
+  const avgSessionDuration = sessionsThisWeek > 0
+    ? recentSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / sessionsThisWeek
+    : 0;
+
   const quickStats = [
     {
       label: 'Tasks Due Today',
@@ -154,22 +187,22 @@ export default function DashboardPage() {
     },
     {
       label: 'Study Hours',
-      value: '0h',
+      value: `${totalWeeklyHours.toFixed(1)}h`,
       subtext: 'This week',
       icon: <BookOpen className="w-5 h-5" />,
       gradient: 'from-purple-500/20 to-pink-500/10'
     },
     {
-      label: 'Upcoming Exams',
-      value: '0',
-      subtext: 'No exams scheduled',
+      label: 'Study Sessions',
+      value: `${sessionsThisWeek}`,
+      subtext: 'Recent sessions',
       icon: <Calendar className="w-5 h-5" />,
       gradient: 'from-green-500/20 to-emerald-500/10'
     },
     {
-      label: 'Task Completion',
-      value: '0%',
-      subtext: 'This week',
+      label: 'Avg Duration',
+      value: `${Math.round(avgSessionDuration)}m`,
+      subtext: 'Per session',
       icon: <Target className="w-5 h-5" />,
       gradient: 'from-orange-500/20 to-yellow-500/10'
     },
@@ -418,45 +451,98 @@ export default function DashboardPage() {
 
         {/* Weekly Progress */}
         <GlassCard className="mt-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
-              <TrendingUp className="w-5 h-5 text-green-400" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
+                <TrendingUp className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Weekly Progress</h3>
+                <p className="text-white/60 text-sm">Your study activity this week</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">Weekly Progress</h3>
-              <p className="text-white/60 text-sm">Track your study goals</p>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-white">{totalWeeklyHours.toFixed(1)}h</div>
+              <div className="text-xs text-white/60">Total this week</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-white/80">Study Goal</span>
-                <span className="text-white font-bold">0 / 20 hours</span>
-              </div>
-              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full"
-                  style={{ width: '0%' }}
-                />
-              </div>
-              <p className="text-xs text-white/40 mt-1">Start tracking your study time</p>
+          {loadingStats ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin h-8 w-8 border-4 border-white/20 border-t-white rounded-full"></div>
             </div>
+          ) : weeklyStats.length === 0 ? (
+            <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
+              <div className="text-6xl opacity-20 mb-4">📊</div>
+              <p className="text-white/60">No study sessions tracked yet</p>
+              <p className="text-white/40 text-sm mt-2">Start a study session to see your progress</p>
+            </div>
+          ) : (
+            <div>
+              {/* Bar Chart */}
+              <div className="flex items-end justify-between gap-2 h-48 mb-4">
+                {weeklyStats.map((dayStat) => {
+                  const maxHours = Math.max(...weeklyStats.map(d => d.hours), 1);
+                  const heightPercent = (dayStat.hours / maxHours) * 100;
+                  return (
+                    <div key={dayStat.date} className="flex-1 flex flex-col items-center gap-2">
+                      <div className="relative w-full group">
+                        <div
+                          className="w-full bg-gradient-to-t from-green-500 to-emerald-400 rounded-t-lg transition-all duration-300 hover:from-green-400 hover:to-emerald-300"
+                          style={{ height: `${Math.max(heightPercent, 5)}%` }}
+                        >
+                          {dayStat.hours > 0 && (
+                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="bg-black/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                {dayStat.hours.toFixed(1)}h
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-white/80">{dayStat.day}</div>
+                        <div className="text-xs text-white/40">{dayStat.hours.toFixed(1)}h</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-white/80">Tasks Completed</span>
-                <span className="text-white font-bold">0 / 0</span>
+              {/* Study Goal Progress */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-white/10">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white/80">Weekly Goal</span>
+                    <span className="text-white font-bold">{totalWeeklyHours.toFixed(1)} / 20 hours</span>
+                  </div>
+                  <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min((totalWeeklyHours / 20) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-white/40 mt-1">
+                    {totalWeeklyHours >= 20 ? '🎉 Goal achieved!' : `${(20 - totalWeeklyHours).toFixed(1)}h remaining`}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white/80">Daily Average</span>
+                    <span className="text-white font-bold">{(totalWeeklyHours / 7).toFixed(1)}h / day</span>
+                  </div>
+                  <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(((totalWeeklyHours / 7) / 3) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-white/40 mt-1">Target: 3h per day</p>
+                </div>
               </div>
-              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full"
-                  style={{ width: '0%' }}
-                />
-              </div>
-              <p className="text-xs text-white/40 mt-1">Add tasks to track progress</p>
             </div>
-          </div>
+          )}
         </GlassCard>
       </div>
 
