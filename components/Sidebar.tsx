@@ -81,7 +81,7 @@ export default function Sidebar() {
         </svg>
       ),
       label: 'Preparation',
-      path: '/dashboard/exams'
+      path: '/dashboard/preparation'
     },
     {
       icon: (

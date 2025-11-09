@@ -438,7 +438,7 @@ export default function DashboardPage() {
                 Enable AI-powered spaced repetition and exam preparation timelines
               </p>
             </div>
-            <Button variant="primary" onClick={() => router.push('/dashboard/exams')}>
+            <Button variant="primary" onClick={() => router.push('/dashboard/preparation')}>
               + Add Exams
             </Button>
           </div>

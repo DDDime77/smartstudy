@@ -945,6 +945,33 @@ export default function StudyTimerPage() {
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
+                {/* Action Buttons - Top Left */}
+                {currentTask && !isGenerating && (
+                  <div className="flex items-center gap-2 mr-4">
+                    <button
+                      onClick={() => handleMarkCorrectIncorrect(true)}
+                      className="w-10 h-10 rounded-full bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110"
+                      title="Mark Correct"
+                    >
+                      <Check className="w-5 h-5 text-green-400" />
+                    </button>
+                    <button
+                      onClick={() => handleMarkCorrectIncorrect(false)}
+                      className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110"
+                      title="Mark Incorrect"
+                    >
+                      <X className="w-5 h-5 text-red-400" />
+                    </button>
+                    <button
+                      onClick={handleNextTask}
+                      className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 hover:border-blue-500 flex items-center justify-center transition-all hover:scale-110"
+                      title="Skip to Next Task"
+                    >
+                      <ChevronDown className="w-5 h-5 text-blue-400 rotate-[-90deg]" />
+                    </button>
+                  </div>
+                )}
+
                 <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
                   <Brain className="w-5 h-5 text-indigo-400" />
                 </div>
@@ -1033,53 +1060,18 @@ export default function StudyTimerPage() {
                 ) : (
                   <>
                     {/* Task Display */}
-                    <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4 relative">
-                      {/* Action Buttons - Top Right Corner */}
-                      <div className="absolute top-4 right-4 flex items-center gap-2">
-                        <button
-                          onClick={() => handleMarkCorrectIncorrect(true)}
-                          disabled={isGenerating}
-                          className="w-10 h-10 rounded-full bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Mark Correct"
-                        >
-                          <Check className="w-5 h-5 text-green-400" />
-                        </button>
-                        <button
-                          onClick={() => handleMarkCorrectIncorrect(false)}
-                          disabled={isGenerating}
-                          className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Mark Incorrect"
-                        >
-                          <X className="w-5 h-5 text-red-400" />
-                        </button>
-                        <button
-                          onClick={handleNextTask}
-                          disabled={isGenerating}
-                          className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 hover:border-blue-500 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Skip to Next Task"
-                        >
-                          {isGenerating ? (
-                            <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-blue-400 rotate-[-90deg]" />
-                          )}
-                        </button>
-                      </div>
-
-                      {/* Task Content */}
-                      <div className="pr-32">
-                        {isGenerating ? (
-                          taskText ? (
-                            <MarkdownRenderer content={taskText} />
-                          ) : (
-                            <div className="flex items-center justify-center py-8">
-                              <p className="text-white/40">Waiting for response...</p>
-                            </div>
-                          )
+                    <div className="bg-black/20 rounded-lg p-6 border border-white/10 mb-4">
+                      {isGenerating ? (
+                        taskText ? (
+                          <MarkdownRenderer content={taskText} />
                         ) : (
-                          currentTask && <MarkdownRenderer content={currentTask.task} />
-                        )}
-                      </div>
+                          <div className="flex items-center justify-center py-8">
+                            <p className="text-white/40">Waiting for response...</p>
+                          </div>
+                        )
+                      ) : (
+                        currentTask && <MarkdownRenderer content={currentTask.task} />
+                      )}
                     </div>
 
                     {/* Action Buttons */}
