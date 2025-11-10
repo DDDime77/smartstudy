@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -38,6 +38,18 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info');
   const [showToast, setShowToast] = useState(false);
+
+  // Detect Google Classroom OAuth callback and show onboarding
+  useEffect(() => {
+    if (isOpen) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isClassroomCallback = urlParams.get('classroom') === 'success';
+
+      if (isClassroomCallback) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [isOpen]);
 
   const resetForm = () => {
     setEmail('');

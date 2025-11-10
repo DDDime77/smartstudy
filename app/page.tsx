@@ -18,7 +18,16 @@ export default function HomePage() {
   const router = useRouter();
 
   // Auto-redirect to dashboard if user is already logged in
+  // BUT skip redirect if returning from Google Classroom OAuth
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isClassroomCallback = urlParams.get('classroom') === 'success';
+
+    if (isClassroomCallback) {
+      setIsLoginOpen(true);
+      return;
+    }
+
     const token = ApiClient.getToken();
     if (token) {
       router.push('/dashboard');
