@@ -935,8 +935,8 @@ export default function ExamsPage() {
                   </Button>
                 </div>
               </div>
-              </GlassCard>
-            </div>
+            </GlassCard>
+          </div>
           </div>
         )}
 

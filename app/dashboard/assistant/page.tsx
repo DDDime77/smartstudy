@@ -102,18 +102,52 @@ export default function StudyAssistantPage() {
   const loadAssistantData = async (id: string) => {
     setIsLoading(true);
     try {
+      console.log('🔍 Loading assistant data for student:', id);
       const response = await fetch('/api/study-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: id })
       });
 
-      if (!response.ok) throw new Error('Failed to load assistant data');
+      console.log('📡 Assistant API response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API error:', errorText);
+        throw new Error(`Failed to load assistant data: ${response.status}`);
+      }
 
       const data = await response.json();
+      console.log('✅ Assistant data loaded:', data);
       setAssistantData(data);
     } catch (error) {
-      console.error('Error loading assistant:', error);
+      console.error('❌ Error loading assistant:', error);
+      // Set a minimal default data structure so the page doesn't crash
+      setAssistantData({
+        recommendation: 'Unable to load recommendations. Please check your internet connection and try again.',
+        taskAssignments: [],
+        context: {
+          summary: {
+            total_study_hours_this_week: 0,
+            total_study_hours_this_month: 0,
+            overall_success_rate: 0,
+            upcoming_exams_count: 0,
+            pending_assignments_count: 0,
+            goals_on_track: 0,
+            goals_behind: 0
+          },
+          topPriorities: {
+            exams: [],
+            assignments: []
+          },
+          nextSession: {
+            duration: 0,
+            subject: 'No data',
+            topics: [],
+            reasoning: 'Unable to load session data'
+          }
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -227,6 +261,24 @@ export default function StudyAssistantPage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
           <p className="text-white/60">Analyzing your study data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!assistantData) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <AlertTriangle className="w-12 h-12 text-orange-400" />
+          <p className="text-white">Failed to load assistant data</p>
+          <p className="text-white/60 text-sm">Please try refreshing the page</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all"
+          >
+            Refresh Page
+          </button>
         </div>
       </div>
     );

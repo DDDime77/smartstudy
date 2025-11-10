@@ -1,0 +1,30 @@
+{
+  "user_ids": {
+    "202e7cca-51d9-4a87-b6e5-cdd083b3a6c5": 0,
+    "a8a61c28-ba41-4b3e-baae-2951042007bb": 1,
+    "537b7b10-dd68-4e27-844f-20882922538a": 2,
+    "af7b3bcb-3593-427e-b430-380106777910": 3
+  },
+  "topics": {
+    "Exam Preparation": 0,
+    "Calculus": 1,
+    "Mechanics": 2,
+    "Waves": 3,
+    "Trig identity": 4,
+    "Sum": 5,
+    "Microeconomics": 6,
+    "elsa": 7
+  },
+  "difficulties": {
+    "easy": 0,
+    "medium": 1,
+    "hard": 2
+  },
+  "n_users": 4,
+  "n_topics": 8,
+  "n_difficulties": 3,
+  "timestamp_mean": 1760764296.6910691,
+  "timestamp_std": 753201.1026846729,
+  "time_mean": 252.1588921282799,
+  "time_std": 200.59655085526634
+}
