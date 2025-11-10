@@ -201,20 +201,22 @@ async def update_practice_task(
     # AUTOMATIC TRAINING
     # Trigger training when task is completed with actual results
     # Uses Embedding Model (trains every 5 new tasks globally)
+    # Training runs in BACKGROUND to not block the response
     if is_now_completed and was_not_completed and task.is_correct is not None and task.actual_time_seconds is not None:
         try:
-            # Use Embedding Model service (trains every 5 tasks)
+            # Use Embedding Model service (auto-trains every 5 tasks)
             embedding_service = EmbeddingModelService(db)
-            training_result = embedding_service.on_task_completed(
+            result = embedding_service.on_task_completed(
                 user_id=current_user.id,
                 topic=task.topic,
-                verbose=True
+                verbose=True,
+                async_training=True  # Non-blocking background training
             )
-            if training_result['training_triggered']:
-                print(f"Embedding model auto-training triggered: {training_result['training_result']}")
+
+            if result['training_scheduled']:
+                print(f"🔄 Training started in background: {result['message']}")
             else:
-                tracker = training_result['training_result']
-                print(f"Embedding model: {tracker['message']}")
+                print(f"Embedding model: {result['message']}")
         except Exception as e:
             # Log error but don't fail the request
             print(f"Auto-training failed: {e}")

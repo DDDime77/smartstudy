@@ -352,15 +352,19 @@ class EmbeddingModelService:
             'model_type': 'embedding_lstm'
         }
 
-    def on_task_completed(self, user_id: UUID, topic: str, verbose: bool = False) -> Dict:
+    def on_task_completed(self, user_id: UUID, topic: str, verbose: bool = False, async_training: bool = True) -> Dict:
         """
         Called when a task is completed
 
         Increments counter and triggers training if needed
 
+        Args:
+            async_training: If True, training runs in background thread (non-blocking)
+
         Returns: {
             'training_triggered': bool,
-            'training_result': Dict or None
+            'training_scheduled': bool,  # True if background training started
+            'counter': int
         }
         """
 
@@ -368,12 +372,61 @@ class EmbeddingModelService:
         self._increment_samples_counter()
 
         # Check if training needed
-        training_result = self.train_if_needed(verbose=verbose)
+        if self._should_train():
+            if async_training:
+                # Start background training
+                import threading
+                import os
+                from dotenv import load_dotenv
+                from sqlalchemy import create_engine
+                from sqlalchemy.orm import sessionmaker
 
-        return {
-            'training_triggered': training_result['trained'],
-            'training_result': training_result
-        }
+                def background_train():
+                    load_dotenv()
+                    bg_engine = create_engine(os.getenv('DATABASE_URL'))
+                    BgSession = sessionmaker(bind=bg_engine)
+                    bg_db = BgSession()
+
+                    try:
+                        print("\n🚀 Starting background training...")
+                        bg_service = EmbeddingModelService(bg_db)
+                        bg_service.train_if_needed(verbose=True)
+                        print("✅ Background training complete\n")
+                    except Exception as e:
+                        print(f"❌ Background training failed: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    finally:
+                        bg_db.close()
+
+                train_thread = threading.Thread(target=background_train, daemon=True)
+                train_thread.start()
+
+                tracker = self._get_tracker_state()
+                return {
+                    'training_triggered': True,
+                    'training_scheduled': True,
+                    'counter': tracker['n_samples_since_training'],
+                    'message': 'Background training started'
+                }
+            else:
+                # Synchronous training (blocks)
+                training_result = self.train_if_needed(verbose=verbose)
+                return {
+                    'training_triggered': training_result['trained'],
+                    'training_scheduled': False,
+                    'counter': 0,
+                    'message': training_result['message']
+                }
+        else:
+            # No training needed
+            tracker = self._get_tracker_state()
+            return {
+                'training_triggered': False,
+                'training_scheduled': False,
+                'counter': tracker['n_samples_since_training'],
+                'message': f"No training needed ({tracker['n_samples_since_training']}/{self.TRAINING_THRESHOLD})"
+            }
 
     def get_status(self) -> Dict:
         """Get current model status"""

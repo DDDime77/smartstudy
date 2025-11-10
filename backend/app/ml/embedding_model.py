@@ -473,6 +473,33 @@ class TaskPredictionModel:
             # Return defaults if no model
             return 0.5, 60.0
 
+        # Check if all categories are known in metadata
+        user_id_str = str(next_task['user_id'])
+        topic = next_task['topic']
+        difficulty = next_task['difficulty']
+
+        # Check for unknown categories
+        if user_id_str not in self.metadata['user_ids']:
+            # Unknown user - return defaults
+            return 0.5, 60.0
+
+        if topic not in self.metadata['topics']:
+            # Unknown topic - return defaults
+            return 0.5, 60.0
+
+        if difficulty not in self.metadata['difficulties']:
+            # Unknown difficulty - return defaults
+            return 0.5, 60.0
+
+        # Check history for unknown categories
+        for task in user_history:
+            if str(task['user_id']) not in self.metadata['user_ids']:
+                return 0.5, 60.0
+            if task['topic'] not in self.metadata['topics']:
+                return 0.5, 60.0
+            if task['difficulty'] not in self.metadata['difficulties']:
+                return 0.5, 60.0
+
         # Combine history + next task
         sequence_data = user_history + [next_task]
 
