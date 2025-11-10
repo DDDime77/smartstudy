@@ -20,17 +20,24 @@ export default function HomePage() {
   // Auto-redirect to dashboard if user is already logged in
   // BUT skip redirect if returning from Google Classroom OAuth
   useEffect(() => {
+    console.log('🔵 [Home Page] ====== Page loaded, checking auth state ======');
     const urlParams = new URLSearchParams(window.location.search);
     const isClassroomCallback = urlParams.get('classroom') === 'success';
+    console.log('🔵 [Home Page] OAuth callback detected:', isClassroomCallback);
 
     if (isClassroomCallback) {
+      console.log('✅ [Home Page] Classroom OAuth callback - opening login modal');
       setIsLoginOpen(true);
       return;
     }
 
     const token = ApiClient.getToken();
+    console.log('🔵 [Home Page] User token exists:', !!token);
     if (token) {
+      console.log('✅ [Home Page] User authenticated - redirecting to dashboard');
       router.push('/dashboard');
+    } else {
+      console.log('🔵 [Home Page] No token - staying on home page');
     }
   }, [router]);
 

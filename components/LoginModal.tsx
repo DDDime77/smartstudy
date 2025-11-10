@@ -42,11 +42,16 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   // Detect Google Classroom OAuth callback and show onboarding
   useEffect(() => {
     if (isOpen) {
+      console.log('🟡 [Login Modal] ====== Login modal opened ======');
       const urlParams = new URLSearchParams(window.location.search);
       const isClassroomCallback = urlParams.get('classroom') === 'success';
+      console.log('🟡 [Login Modal] OAuth callback detected:', isClassroomCallback);
 
       if (isClassroomCallback) {
+        console.log('✅ [Login Modal] Opening onboarding modal to resume flow');
         setShowOnboarding(true);
+      } else {
+        console.log('🟡 [Login Modal] Normal modal open (login/signup)');
       }
     }
   }, [isOpen]);

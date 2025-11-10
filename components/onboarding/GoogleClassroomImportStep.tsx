@@ -21,11 +21,13 @@ interface CourseWithGrades extends Course {
 interface GoogleClassroomImportStepProps {
   onImportComplete: (subjects: any[]) => void;
   educationSystem: string;
+  onboardingState?: any;
 }
 
 export default function GoogleClassroomImportStep({
   onImportComplete,
-  educationSystem
+  educationSystem,
+  onboardingState
 }: GoogleClassroomImportStepProps) {
   const [step, setStep] = useState<'oauth' | 'select_courses'>('oauth');
   const [isLoading, setIsLoading] = useState(false);
@@ -50,34 +52,52 @@ export default function GoogleClassroomImportStep({
 
   useEffect(() => {
     const checkOAuthCallback = async () => {
+      console.log('🟣 [GoogleClassroom Frontend] ====== Checking for OAuth callback ======');
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('classroom') === 'success') {
+      const hasClassroomParam = urlParams.get('classroom') === 'success';
+      console.log('🟣 [GoogleClassroom Frontend] Has classroom=success param:', hasClassroomParam);
+
+      if (hasClassroomParam) {
+        console.log('🟣 [GoogleClassroom Frontend] OAuth callback detected, fetching courses...');
         setIsLoading(true);
         try {
+          console.log('🟣 [GoogleClassroom Frontend] Calling /api/google-classroom/courses...');
           const response = await fetch('/api/google-classroom/courses');
+          console.log('🟣 [GoogleClassroom Frontend] Response status:', response.status);
+
           if (!response.ok) {
             throw new Error('Failed to fetch courses');
           }
 
           const coursesData = await response.json();
+          console.log('✅ [GoogleClassroom Frontend] Received', coursesData.length, 'courses from API');
+          console.log('📚 [GoogleClassroom Frontend] Course details:', coursesData);
           setCourses(coursesData);
 
+          console.log('🟣 [GoogleClassroom Frontend] Auto-selecting all courses...');
           setSelectedCourses(new Set(coursesData.map((c: Course) => c.id)));
 
+          console.log('🟣 [GoogleClassroom Frontend] Initializing grade inputs...');
           const initialGrades = new Map();
           coursesData.forEach((course: Course) => {
             initialGrades.set(course.id, { current: '', target: '' });
           });
           setCourseGrades(initialGrades);
 
+          console.log('✅ [GoogleClassroom Frontend] Transitioning to course selection UI');
           setStep('select_courses');
 
+          console.log('🟣 [GoogleClassroom Frontend] Cleaning up URL parameters...');
           window.history.replaceState({}, '', window.location.pathname);
+          console.log('🎉 [GoogleClassroom Frontend] ====== Course loading complete ======');
         } catch (err: any) {
+          console.error('🔴 [GoogleClassroom Frontend] Error loading courses:', err);
           setError(err.message || 'Failed to load courses');
         } finally {
           setIsLoading(false);
         }
+      } else {
+        console.log('🟣 [GoogleClassroom Frontend] No OAuth callback detected, showing OAuth button');
       }
     };
 
@@ -85,10 +105,21 @@ export default function GoogleClassroomImportStep({
   }, []);
 
   const handleGoogleOAuth = async () => {
+    console.log('🟣 [GoogleClassroom Frontend] ====== Initiating Google OAuth ======');
     setIsLoading(true);
     setError(null);
 
     try {
+      // Save onboarding state before redirecting to OAuth
+      if (onboardingState) {
+        console.log('🟣 [GoogleClassroom Frontend] Saving onboarding state to localStorage:', onboardingState);
+        localStorage.setItem('onboarding_state', JSON.stringify(onboardingState));
+        console.log('✅ [GoogleClassroom Frontend] Onboarding state saved');
+      } else {
+        console.log('⚠️ [GoogleClassroom Frontend] No onboarding state to save');
+      }
+
+      console.log('🟣 [GoogleClassroom Frontend] Fetching OAuth URL from /api/google-classroom/oauth-url...');
       const response = await fetch('/api/google-classroom/oauth-url', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -100,9 +131,12 @@ export default function GoogleClassroomImportStep({
       }
 
       const { url } = await response.json();
+      console.log('✅ [GoogleClassroom Frontend] Received OAuth URL:', url);
+      console.log('🟣 [GoogleClassroom Frontend] Redirecting to Google OAuth...');
       window.location.href = url;
 
     } catch (err: any) {
+      console.error('🔴 [GoogleClassroom Frontend] Error initiating OAuth:', err);
       setError(err.message || 'An error occurred');
       setIsLoading(false);
     }

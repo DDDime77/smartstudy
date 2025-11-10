@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,37 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     subjects: [],
     availability: [],
   });
+
+  // Restore onboarding state when returning from Google OAuth
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🟠 [Onboarding Modal] ====== Modal opened, checking for OAuth callback ======');
+      const urlParams = new URLSearchParams(window.location.search);
+      const isClassroomCallback = urlParams.get('classroom') === 'success';
+      console.log('🟠 [Onboarding Modal] Is OAuth callback:', isClassroomCallback);
+
+      if (isClassroomCallback) {
+        console.log('🟠 [Onboarding Modal] OAuth callback detected, checking localStorage...');
+        const savedState = localStorage.getItem('onboarding_state');
+        console.log('🟠 [Onboarding Modal] Saved state exists:', !!savedState);
+
+        if (savedState) {
+          const parsed = JSON.parse(savedState);
+          console.log('✅ [Onboarding Modal] Restoring saved state:', parsed);
+          setOnboardingData(parsed);
+          console.log('✅ [Onboarding Modal] Resuming at Step 4 (Subjects)');
+          setCurrentStep(4); // Resume at Step 4 (Subjects)
+          console.log('🟠 [Onboarding Modal] Cleaning up localStorage...');
+          localStorage.removeItem('onboarding_state'); // Clean up
+          console.log('🎉 [Onboarding Modal] State restoration complete');
+        } else {
+          console.log('⚠️ [Onboarding Modal] No saved state found in localStorage');
+        }
+      } else {
+        console.log('🟠 [Onboarding Modal] Normal modal open (not OAuth callback)');
+      }
+    }
+  }, [isOpen]);
 
   const totalSteps = 5;
 
@@ -153,6 +184,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           {currentStep === 4 && onboardingData.import_method === 'google_classroom' && (
             <GoogleClassroomImportStep
               educationSystem={onboardingData.education_system || ''}
+              onboardingState={onboardingData}
               onImportComplete={(subjects) => {
                 updateData({ subjects });
                 nextStep();

@@ -49,18 +49,26 @@ function suggestCategory(courseName: string): string {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🟢 [Courses API] ====== Fetching courses from cookies ======');
+
     const cookieStore = cookies();
     const coursesCookie = cookieStore.get('google_courses');
 
+    console.log('🟢 [Courses API] Cookie exists:', !!coursesCookie);
+
     if (!coursesCookie) {
+      console.error('🔴 [Courses API] No courses cookie found');
       return NextResponse.json(
         { error: 'No courses found. Please authenticate with Google Classroom first.' },
         { status: 401 }
       );
     }
 
+    console.log('🟢 [Courses API] Parsing courses from cookie...');
     const courses = JSON.parse(coursesCookie.value);
+    console.log('🟢 [Courses API] Found', courses.length, 'courses in cookie');
 
+    console.log('🟢 [Courses API] Formatting courses and adding categories...');
     const formattedCourses = courses.map((course: any) => ({
       id: course.id,
       name: course.name || 'Untitled Course',
@@ -69,6 +77,12 @@ export async function GET(request: NextRequest) {
       suggested_level: null,
       suggested_category: suggestCategory(course.name || '')
     }));
+
+    console.log('✅ [Courses API] Returning', formattedCourses.length, 'formatted courses');
+    console.log('📚 [Courses API] Course list:', formattedCourses.map(c => ({
+      name: c.name,
+      category: c.suggested_category
+    })));
 
     return NextResponse.json(formattedCourses);
 
