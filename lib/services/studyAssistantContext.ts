@@ -186,12 +186,12 @@ export class StudyAssistantContextService {
   private async getStudent(studentId: string) {
     try {
       const result = await db.query(
-        'SELECT id, email as name FROM students WHERE id = $1',
+        'SELECT id, full_name as name FROM users WHERE id = $1',
         [studentId]
       );
       return result.rows[0] || { id: studentId, name: 'Student' };
     } catch (error) {
-      console.warn('Students table not found or error fetching student:', error);
+      console.warn('Users table not found or error fetching user:', error);
       return { id: studentId, name: 'Student' };
     }
   }
@@ -200,13 +200,17 @@ export class StudyAssistantContextService {
     try {
       const result = await db.query(`
         SELECT
-          id, subject, title, exam_date, weight,
-          EXTRACT(DAY FROM (exam_date - NOW())) as days_until
-        FROM exams
-        WHERE student_id = $1
-          AND exam_date > NOW()
-          AND status != 'completed'
-        ORDER BY exam_date ASC
+          e.id,
+          COALESCE(s.name, 'Unknown Subject') as subject,
+          COALESCE(e.exam_type, 'Exam') as title,
+          e.exam_date,
+          50 as weight,
+          EXTRACT(DAY FROM (e.exam_date - NOW())) as days_until
+        FROM exams e
+        LEFT JOIN subjects s ON e.subject_id = s.id
+        WHERE e.user_id = $1
+          AND e.exam_date > NOW()
+        ORDER BY e.exam_date ASC
         LIMIT 20
       `, [studentId]);
 
@@ -222,61 +226,37 @@ export class StudyAssistantContextService {
   }
 
   private async getPendingAssignments(studentId: string) {
-    try {
-      const result = await db.query(`
-        SELECT
-          id, subject, title, due_date, estimated_hours, completion_percentage,
-          EXTRACT(HOUR FROM (due_date - NOW())) as hours_until
-        FROM assignments
-        WHERE student_id = $1
-          AND status != 'completed'
-          AND due_date > NOW()
-        ORDER BY due_date ASC
-        LIMIT 20
-      `, [studentId]);
-
-      return result.rows.map(row => ({
-        ...row,
-        due_date: new Date(row.due_date),
-        hours_until: parseFloat(row.hours_until)
-      }));
-    } catch (error) {
-      console.warn('Assignments table not found or error fetching assignments:', error);
-      return [];
-    }
+    // Assignments table doesn't exist yet - return empty array
+    console.warn('Assignments feature not yet implemented in database');
+    return [];
   }
 
   private async getGoals(studentId: string) {
-    try {
-      const result = await db.query(`
-        SELECT subject, goal_type, target_value, current_value, progress_percentage
-        FROM student_goals
-        WHERE student_id = $1
-          AND (deadline IS NULL OR deadline > NOW())
-        ORDER BY progress_percentage ASC
-      `, [studentId]);
-
-      return result.rows;
-    } catch (error) {
-      console.warn('Goals table not found or error fetching goals:', error);
-      return [];
-    }
+    // Student goals table doesn't exist yet - return empty array
+    console.warn('Student goals feature not yet implemented in database');
+    return [];
   }
 
   private async getRecentStudySessions(studentId: string) {
     try {
       const result = await db.query(`
-        SELECT subject, duration_minutes, topics_covered, created_at
-        FROM study_sessions
-        WHERE student_id = $1
-          AND created_at > NOW() - INTERVAL '30 days'
-        ORDER BY created_at DESC
+        SELECT
+          COALESCE(s.name, 'Unknown Subject') as subject,
+          ss.duration_minutes,
+          ARRAY[]::text[] as topics_covered,
+          ss.created_at
+        FROM study_sessions ss
+        LEFT JOIN subjects s ON ss.subject_id = s.id
+        WHERE ss.user_id = $1
+          AND ss.created_at > NOW() - INTERVAL '30 days'
+        ORDER BY ss.created_at DESC
         LIMIT 100
       `, [studentId]);
 
       return result.rows.map(row => ({
         ...row,
         created_at: new Date(row.created_at),
+        duration_minutes: row.duration_minutes || 0,
         topics_covered: row.topics_covered || []
       }));
     } catch (error) {
@@ -289,12 +269,15 @@ export class StudyAssistantContextService {
     try {
       const result = await db.query(`
         SELECT
-          subject, topic, difficulty, is_correct,
-          time_spent_seconds, estimated_time_minutes, created_at
+          subject,
+          topic,
+          difficulty,
+          is_correct,
+          actual_time_seconds as time_spent_seconds,
+          estimated_time_minutes,
+          created_at
         FROM practice_tasks
-        WHERE study_session_id IN (
-          SELECT id FROM study_sessions WHERE student_id = $1
-        )
+        WHERE user_id = $1
           AND created_at > NOW() - INTERVAL '60 days'
         ORDER BY created_at DESC
         LIMIT 500
@@ -302,7 +285,9 @@ export class StudyAssistantContextService {
 
       return result.rows.map(row => ({
         ...row,
-        created_at: new Date(row.created_at)
+        created_at: new Date(row.created_at),
+        time_spent_seconds: row.time_spent_seconds || 0,
+        is_correct: row.is_correct || false
       }));
     } catch (error) {
       console.warn('Task history not found or error fetching tasks:', error);

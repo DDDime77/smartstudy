@@ -47,6 +47,7 @@ export interface ProfileResponse {
   user_id: string;
   education_system: string;
   education_program: string | null;
+  grade_level: string | null;
   timezone: string;
   study_goal: number | null; // Study goal in hours per week
 }

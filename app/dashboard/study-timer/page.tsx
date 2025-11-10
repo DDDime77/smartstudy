@@ -12,6 +12,7 @@ import { Play, Pause, RotateCcw, Coffee, Brain, Target, TrendingUp, Calendar, Cl
 import { SubjectsService, SubjectResponse } from '@/lib/api/subjects';
 import { SessionsService, StudySessionResponse, WeeklyStats } from '@/lib/api/sessions';
 import { PracticeTasksService, PracticeTask } from '@/lib/api/practice-tasks';
+import { OnboardingService } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
 
 export default function StudyTimerPage() {
@@ -123,6 +124,7 @@ export default function StudyTimerPage() {
     fetchSubjects();
     fetchRecentSessions();
     fetchWeeklyStats();
+    fetchUserGrade();
 
     // Check for pending task generation first (client-side only)
     if (typeof window !== 'undefined') {
@@ -614,6 +616,26 @@ export default function StudyTimerPage() {
     }
   };
 
+  const fetchUserGrade = async () => {
+    try {
+      const profile = await OnboardingService.getProfile();
+      if (profile.grade_level) {
+        // Extract numeric grade from strings like "Year 1 (Grade 11)" or "Grade 11"
+        const gradeMatch = profile.grade_level.match(/Grade (\d+)/i) || profile.grade_level.match(/(\d+)/);
+        if (gradeMatch) {
+          setInlineGrade(gradeMatch[1]);
+        } else {
+          setInlineGrade('9'); // Default fallback
+        }
+      } else {
+        setInlineGrade('9'); // Default if no grade level set
+      }
+    } catch (error) {
+      console.error('Failed to load user grade:', error);
+      setInlineGrade('9'); // Default on error
+    }
+  };
+
   const fetchRecentSessions = async () => {
     try {
       const data = await SessionsService.getRecent(20); // Fetch more to get all of today's sessions
@@ -1075,18 +1097,6 @@ export default function StudyTimerPage() {
                           placeholder="Enter topic (e.g., Quadratic equations)"
                           className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-white/80 text-sm mb-2">Grade Level</label>
-                        <select
-                          value={inlineGrade}
-                          onChange={(e) => setInlineGrade(e.target.value)}
-                          className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:border-white/30 focus:outline-none"
-                        >
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(grade => (
-                            <option key={grade} value={grade} className="bg-gray-900">{grade}</option>
-                          ))}
-                        </select>
                       </div>
                       <div>
                         <label className="block text-white/80 text-sm mb-2">Difficulty</label>
