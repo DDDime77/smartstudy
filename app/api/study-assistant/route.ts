@@ -351,8 +351,21 @@ async function generateStudyPlan(studentId: string) {
 
         controller.enqueue(encoder.encode(`✓ Found ${subjects.length} subjects\n`));
 
-        // Get user's availability from profile
-        const availability = profile?.preferred_study_times || [];
+        // Get user's availability from profile, or use default schedule
+        let availability = profile?.preferred_study_times || [];
+
+        // If no availability set, create default schedule (weekdays 4-6 PM)
+        if (!availability || availability.length === 0) {
+          controller.enqueue(encoder.encode('ℹ️ Using default study schedule (Mon-Fri, 4-6 PM)\n'));
+          availability = [
+            { day: 1, slots: [{ start: '16:00', end: '18:00' }] }, // Monday
+            { day: 2, slots: [{ start: '16:00', end: '18:00' }] }, // Tuesday
+            { day: 3, slots: [{ start: '16:00', end: '18:00' }] }, // Wednesday
+            { day: 4, slots: [{ start: '16:00', end: '18:00' }] }, // Thursday
+            { day: 5, slots: [{ start: '16:00', end: '18:00' }] }, // Friday
+          ];
+        }
+
         const today = new Date();
         const assignmentsCreated: any[] = [];
 
@@ -367,7 +380,7 @@ async function generateStudyPlan(studentId: string) {
           // Check if user has availability for this day
           const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
 
-          if (!dayAvailability || dayAvailability.slots.length === 0) {
+          if (!dayAvailability || !dayAvailability.slots || dayAvailability.slots.length === 0) {
             continue; // Skip days with no availability
           }
 
