@@ -570,6 +570,11 @@ export default function StudyTimerPage() {
         await SessionsService.update(currentSessionId, {
           end_time: new Date().toISOString(),
         });
+
+        // Update assignment time if this is an assignment session
+        if (assignmentSession) {
+          await saveAssignmentTime();
+        }
       } catch (error) {
         console.error('Failed to end session:', error);
       }
@@ -774,10 +779,31 @@ export default function StudyTimerPage() {
         interruptions_count: interruptions,
         ...(isFinal && { end_time: new Date().toISOString(), focus_rating: 3 })
       });
+
+      // Also update assignment time if this is an assignment session
+      if (assignmentSession && elapsedSeconds > 0) {
+        await saveAssignmentTime();
+      }
     } catch (error) {
       if (!isFinal) {
         console.error('Failed to save elapsed time:', error);
       }
+    }
+  };
+
+  const saveAssignmentTime = async () => {
+    if (!assignmentSession) return;
+
+    try {
+      const timeSpentMinutes = Math.floor(elapsedSeconds / 60);
+      const { AssignmentsService } = await import('@/lib/api/assignments');
+      await AssignmentsService.updateProgress(
+        assignmentSession.assignmentId,
+        assignmentTasksCompleted,
+        timeSpentMinutes
+      );
+    } catch (error) {
+      console.error('Failed to save assignment time:', error);
     }
   };
 
@@ -824,6 +850,22 @@ export default function StudyTimerPage() {
     if (currentSessionId && elapsedSeconds > 0) {
       await saveElapsedTime(true);
 
+      // Update assignment time if this is an assignment session
+      if (assignmentSession) {
+        await saveAssignmentTime();
+
+        // Check if assignment is complete
+        const timeSpentMinutes = Math.floor(elapsedSeconds / 60);
+        if (
+          assignmentTasksCompleted >= assignmentSession.requiredTasks &&
+          timeSpentMinutes >= assignmentSession.estimatedMinutes
+        ) {
+          alert('🎉 Assignment completed! Great work!');
+          sessionStorage.removeItem('assignmentSession');
+          setAssignmentSession(null);
+        }
+      }
+
       // Refresh data
       fetchRecentSessions();
       fetchWeeklyStats();
@@ -853,6 +895,22 @@ export default function StudyTimerPage() {
           interruptions_count: interruptions,
           focus_rating: 4, // Default good focus for completed sessions
         });
+
+        // Update assignment time if this is an assignment session
+        if (assignmentSession && elapsedSeconds > 0) {
+          await saveAssignmentTime();
+
+          // Check if assignment is complete
+          const timeSpentMinutes = Math.floor(elapsedSeconds / 60);
+          if (
+            assignmentTasksCompleted >= assignmentSession.requiredTasks &&
+            timeSpentMinutes >= assignmentSession.estimatedMinutes
+          ) {
+            alert('🎉 Assignment completed! Great work!');
+            sessionStorage.removeItem('assignmentSession');
+            setAssignmentSession(null);
+          }
+        }
 
         setCompletedSessions(prev => prev + 1);
 
