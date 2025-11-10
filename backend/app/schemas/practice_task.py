@@ -13,6 +13,10 @@ class PracticeTaskCreate(BaseModel):
     answer_content: str
     estimated_time_minutes: Optional[int] = None
     study_session_id: Optional[UUID] = None
+    # LNIRT predictions
+    predicted_correct: Optional[float] = None
+    predicted_time_seconds: Optional[int] = None
+    lnirt_model_version: Optional[str] = None
 
 
 class PracticeTaskUpdate(BaseModel):
@@ -38,6 +42,10 @@ class PracticeTaskResponse(BaseModel):
     completed_at: Optional[datetime]
     is_correct: Optional[bool]
     study_session_id: Optional[UUID]
+    # LNIRT predictions
+    predicted_correct: Optional[float]
+    predicted_time_seconds: Optional[int]
+    lnirt_model_version: Optional[str]
     created_at: datetime
     updated_at: datetime
 

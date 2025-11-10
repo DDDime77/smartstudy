@@ -27,6 +27,11 @@ class PracticeTask(Base):
     estimated_time_minutes = Column(Integer, nullable=True)  # AI estimation in minutes
     actual_time_seconds = Column(Integer, nullable=True)  # User's actual time in seconds
 
+    # LNIRT predictions
+    predicted_correct = Column(Float, nullable=True)  # LNIRT predicted probability
+    predicted_time_seconds = Column(Integer, nullable=True)  # LNIRT predicted time
+    lnirt_model_version = Column(String(50), nullable=True)  # Model version used
+
     # Completion status
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)

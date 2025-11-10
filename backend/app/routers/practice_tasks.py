@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import User, PracticeTask
 from app.schemas import PracticeTaskCreate, PracticeTaskUpdate, PracticeTaskResponse
+from app.ml import LNIRTService
 
 router = APIRouter(prefix="/practice-tasks", tags=["practice-tasks"])
 
@@ -26,10 +27,31 @@ async def create_practice_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new practice task"""
+    """Create a new practice task with LNIRT predictions"""
 
     # Map difficulty string to numeric value
     difficulty_numeric = DIFFICULTY_MAP.get(task_data.difficulty.lower())
+
+    # Get LNIRT predictions if not provided
+    predicted_correct = task_data.predicted_correct
+    predicted_time_seconds = task_data.predicted_time_seconds
+    lnirt_model_version = task_data.lnirt_model_version
+
+    if predicted_correct is None or predicted_time_seconds is None:
+        try:
+            lnirt_service = LNIRTService(db)
+            prediction = lnirt_service.predict_and_save(
+                user_id=current_user.id,
+                topic=task_data.topic,
+                difficulty=task_data.difficulty
+            )
+            predicted_correct = prediction['predicted_correct']
+            predicted_time_seconds = prediction['predicted_time_seconds']
+            lnirt_model_version = prediction['lnirt_model_version']
+        except Exception as e:
+            # If LNIRT prediction fails, continue without it
+            print(f"LNIRT prediction failed: {e}")
+            pass
 
     new_task = PracticeTask(
         user_id=current_user.id,
@@ -41,7 +63,11 @@ async def create_practice_task(
         solution_content=task_data.solution_content,
         answer_content=task_data.answer_content,
         estimated_time_minutes=task_data.estimated_time_minutes,
-        study_session_id=task_data.study_session_id
+        study_session_id=task_data.study_session_id,
+        # LNIRT predictions
+        predicted_correct=predicted_correct,
+        predicted_time_seconds=predicted_time_seconds,
+        lnirt_model_version=lnirt_model_version
     )
 
     db.add(new_task)
@@ -125,7 +151,10 @@ async def update_practice_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Update a practice task (mark correct/incorrect, add completion time, etc.)"""
+    """Update a practice task (mark correct/incorrect, add completion time, etc.)
+
+    Automatically triggers user-specific LNIRT training when task is completed with actual results.
+    """
 
     task = db.query(PracticeTask).filter(
         PracticeTask.id == task_id,
@@ -138,18 +167,38 @@ async def update_practice_task(
             detail="Practice task not found"
         )
 
+    # Track if this is a completion event
+    was_not_completed = not task.completed
+    is_now_completed = task_update.completed or (task_update.is_correct is not None and task_update.actual_time_seconds is not None)
+
     # Update fields
     update_data = task_update.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(task, field, value)
 
     # If marking as completed, set completed_at timestamp
-    if task_update.completed and not task.completed:
+    if is_now_completed and was_not_completed:
         from datetime import datetime
         task.completed_at = datetime.utcnow()
+        task.completed = True
 
     db.commit()
     db.refresh(task)
+
+    # AUTOMATIC USER-SPECIFIC TRAINING
+    # Trigger training when task is completed with actual results
+    if is_now_completed and was_not_completed and task.is_correct is not None and task.actual_time_seconds is not None:
+        try:
+            lnirt_service = LNIRTService(db)
+            training_result = lnirt_service.auto_train_on_completion(
+                user_id=current_user.id,
+                topic=task.topic
+            )
+            print(f"Auto-training completed: {training_result}")
+        except Exception as e:
+            # Log error but don't fail the request
+            print(f"Auto-training failed: {e}")
+            pass
 
     return task
 
