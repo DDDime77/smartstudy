@@ -21,6 +21,74 @@ export async function POST(req: NextRequest) {
 
     // Build comprehensive context with ML predictions
     const context = await assistantContext.buildContext(studentId);
+
+    // Check if we have any data
+    const hasData = context.exams.length > 0 ||
+                    context.assignments.length > 0 ||
+                    context.studySessions.length > 0 ||
+                    context.taskHistory.length > 0;
+
+    // If no data, return helpful onboarding message
+    if (!hasData && !query) {
+      return NextResponse.json({
+        recommendation: `Welcome to your AI Study Assistant! 🎓
+
+I'm here to help you optimize your learning and achieve your academic goals.
+
+To get started, I recommend:
+
+1. **Start a Study Session** - Use the Study Timer to begin tracking your study time
+2. **Generate Practice Tasks** - Create AI-powered practice problems to test your knowledge
+3. **Set Your Goals** - Define what you want to achieve this semester
+4. **Add Upcoming Exams** - Track important deadlines and get personalized prep plans
+
+Once you start studying and completing tasks, I'll be able to:
+- Analyze your performance trends
+- Predict optimal study times
+- Recommend what to focus on next
+- Help you prioritize your workload
+
+Ready to begin? Head to the Study Timer page and start your first session!`,
+        taskAssignments: [
+          {
+            type: 'getting_started',
+            title: 'Start Your First Study Session',
+            description: 'Begin tracking your study time to help me learn your patterns',
+            priority: 80,
+            estimatedMinutes: 25
+          },
+          {
+            type: 'getting_started',
+            title: 'Generate Your First Practice Task',
+            description: 'Try the AI task generator to create personalized practice problems',
+            priority: 70,
+            estimatedMinutes: 15
+          }
+        ],
+        context: {
+          summary: {
+            total_study_hours_this_week: 0,
+            total_study_hours_this_month: 0,
+            overall_success_rate: 0,
+            upcoming_exams_count: 0,
+            pending_assignments_count: 0,
+            goals_on_track: 0,
+            goals_behind: 0
+          },
+          topPriorities: {
+            exams: [],
+            assignments: []
+          },
+          nextSession: {
+            duration: 25,
+            subject: 'Getting Started',
+            topics: ['Setup', 'First Session'],
+            reasoning: 'Start with a 25-minute session to get familiar with the platform'
+          }
+        }
+      });
+    }
+
     const contextText = assistantContext.formatContextForLLM(context);
 
     // System prompt for the assistant

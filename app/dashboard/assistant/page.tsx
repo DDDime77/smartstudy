@@ -165,7 +165,7 @@ export default function StudyAssistantPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 p-6 flex items-center justify-center">
+      <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
           <p className="text-white/60">Analyzing your study data...</p>
@@ -175,7 +175,7 @@ export default function StudyAssistantPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">

@@ -103,147 +103,211 @@ export class StudyAssistantContextService {
    * Aggregates all student data and runs ML models
    */
   async buildContext(studentId: string): Promise<StudentContext> {
-    // Fetch all data in parallel
-    const [
-      student,
-      exams,
-      assignments,
-      goals,
-      studySessions,
-      taskHistory
-    ] = await Promise.all([
-      this.getStudent(studentId),
-      this.getUpcomingExams(studentId),
-      this.getPendingAssignments(studentId),
-      this.getGoals(studentId),
-      this.getRecentStudySessions(studentId),
-      this.getTaskHistory(studentId)
-    ]);
+    try {
+      // Fetch all data in parallel
+      const [
+        student,
+        exams,
+        assignments,
+        goals,
+        studySessions,
+        taskHistory
+      ] = await Promise.all([
+        this.getStudent(studentId),
+        this.getUpcomingExams(studentId),
+        this.getPendingAssignments(studentId),
+        this.getGoals(studentId),
+        this.getRecentStudySessions(studentId),
+        this.getTaskHistory(studentId)
+      ]);
 
-    // Run ML predictions
-    const predictions = this.runMLPredictions(
-      exams,
-      assignments,
-      studySessions,
-      taskHistory
-    );
+      // Run ML predictions
+      const predictions = this.runMLPredictions(
+        exams,
+        assignments,
+        studySessions,
+        taskHistory
+      );
 
-    // Calculate summary stats
-    const summary = this.calculateSummary(
-      studySessions,
-      taskHistory,
-      exams,
-      assignments,
-      goals
-    );
+      // Calculate summary stats
+      const summary = this.calculateSummary(
+        studySessions,
+        taskHistory,
+        exams,
+        assignments,
+        goals
+      );
 
-    return {
-      student,
-      exams,
-      assignments,
-      goals,
-      studySessions,
-      taskHistory,
-      predictions,
-      summary
-    };
+      return {
+        student,
+        exams,
+        assignments,
+        goals,
+        studySessions,
+        taskHistory,
+        predictions,
+        summary
+      };
+    } catch (error) {
+      console.error('Error building context:', error);
+      // Return empty context on error
+      return {
+        student: { id: studentId, name: 'Student' },
+        exams: [],
+        assignments: [],
+        goals: [],
+        studySessions: [],
+        taskHistory: [],
+        predictions: {
+          examPriorities: [],
+          assignmentPriorities: [],
+          performanceTrends: {},
+          nextSessionSuggestion: {
+            duration: 25,
+            subject: 'Getting Started',
+            topics: [],
+            reasoning: 'Start your first study session'
+          },
+          timeEstimates: {}
+        },
+        summary: {
+          total_study_hours_this_week: 0,
+          total_study_hours_this_month: 0,
+          upcoming_exams_count: 0,
+          pending_assignments_count: 0,
+          overall_success_rate: 0,
+          goals_on_track: 0,
+          goals_behind: 0
+        }
+      };
+    }
   }
 
   private async getStudent(studentId: string) {
-    const result = await db.query(
-      'SELECT id, email as name FROM students WHERE id = $1',
-      [studentId]
-    );
-    return result.rows[0];
+    try {
+      const result = await db.query(
+        'SELECT id, email as name FROM students WHERE id = $1',
+        [studentId]
+      );
+      return result.rows[0] || { id: studentId, name: 'Student' };
+    } catch (error) {
+      console.warn('Students table not found or error fetching student:', error);
+      return { id: studentId, name: 'Student' };
+    }
   }
 
   private async getUpcomingExams(studentId: string) {
-    const result = await db.query(`
-      SELECT
-        id, subject, title, exam_date, weight,
-        EXTRACT(DAY FROM (exam_date - NOW())) as days_until
-      FROM exams
-      WHERE student_id = $1
-        AND exam_date > NOW()
-        AND status != 'completed'
-      ORDER BY exam_date ASC
-      LIMIT 20
-    `, [studentId]);
+    try {
+      const result = await db.query(`
+        SELECT
+          id, subject, title, exam_date, weight,
+          EXTRACT(DAY FROM (exam_date - NOW())) as days_until
+        FROM exams
+        WHERE student_id = $1
+          AND exam_date > NOW()
+          AND status != 'completed'
+        ORDER BY exam_date ASC
+        LIMIT 20
+      `, [studentId]);
 
-    return result.rows.map(row => ({
-      ...row,
-      exam_date: new Date(row.exam_date),
-      days_until: parseFloat(row.days_until)
-    }));
+      return result.rows.map(row => ({
+        ...row,
+        exam_date: new Date(row.exam_date),
+        days_until: parseFloat(row.days_until)
+      }));
+    } catch (error) {
+      console.warn('Exams table not found or error fetching exams:', error);
+      return [];
+    }
   }
 
   private async getPendingAssignments(studentId: string) {
-    const result = await db.query(`
-      SELECT
-        id, subject, title, due_date, estimated_hours, completion_percentage,
-        EXTRACT(HOUR FROM (due_date - NOW())) as hours_until
-      FROM assignments
-      WHERE student_id = $1
-        AND status != 'completed'
-        AND due_date > NOW()
-      ORDER BY due_date ASC
-      LIMIT 20
-    `, [studentId]);
+    try {
+      const result = await db.query(`
+        SELECT
+          id, subject, title, due_date, estimated_hours, completion_percentage,
+          EXTRACT(HOUR FROM (due_date - NOW())) as hours_until
+        FROM assignments
+        WHERE student_id = $1
+          AND status != 'completed'
+          AND due_date > NOW()
+        ORDER BY due_date ASC
+        LIMIT 20
+      `, [studentId]);
 
-    return result.rows.map(row => ({
-      ...row,
-      due_date: new Date(row.due_date),
-      hours_until: parseFloat(row.hours_until)
-    }));
+      return result.rows.map(row => ({
+        ...row,
+        due_date: new Date(row.due_date),
+        hours_until: parseFloat(row.hours_until)
+      }));
+    } catch (error) {
+      console.warn('Assignments table not found or error fetching assignments:', error);
+      return [];
+    }
   }
 
   private async getGoals(studentId: string) {
-    const result = await db.query(`
-      SELECT subject, goal_type, target_value, current_value, progress_percentage
-      FROM student_goals
-      WHERE student_id = $1
-        AND (deadline IS NULL OR deadline > NOW())
-      ORDER BY progress_percentage ASC
-    `, [studentId]);
+    try {
+      const result = await db.query(`
+        SELECT subject, goal_type, target_value, current_value, progress_percentage
+        FROM student_goals
+        WHERE student_id = $1
+          AND (deadline IS NULL OR deadline > NOW())
+        ORDER BY progress_percentage ASC
+      `, [studentId]);
 
-    return result.rows;
+      return result.rows;
+    } catch (error) {
+      console.warn('Goals table not found or error fetching goals:', error);
+      return [];
+    }
   }
 
   private async getRecentStudySessions(studentId: string) {
-    const result = await db.query(`
-      SELECT subject, duration_minutes, topics_covered, created_at
-      FROM study_sessions
-      WHERE student_id = $1
-        AND created_at > NOW() - INTERVAL '30 days'
-      ORDER BY created_at DESC
-      LIMIT 100
-    `, [studentId]);
+    try {
+      const result = await db.query(`
+        SELECT subject, duration_minutes, topics_covered, created_at
+        FROM study_sessions
+        WHERE student_id = $1
+          AND created_at > NOW() - INTERVAL '30 days'
+        ORDER BY created_at DESC
+        LIMIT 100
+      `, [studentId]);
 
-    return result.rows.map(row => ({
-      ...row,
-      created_at: new Date(row.created_at),
-      topics_covered: row.topics_covered || []
-    }));
+      return result.rows.map(row => ({
+        ...row,
+        created_at: new Date(row.created_at),
+        topics_covered: row.topics_covered || []
+      }));
+    } catch (error) {
+      console.warn('Study sessions table not found or error fetching sessions:', error);
+      return [];
+    }
   }
 
   private async getTaskHistory(studentId: string) {
-    const result = await db.query(`
-      SELECT
-        subject, topic, difficulty, is_correct,
-        time_spent_seconds, estimated_time_minutes, created_at
-      FROM practice_tasks
-      WHERE study_session_id IN (
-        SELECT id FROM study_sessions WHERE student_id = $1
-      )
-        AND created_at > NOW() - INTERVAL '60 days'
-      ORDER BY created_at DESC
-      LIMIT 500
-    `, [studentId]);
+    try {
+      const result = await db.query(`
+        SELECT
+          subject, topic, difficulty, is_correct,
+          time_spent_seconds, estimated_time_minutes, created_at
+        FROM practice_tasks
+        WHERE study_session_id IN (
+          SELECT id FROM study_sessions WHERE student_id = $1
+        )
+          AND created_at > NOW() - INTERVAL '60 days'
+        ORDER BY created_at DESC
+        LIMIT 500
+      `, [studentId]);
 
-    return result.rows.map(row => ({
-      ...row,
-      created_at: new Date(row.created_at)
-    }));
+      return result.rows.map(row => ({
+        ...row,
+        created_at: new Date(row.created_at)
+      }));
+    } catch (error) {
+      console.warn('Task history not found or error fetching tasks:', error);
+      return [];
+    }
   }
 
   private runMLPredictions(exams: any[], assignments: any[], sessions: any[], taskHistory: any[]) {
