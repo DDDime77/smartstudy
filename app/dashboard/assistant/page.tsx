@@ -82,8 +82,7 @@ interface ChatMessage {
 }
 
 export default function StudyAssistantPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [assistantData, setAssistantData] = useState<AssistantResponse | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -116,8 +115,6 @@ export default function StudyAssistantPage() {
       await loadAssistantData(user.id, true);
     } catch (error) {
       console.error('Error loading student:', error);
-      setIsLoading(false);
-      setIsInitialLoad(false);
     }
   };
 
@@ -175,7 +172,6 @@ export default function StudyAssistantPage() {
     } finally {
       if (isInitial) {
         setIsLoading(false);
-        setIsInitialLoad(false);
       }
     }
   };
@@ -343,16 +339,7 @@ export default function StudyAssistantPage() {
     return 'text-red-400';
   };
 
-  if (isInitialLoad) {
-    return (
-      <div className="min-h-screen p-6 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
-          <p className="text-white/60">Analyzing your study data...</p>
-        </div>
-      </div>
-    );
-  }
+  // Removed loading overlay - show UI immediately and load data in background
 
   if (!assistantData) {
     return (

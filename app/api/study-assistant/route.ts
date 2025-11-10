@@ -282,10 +282,13 @@ ${contextText}
 
 You have access to tools for managing study assignments:
 - **create_assignment**: Create new study tasks (can call multiple times)
-- **delete_assignment**: Delete tasks by ID when user asks to remove/cancel them
+- **delete_assignment**: Delete tasks by ID when user asks to remove/cancel them (use the [ID: X] from the Pending Assignments list)
 - **generate_study_plan**: Create a week-long study plan
 
-You can call tools multiple times in a single response if needed.
+IMPORTANT: You can and SHOULD call multiple tools in a single response if needed. For example:
+- If user says "delete physics tasks and create new quantum physics ones", you should:
+  1. Call delete_assignment multiple times for each physics task (check Pending Assignments list for IDs and subjects)
+  2. Then call create_assignment multiple times to create the new quantum physics sessions
 
 CRITICAL INTELLIGENCE GUIDELINES:
 

@@ -436,10 +436,14 @@ ${context.predictions.examPriorities.slice(0, 5).map(e => {
 }).join('\n')}
 
 ## Pending Assignments (Top 5)
-${context.predictions.assignmentPriorities.slice(0, 5).map(a =>
-  `- ${a.title} (Priority: ${a.priority_score}/100, ${context.assignments.find(as => as.id === a.assignment_id)?.hours_until.toFixed(0)}h until due)
-    * Completion: ${context.assignments.find(as => as.id === a.assignment_id)?.completion_percentage}%
-`).join('\n')}
+${context.predictions.assignmentPriorities.slice(0, 5).map(a => {
+  const assignment = context.assignments.find(as => as.id === a.assignment_id);
+  return `- [ID: ${a.assignment_id}] ${a.title} (Priority: ${a.priority_score}/100, ${assignment?.hours_until.toFixed(0)}h until due)
+    * Subject: ${assignment?.subject_name}
+    * Topic: ${assignment?.topic || 'General'}
+    * Completion: ${assignment?.completion_percentage}%
+`;
+}).join('\n')}
 
 ## Performance Trends
 ${Object.entries(context.predictions.performanceTrends).map(([subject, trend]) =>
