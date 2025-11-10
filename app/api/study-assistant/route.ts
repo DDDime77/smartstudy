@@ -259,6 +259,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
+    // Check if user is requesting a study plan
+    const isStudyPlanRequest = /generate.*study plan|create.*study plan|make.*study plan|study plan/i.test(message);
+
+    if (isStudyPlanRequest) {
+      // Generate and save study plan assignments
+      return await generateStudyPlan(studentId);
+    }
+
     // Build context
     const context = await assistantContext.buildContext(studentId);
     const contextText = assistantContext.formatContextForLLM(context);
@@ -310,4 +318,121 @@ Be conversational, helpful, and reference their specific data when relevant.`;
     console.error('Chat error:', error);
     return NextResponse.json({ error: 'Chat failed' }, { status: 500 });
   }
+}
+
+/**
+ * Generate study plan and create assignments
+ */
+async function generateStudyPlan(studentId: string) {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        const { db } = await import('@/lib/db');
+
+        controller.enqueue(encoder.encode('📅 Analyzing your schedule and subjects...\n\n'));
+
+        // Get user's subjects, profile, and exams
+        const [subjectsResult, profileResult, examsResult] = await Promise.all([
+          db.query('SELECT * FROM subjects WHERE user_id = $1', [studentId]),
+          db.query('SELECT * FROM user_profiles WHERE user_id = $1', [studentId]),
+          db.query('SELECT * FROM exams WHERE user_id = $1 AND exam_date > NOW() ORDER BY exam_date LIMIT 5', [studentId])
+        ]);
+
+        const subjects = subjectsResult.rows;
+        const profile = profileResult.rows[0];
+        const upcomingExams = examsResult.rows;
+
+        if (subjects.length === 0) {
+          controller.enqueue(encoder.encode('⚠️ You need to add subjects first before I can create a study plan.\n'));
+          controller.close();
+          return;
+        }
+
+        controller.enqueue(encoder.encode(`✓ Found ${subjects.length} subjects\n`));
+
+        // Get user's availability from profile
+        const availability = profile?.preferred_study_times || [];
+        const today = new Date();
+        const assignmentsCreated: any[] = [];
+
+        controller.enqueue(encoder.encode('\n🎯 Creating personalized study assignments...\n\n'));
+
+        // Generate assignments for the next 7 days
+        for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+          const targetDate = new Date(today);
+          targetDate.setDate(today.getDate() + dayOffset);
+          const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 6 = Saturday
+
+          // Check if user has availability for this day
+          const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+
+          if (!dayAvailability || dayAvailability.slots.length === 0) {
+            continue; // Skip days with no availability
+          }
+
+          // Select subjects for this day (rotate through subjects)
+          const subjectsForDay = subjects.filter((_: any, idx: number) =>
+            (idx + dayOffset) % Math.ceil(7 / subjects.length) === 0
+          ).slice(0, 2); // Max 2 subjects per day
+
+          for (const subject of subjectsForDay) {
+            const slot = dayAvailability.slots[0]; // Use first available slot
+            const dateStr = targetDate.toISOString().split('T')[0];
+
+            // Check if there's an upcoming exam for this subject
+            const subjectExam = upcomingExams.find((e: any) => e.subject_id === subject.id);
+            const difficulty = subjectExam ? 'medium' : 'easy';
+            const estimatedMinutes = 45;
+
+            // Create assignment
+            const result = await db.query(
+              `INSERT INTO ai_assignments (
+                user_id, subject_id, title, subject_name, topic, difficulty,
+                scheduled_date, scheduled_time, estimated_minutes, required_tasks_count
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              RETURNING *`,
+              [
+                studentId,
+                subject.id,
+                `Study Session: ${subject.name}`,
+                subject.name,
+                subjectExam ? 'Exam Preparation' : 'Practice & Review',
+                difficulty,
+                dateStr,
+                slot.start,
+                estimatedMinutes,
+                5
+              ]
+            );
+
+            const assignment = result.rows[0];
+            assignmentsCreated.push(assignment);
+
+            const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+            controller.enqueue(encoder.encode(
+              `✓ Created Task ${assignmentsCreated.length}: ${subject.name} - ${dayName} ${targetDate.getDate()}/${targetDate.getMonth()+1} at ${slot.start}\n`
+            ));
+          }
+        }
+
+        controller.enqueue(encoder.encode(`\n✅ Successfully created ${assignmentsCreated.length} study assignments!\n\n`));
+        controller.enqueue(encoder.encode('📌 Your assignments are now visible in the Preparation calendar.\n'));
+        controller.enqueue(encoder.encode('💡 Click on any assignment in the calendar to start your study session!\n'));
+
+        controller.close();
+      } catch (error) {
+        console.error('Study plan generation error:', error);
+        controller.enqueue(encoder.encode('\n❌ Error creating study plan. Please try again.\n'));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+    },
+  });
 }

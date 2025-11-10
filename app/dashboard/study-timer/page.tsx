@@ -53,6 +53,10 @@ export default function StudyTimerPage() {
   const [inlineDifficulty, setInlineDifficulty] = useState('medium');
   const [inlineGrade, setInlineGrade] = useState('9');
 
+  // Assignment session tracking
+  const [assignmentSession, setAssignmentSession] = useState<any>(null);
+  const [assignmentTasksCompleted, setAssignmentTasksCompleted] = useState(0);
+
   // Next task difficulty selector
   const [nextTaskDifficulty, setNextTaskDifficulty] = useState('medium');
   const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false);
@@ -126,26 +130,51 @@ export default function StudyTimerPage() {
     fetchWeeklyStats();
     fetchUserGrade();
 
-    // Check for pending task generation first (client-side only)
+    // Check for assignment session first (client-side only)
     if (typeof window !== 'undefined') {
-      const pending = sessionStorage.getItem('pendingTaskGeneration');
-      if (pending) {
+      const assignmentData = sessionStorage.getItem('assignmentSession');
+      if (assignmentData) {
         try {
-          const params = JSON.parse(pending);
-          sessionStorage.removeItem('pendingTaskGeneration');
-          startTaskGeneration(params);
+          const assignment = JSON.parse(assignmentData);
+          setAssignmentSession(assignment);
+          setAssignmentTasksCompleted(assignment.currentTasks || 0);
+          setSelectedSubject(assignment.subjectId || '');
+          setInlineTopic(assignment.topic || '');
+          setInlineDifficulty(assignment.difficulty || 'medium');
+          // Auto-generate first task
+          if (assignment.subject && assignment.topic) {
+            startTaskGeneration({
+              subject: assignment.subject,
+              topic: assignment.topic,
+              difficulty: assignment.difficulty,
+              studySystem: 'IB',
+              grade: inlineGrade || '9',
+            });
+          }
         } catch (e) {
-          console.error('Failed to parse pending task generation:', e);
+          console.error('Failed to parse assignment session:', e);
         }
       } else {
-        // Load existing task from sessionStorage
-        const taskData = sessionStorage.getItem('currentTask');
-        if (taskData) {
+        // Check for pending task generation
+        const pending = sessionStorage.getItem('pendingTaskGeneration');
+        if (pending) {
           try {
-            const parsedTask = JSON.parse(taskData);
-            setCurrentTask(parsedTask);
+            const params = JSON.parse(pending);
+            sessionStorage.removeItem('pendingTaskGeneration');
+            startTaskGeneration(params);
           } catch (e) {
-            console.error('Failed to parse current task:', e);
+            console.error('Failed to parse pending task generation:', e);
+          }
+        } else {
+          // Load existing task from sessionStorage
+          const taskData = sessionStorage.getItem('currentTask');
+          if (taskData) {
+            try {
+              const parsedTask = JSON.parse(taskData);
+              setCurrentTask(parsedTask);
+            } catch (e) {
+              console.error('Failed to parse current task:', e);
+            }
           }
         }
       }
@@ -387,6 +416,37 @@ export default function StudyTimerPage() {
         completed: true,
         actual_time_seconds: actualTimeSeconds,
       });
+
+      // Update assignment progress if this is an assignment session
+      if (assignmentSession) {
+        const newTasksCompleted = assignmentTasksCompleted + 1;
+        setAssignmentTasksCompleted(newTasksCompleted);
+
+        // Calculate time spent (elapsed seconds from timer / 60)
+        const timeSpentMinutes = Math.floor(elapsedSeconds / 60);
+
+        // Update assignment via API
+        try {
+          const { AssignmentsService } = await import('@/lib/api/assignments');
+          await AssignmentsService.updateProgress(
+            assignmentSession.assignmentId,
+            newTasksCompleted,
+            timeSpentMinutes
+          );
+
+          // Check if assignment is complete
+          if (
+            newTasksCompleted >= assignmentSession.requiredTasks &&
+            timeSpentMinutes >= assignmentSession.estimatedMinutes
+          ) {
+            alert('🎉 Assignment completed! Great work!');
+            sessionStorage.removeItem('assignmentSession');
+            setAssignmentSession(null);
+          }
+        } catch (error) {
+          console.error('Failed to update assignment progress:', error);
+        }
+      }
 
       // Load next task with same topic and selected difficulty
       if (currentTask) {

@@ -10,8 +10,9 @@ import GridBackground from '@/components/GridBackground';
 import { ExamsService, ExamInput, ExamResponse, UpdateExam } from '@/lib/api/exams';
 import { SubjectsService } from '@/lib/api/subjects';
 import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/onboarding';
+import { AssignmentsService, AIAssignment } from '@/lib/api/assignments';
 import { handleApiError } from '@/lib/api/client';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target } from 'lucide-react';
 
 // Universal paper types for all education systems
 const PAPER_TYPES = [
@@ -37,17 +38,21 @@ interface DayCell {
   date: Date;
   isCurrentMonth: boolean;
   exams: ExamResponse[];
+  assignments: AIAssignment[];
 }
 
 export default function ExamsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [exams, setExams] = useState<ExamResponse[]>([]);
+  const [assignments, setAssignments] = useState<AIAssignment[]>([]);
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamResponse | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<AIAssignment | null>(null);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [formData, setFormData] = useState<ExamInput>({
     subject_id: '',
     exam_date: '',
@@ -105,8 +110,9 @@ export default function ExamsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [examsData, subjectsData, profileData] = await Promise.all([
+      const [examsData, assignmentsData, subjectsData, profileData] = await Promise.all([
         ExamsService.getAll(),
+        AssignmentsService.getAll(),
         SubjectsService.getAll(),
         OnboardingService.getProfile(),
       ]);
@@ -118,11 +124,18 @@ export default function ExamsPage() {
         typeof_date: typeof e.exam_date
       })));
 
+      console.log('Loaded assignments from API:', assignmentsData.map(a => ({
+        date: a.scheduled_date,
+        subject: a.subject_name,
+        status: a.status
+      })));
+
       setExams(examsData);
+      setAssignments(assignmentsData);
       setSubjects(subjectsData);
       setProfile(profileData);
     } catch (error) {
-      handleApiError(error, 'Failed to load exams');
+      handleApiError(error, 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -142,6 +155,19 @@ export default function ExamsPage() {
     }
 
     return matchingExams;
+  };
+
+  const getAssignmentsForDateString = (dateStr: string): AIAssignment[] => {
+    const matchingAssignments = assignments.filter(assignment => assignment.scheduled_date === dateStr);
+
+    if (matchingAssignments.length > 0) {
+      console.log('✓ Found assignment(s) for date string:', {
+        dateStr,
+        assignments: matchingAssignments.map(a => ({ subject: a.subject_name, status: a.status }))
+      });
+    }
+
+    return matchingAssignments;
   };
 
   const getDaysInMonth = (date: Date): DayCell[] => {
@@ -165,6 +191,7 @@ export default function ExamsPage() {
         date,
         isCurrentMonth: false,
         exams: getExamsForDateString(dateStr),
+        assignments: getAssignmentsForDateString(dateStr),
       });
     }
 
@@ -182,6 +209,7 @@ export default function ExamsPage() {
         date,
         isCurrentMonth: true,
         exams: getExamsForDateString(dateStr),
+        assignments: getAssignmentsForDateString(dateStr),
       });
     }
 
@@ -198,6 +226,7 @@ export default function ExamsPage() {
         date,
         isCurrentMonth: false,
         exams: getExamsForDateString(dateStr),
+        assignments: getAssignmentsForDateString(dateStr),
       });
     }
 
@@ -487,9 +516,34 @@ export default function ExamsPage() {
                             </div>
                           );
                         })}
-                        {day.exams.length > 2 && (
+                        {day.assignments.slice(0, 2 - Math.min(2, day.exams.length)).map(assignment => {
+                          const statusColor = assignment.status === 'completed' ? 'green' : assignment.status === 'in_progress' ? 'yellow' : 'blue';
+                          const statusBg = assignment.status === 'completed' ? '#10b98133' : assignment.status === 'in_progress' ? '#eab30833' : '#3b82f633';
+                          const statusBorder = assignment.status === 'completed' ? '#10b981' : assignment.status === 'in_progress' ? '#eab308' : '#3b82f6';
+                          return (
+                            <div
+                              key={assignment.id}
+                              className="text-xs p-1 rounded truncate cursor-pointer"
+                              style={{
+                                background: statusBg,
+                                borderLeft: `2px solid ${statusBorder}`
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAssignment(assignment);
+                                setShowAssignmentModal(true);
+                              }}
+                            >
+                              <div className="font-medium text-white/90 truncate flex items-center gap-1">
+                                {assignment.status === 'completed' && <CheckCircle className="w-3 h-3" />}
+                                {assignment.subject_name}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {(day.exams.length + day.assignments.length) > 2 && (
                           <div className="text-xs text-white/60">
-                            +{day.exams.length - 2} more
+                            +{day.exams.length + day.assignments.length - 2} more
                           </div>
                         )}
                       </div>
@@ -686,6 +740,134 @@ export default function ExamsPage() {
                     disabled={!formData.subject_id || !formData.exam_date || !formData.exam_type || !!dateError}
                   >
                     {editingExam ? 'Update Exam' : 'Add Exam'}
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        )}
+
+        {/* Assignment Session Modal */}
+        {showAssignmentModal && selectedAssignment && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowAssignmentModal(false)}>
+            <GlassCard onClick={(e: React.MouseEvent) => e.stopPropagation()} className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-white">Study Assignment</h3>
+                  <button
+                    onClick={() => setShowAssignmentModal(false)}
+                    className="text-white/60 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Assignment Details */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-5 h-5 text-blue-400" />
+                    <div>
+                      <p className="text-white/60 text-sm">Subject</p>
+                      <p className="text-white font-medium">{selectedAssignment.subject_name}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Target className="w-5 h-5 text-purple-400" />
+                    <div>
+                      <p className="text-white/60 text-sm">Topic</p>
+                      <p className="text-white font-medium">{selectedAssignment.topic}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-green-400" />
+                    <div>
+                      <p className="text-white/60 text-sm">Estimated Time</p>
+                      <p className="text-white font-medium">{selectedAssignment.estimated_minutes} minutes</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5 text-orange-400" />
+                    <div>
+                      <p className="text-white/60 text-sm">Scheduled</p>
+                      <p className="text-white font-medium">
+                        {new Date(selectedAssignment.scheduled_date).toLocaleDateString()}
+                        {selectedAssignment.scheduled_time && ` at ${selectedAssignment.scheduled_time}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Target className="w-5 h-5 text-pink-400" />
+                    <div>
+                      <p className="text-white/60 text-sm">Tasks to Complete</p>
+                      <p className="text-white font-medium">
+                        {selectedAssignment.tasks_completed} / {selectedAssignment.required_tasks_count} completed
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-white/60 text-sm">Progress</p>
+                      <p className="text-white text-sm font-medium">{selectedAssignment.progress_percentage}%</p>
+                    </div>
+                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all"
+                        style={{ width: `${selectedAssignment.progress_percentage}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div>
+                    <Badge variant={
+                      selectedAssignment.status === 'completed' ? 'glow' :
+                      selectedAssignment.status === 'in_progress' ? 'default' : 'default'
+                    }>
+                      {selectedAssignment.status === 'completed' ? '✓ Completed' :
+                       selectedAssignment.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  {selectedAssignment.status !== 'completed' && (
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        // Store assignment info and redirect to study timer
+                        if (typeof window !== 'undefined') {
+                          sessionStorage.setItem('assignmentSession', JSON.stringify({
+                            assignmentId: selectedAssignment.id,
+                            subject: selectedAssignment.subject_name,
+                            subjectId: selectedAssignment.subject_id,
+                            topic: selectedAssignment.topic,
+                            difficulty: selectedAssignment.difficulty,
+                            estimatedMinutes: selectedAssignment.estimated_minutes,
+                            requiredTasks: selectedAssignment.required_tasks_count,
+                            currentTasks: selectedAssignment.tasks_completed,
+                            timeSpent: selectedAssignment.time_spent_minutes,
+                          }));
+                          window.location.href = '/dashboard/study-timer';
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      Start Study Session
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowAssignmentModal(false)}
+                    className="flex-1"
+                  >
+                    Close
                   </Button>
                 </div>
               </div>
