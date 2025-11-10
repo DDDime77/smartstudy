@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const { subject, topic, difficulty, studySystem } = await req.json();
+    const { subject, topic, difficulty, studySystem, grade } = await req.json();
 
     if (!subject || !topic || !difficulty) {
       return NextResponse.json(
@@ -16,6 +16,18 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Calculate absolute difficulty for reasoning effort
+    // Grade contributes: higher grade = harder (1-6: easy, 7-9: medium, 10-12: hard)
+    // Difficulty level contributes: easy/medium/hard
+    const gradeNum = parseInt(grade) || 9; // Default to grade 9 if not provided
+    const gradeDifficulty = gradeNum <= 6 ? 0 : gradeNum <= 9 ? 1 : 2;
+    const levelDifficulty = difficulty === 'easy' ? 0 : difficulty === 'medium' ? 1 : 2;
+    const absoluteDifficulty = gradeDifficulty + levelDifficulty; // 0-4 scale
+
+    // Map absolute difficulty to reasoning effort
+    // 0-1: low, 2-3: medium, 4: high
+    const reasoningEffort = absoluteDifficulty <= 1 ? 'low' : absoluteDifficulty <= 3 ? 'medium' : 'high';
 
     // Common formatting rules for both stages
     const formattingRules = `
@@ -45,6 +57,7 @@ CONTEXT:
 - Study System: ${studySystem || 'IB (International Baccalaureate)'}
 - Subject: ${subject}
 - Topic: ${topic}
+- Grade Level: ${grade || '9-10'}
 - Difficulty Level: ${difficulty}
 
 TASK:
@@ -55,8 +68,9 @@ Generate a practice problem with TWO sections ONLY:
 
 REQUIREMENTS:
 - Align with ${studySystem || 'IB'} curriculum standards and command terms
-- Adjust complexity to ${difficulty} difficulty level
-- Make the problem relevant, engaging, and clear
+- Tailor complexity to grade ${grade || '9-10'} level (adjust vocabulary, concepts, and problem complexity appropriately)
+- Adjust difficulty within that grade level to ${difficulty} level
+- Make the problem relevant, engaging, and clear for grade ${grade || '9-10'} students
 - For mathematics, physics, or chemistry: include proper LaTeX formatting
 
 OUTPUT FORMAT - CRITICAL:
@@ -153,7 +167,7 @@ Generate the solution now. Be thorough and educational.`;
             instructions: 'You are a helpful tutor. Return clean Markdown content directly. Do NOT wrap your response in markdown code fences (no ```markdown). Output the raw markdown content only.',
             input: solutionPrompt,
             reasoning: {
-              effort: 'high',
+              effort: reasoningEffort,
             },
             max_output_tokens: 10000,
           });

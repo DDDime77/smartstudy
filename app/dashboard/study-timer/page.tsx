@@ -50,6 +50,7 @@ export default function StudyTimerPage() {
   // Inline topic/difficulty form state
   const [inlineTopic, setInlineTopic] = useState('');
   const [inlineDifficulty, setInlineDifficulty] = useState('medium');
+  const [inlineGrade, setInlineGrade] = useState('9');
 
   // Next task difficulty selector
   const [nextTaskDifficulty, setNextTaskDifficulty] = useState('medium');
@@ -167,7 +168,7 @@ export default function StudyTimerPage() {
     }
   }, [chatMessages, currentTaskId]);
 
-  const startTaskGeneration = async (params: { subject: string, topic: string, difficulty: string, studySystem: string }) => {
+  const startTaskGeneration = async (params: { subject: string, topic: string, difficulty: string, studySystem: string, grade?: string }) => {
     setIsGenerating(true);
     setTaskError('');
     setTaskText('');
@@ -356,6 +357,7 @@ export default function StudyTimerPage() {
       topic: inlineTopic,
       difficulty: inlineDifficulty,
       studySystem: 'IB',
+      grade: inlineGrade,
     });
   };
 
@@ -368,6 +370,7 @@ export default function StudyTimerPage() {
       topic: currentTask.topic,
       difficulty: nextTaskDifficulty,
       studySystem: 'IB',
+      grade: inlineGrade,
     });
   };
 
@@ -390,6 +393,7 @@ export default function StudyTimerPage() {
           topic: currentTask.topic,
           difficulty: nextTaskDifficulty,
           studySystem: 'IB',
+          grade: inlineGrade,
         });
       }
     } catch (error) {
@@ -1071,6 +1075,18 @@ export default function StudyTimerPage() {
                           placeholder="Enter topic (e.g., Quadratic equations)"
                           className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Grade Level</label>
+                        <select
+                          value={inlineGrade}
+                          onChange={(e) => setInlineGrade(e.target.value)}
+                          className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:border-white/30 focus:outline-none"
+                        >
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(grade => (
+                            <option key={grade} value={grade} className="bg-gray-900">{grade}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-white/80 text-sm mb-2">Difficulty</label>

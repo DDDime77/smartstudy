@@ -17,6 +17,7 @@ import {
   Sparkles,
   ChevronRight
 } from 'lucide-react';
+import { AuthService } from '@/lib/api/auth';
 
 interface TaskAssignment {
   type: string;
@@ -71,21 +72,31 @@ export default function StudyAssistantPage() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
-
-  // Mock student ID - replace with actual auth
-  const studentId = 'mock-student-id';
+  const [studentId, setStudentId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadAssistantData();
+    loadStudentAndData();
   }, []);
 
-  const loadAssistantData = async () => {
+  const loadStudentAndData = async () => {
+    try {
+      // Get the actual student ID from auth
+      const user = await AuthService.getCurrentUser();
+      setStudentId(user.id);
+      await loadAssistantData(user.id);
+    } catch (error) {
+      console.error('Error loading student:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const loadAssistantData = async (id: string) => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/study-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId })
+        body: JSON.stringify({ studentId: id })
       });
 
       if (!response.ok) throw new Error('Failed to load assistant data');
