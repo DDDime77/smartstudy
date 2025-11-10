@@ -305,34 +305,31 @@ ${contextText}
 You have access to tools for managing study assignments:
 - **list_assignments**: List all pending tasks (use this FIRST to see current tasks and get their UUIDs)
 - **create_assignment**: Create new study tasks (can call multiple times)
-- **delete_assignment**: Delete tasks by UUID (get UUIDs from list_assignments)
+- **delete_assignment**: Delete a single task by UUID
+- **delete_multiple_assignments**: Delete multiple tasks at once (RECOMMENDED for 3+ deletions)
 - **generate_study_plan**: Create a week-long study plan
 
 CRITICAL WORKFLOW: When deleting or modifying tasks:
 1. **ALWAYS call list_assignments FIRST** to see current tasks and get their UUIDs
 2. **READ THE TOOL RESULTS CAREFULLY** - if list_assignments returns assignments, they exist!
 3. **EXTRACT THE EXACT UUID VALUES** - Each assignment will show "UUID: abc-123-def-456..." on a separate line
-4. **USE THOSE EXACT UUID STRINGS** when calling delete_assignment - NOT numbers like 1, 2, 3!
+4. **FOR MULTIPLE DELETIONS**: Use delete_multiple_assignments with an array of all UUIDs (more efficient!)
+5. **FOR SINGLE DELETION**: Use delete_assignment with one UUID
+6. Then create new tasks as needed
+
+Example: User says "delete all math tasks" (30 tasks found)
+1. Call list_assignments(subject="Mathematics")
+2. Tool returns 30 assignments with UUIDs
+3. **IMPORTANT**: Extract ALL UUID values from each "UUID: " line into an array
+4. Call delete_multiple_assignments(assignment_ids=["uuid1", "uuid2", ..., "uuid30"])
+   - This deletes all 30 tasks in ONE function call
+   - DON'T call delete_assignment 30 times!
 5. Then create new tasks as needed
 
-Example: User says "delete physics tasks and create quantum physics ones"
+Example: User says "delete the first physics task" (1 task)
 1. Call list_assignments(subject="Physics")
-2. Tool returns:
-   "📋 Found 2 assignment(s):
-
-   Assignment 1:
-   UUID: 550e8400-e29b-41d4-a716-446655440000
-   Subject: Physics - Thermodynamics
-   ...
-
-   Assignment 2:
-   UUID: 660e8400-e29b-41d4-a716-446655440001
-   Subject: Physics - Mechanics
-   ..."
-3. **IMPORTANT**: Extract the UUID values from each "UUID: " line
-4. Call delete_assignment(assignment_id="550e8400-e29b-41d4-a716-446655440000")
-5. Call delete_assignment(assignment_id="660e8400-e29b-41d4-a716-446655440001")
-6. Call create_assignment to create new quantum physics sessions
+2. Extract the first UUID
+3. Call delete_assignment(assignment_id="uuid")
 
 NEVER ignore or dismiss tool results. If a tool returns data, USE that data!
 **NEVER use integer IDs like 1, 2, 3 - ALWAYS use the full UUID string from the "UUID:" field!**
@@ -443,7 +440,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
         type: 'function',
         function: {
           name: 'delete_assignment',
-          description: 'Delete a study assignment by its ID. Use this when the user asks to remove, delete, or cancel a specific task or assignment.',
+          description: 'Delete a single study assignment by its ID. For deleting multiple assignments at once, use delete_multiple_assignments instead.',
           parameters: {
             type: 'object',
             properties: {
@@ -453,6 +450,26 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               }
             },
             required: ['assignment_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'delete_multiple_assignments',
+          description: 'Delete multiple study assignments at once by providing an array of UUIDs. This is more efficient than calling delete_assignment multiple times. Use this when deleting many tasks (e.g., "delete all math tasks", "clear all assignments").',
+          parameters: {
+            type: 'object',
+            properties: {
+              assignment_ids: {
+                type: 'array',
+                items: {
+                  type: 'string'
+                },
+                description: 'Array of assignment UUIDs to delete (get these from list_assignments)'
+              }
+            },
+            required: ['assignment_ids']
           }
         }
       },
@@ -545,6 +562,9 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             } else if (toolCall.function.name === 'delete_assignment') {
               const args = JSON.parse(toolCall.function.arguments);
               await deleteAssignmentInline(studentId, args, captureController, captureEncoder);
+            } else if (toolCall.function.name === 'delete_multiple_assignments') {
+              const args = JSON.parse(toolCall.function.arguments);
+              await deleteMultipleAssignmentsInline(studentId, args, captureController, captureEncoder);
             } else if (toolCall.function.name === 'list_assignments') {
               const args = JSON.parse(toolCall.function.arguments);
               await listAssignmentsInline(studentId, args, captureController, captureEncoder);
@@ -1255,6 +1275,76 @@ async function deleteAssignmentInline(
   } catch (error) {
     console.error('Error deleting assignment:', error);
     controller.enqueue(encoder.encode('❌ Error deleting assignment\n'));
+  }
+}
+
+/**
+ * Delete multiple assignments by UUIDs
+ */
+async function deleteMultipleAssignmentsInline(
+  studentId: string,
+  params: any,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+) {
+  const { db } = await import('@/lib/db');
+
+  try {
+    const assignmentIds = params.assignment_ids;
+
+    if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+      controller.enqueue(encoder.encode('⚠️ No assignment IDs provided\n'));
+      return;
+    }
+
+    controller.enqueue(encoder.encode(`🗑️  Deleting ${assignmentIds.length} assignment(s)...\n\n`));
+
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    for (const assignmentId of assignmentIds) {
+      try {
+        // Get assignment details before deleting
+        const assignmentResult = await db.query(
+          'SELECT * FROM ai_assignments WHERE id = $1 AND user_id = $2',
+          [assignmentId, studentId]
+        );
+
+        if (assignmentResult.rows.length === 0) {
+          controller.enqueue(encoder.encode(`⚠️  Skipped: Assignment ${assignmentId} not found\n`));
+          failedCount++;
+          continue;
+        }
+
+        const assignment = assignmentResult.rows[0];
+
+        // Delete the assignment
+        await db.query(
+          'DELETE FROM ai_assignments WHERE id = $1 AND user_id = $2',
+          [assignmentId, studentId]
+        );
+
+        controller.enqueue(encoder.encode(
+          `✓ Deleted: ${assignment.subject_name} - ${assignment.topic}\n`
+        ));
+        deletedCount++;
+
+      } catch (error) {
+        console.error(`Error deleting assignment ${assignmentId}:`, error);
+        controller.enqueue(encoder.encode(`❌ Failed to delete: ${assignmentId}\n`));
+        failedCount++;
+      }
+    }
+
+    controller.enqueue(encoder.encode(
+      `\n✅ Successfully deleted ${deletedCount} assignment(s)` +
+      (failedCount > 0 ? ` (${failedCount} failed)` : '') +
+      '\n'
+    ));
+
+  } catch (error) {
+    console.error('Error in batch delete:', error);
+    controller.enqueue(encoder.encode('❌ Error deleting assignments\n'));
   }
 }
 

@@ -6,13 +6,14 @@ import Button from '@/components/Button';
 import Badge from '@/components/Badge';
 import GradientText from '@/components/GradientText';
 import { ExamResponse } from '@/lib/api/exams';
-import { SubjectResponse } from '@/lib/api/onboarding';
+import { SubjectResponse, ProfileResponse } from '@/lib/api/onboarding';
 import { BusySlot } from '@/lib/api/schedule';
 import { Calendar, Clock, Target, TrendingUp, Zap, Loader2, CheckCircle } from 'lucide-react';
 
 interface ExamPrepSchedulerProps {
   exam: ExamResponse;
   subject: SubjectResponse | undefined;
+  profile: ProfileResponse | null;
   busySlots: BusySlot[];
   onClose: () => void;
   onComplete: () => void;
@@ -29,6 +30,7 @@ interface CalculationResult {
 export default function ExamPrepScheduler({
   exam,
   subject,
+  profile,
   busySlots,
   onClose,
   onComplete,
@@ -92,11 +94,7 @@ export default function ExamPrepScheduler({
       let usedAI = false;
 
       try {
-        // Fetch user profile for education context
-        const profileRes = await fetch('/api/user/profile');
-        const profileData = await profileRes.json();
-
-        // Call AI estimation API
+        // Call AI estimation API with profile data
         const estimationRes = await fetch('/api/estimate-study-time', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -106,9 +104,9 @@ export default function ExamPrepScheduler({
             units: cleanUnits,
             daysUntilExam: daysUntil,
             availableHours: totalAvailableHours,
-            gradeLevel: profileData.grade_level || '12',
-            educationSystem: profileData.education_system || 'IB',
-            educationProgram: profileData.education_program || 'IB Diploma Programme',
+            gradeLevel: profile?.grade_level || '12',
+            educationSystem: profile?.education_system || 'IB',
+            educationProgram: profile?.education_program || 'IB Diploma Programme',
           }),
         });
 

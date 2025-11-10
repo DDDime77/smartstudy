@@ -318,11 +318,11 @@ class EmbeddingModelService:
         relevant_tasks = [t for t in history
                          if t['topic'] == topic and t['difficulty'] == difficulty]
 
-        if len(relevant_tasks) < 3:
-            # Not enough history for adjustment
+        if len(relevant_tasks) == 0:
+            # No history - can't adjust
             return base_prob, base_time
 
-        # Analyze recent performance (last 5 tasks)
+        # Analyze recent performance (last 5 tasks, or all if less than 5)
         recent_n = min(5, len(relevant_tasks))
         recent_tasks = relevant_tasks[-recent_n:]
         recent_success_rate = sum(t['correct'] for t in recent_tasks) / len(recent_tasks)
@@ -339,6 +339,32 @@ class EmbeddingModelService:
         # Apply adaptive adjustment
         adjusted_prob = base_prob
         adjusted_time = base_time
+
+        # EARLY LEARNING: For first few tasks, adapt immediately based on actual performance
+        if len(relevant_tasks) <= 3:
+            # Directly use actual performance for early predictions
+            if recent_success_rate >= 0.8:
+                # User is doing well - boost significantly
+                adjusted_prob = max(base_prob, 0.7 + (recent_success_rate - 0.8) * 1.25)
+            elif recent_success_rate <= 0.3:
+                # User is struggling - reduce significantly
+                adjusted_prob = min(base_prob, 0.3 + recent_success_rate)
+            else:
+                # Moderate performance - blend with base
+                adjusted_prob = (base_prob + recent_success_rate) / 2
+
+            # Adapt time based on actual performance
+            if recent_avg_time < base_time * 0.7:
+                # Much faster than predicted
+                adjusted_time = max(10, recent_avg_time * 1.1)
+            elif recent_avg_time > base_time * 1.3:
+                # Much slower than predicted
+                adjusted_time = min(300, recent_avg_time * 0.9)
+            else:
+                # Close to prediction - blend
+                adjusted_time = (base_time + recent_avg_time) / 2
+
+            return adjusted_prob, adjusted_time
 
         # RULE 1: If recent performance is significantly better, boost predictions
         if recent_success_rate > 0.8 and success_improvement > 0.1:
