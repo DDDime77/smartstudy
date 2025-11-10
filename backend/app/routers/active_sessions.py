@@ -153,6 +153,8 @@ async def update_active_session(
 ):
     """Update the current user's active study session"""
     try:
+        print(f"🔍 PATCH /active-session received: {data.dict()}")
+
         # Build dynamic update query
         update_fields = []
         params = {"user_id": str(current_user.id)}
@@ -160,6 +162,7 @@ async def update_active_session(
         if data.elapsed_seconds is not None:
             update_fields.append("elapsed_seconds = :elapsed_seconds")
             params["elapsed_seconds"] = data.elapsed_seconds
+            print(f"✅ Adding elapsed_seconds to update: {data.elapsed_seconds}")
 
         if data.is_running is not None:
             update_fields.append("is_running = :is_running")
@@ -191,6 +194,8 @@ async def update_active_session(
             RETURNING *
         """
 
+        print(f"🔧 Executing SQL: {query}")
+        print(f"🔧 With params: {params}")
         result = db.execute(text(query), params)
         db.commit()
 
@@ -200,6 +205,7 @@ async def update_active_session(
 
         columns = result.keys()
         session = dict(zip(columns, row))
+        print(f"✅ Updated session elapsed_seconds from DB: {session.get('elapsed_seconds')}")
 
         # Convert timestamps and UUIDs
         if session.get('created_at'):

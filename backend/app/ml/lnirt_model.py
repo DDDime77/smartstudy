@@ -279,12 +279,19 @@ class TopicLNIRTModel:
 
     def fit_user_specific(self, user_data: pd.DataFrame, user_id: str, verbose: bool = False):
         """
-        Train user-specific parameters using ERROR-AWARE LNIRT ML estimation
+        Train user-specific parameters using ROBUST ERROR-AWARE LNIRT ML estimation
 
         This uses BOTH predicted and actual data from the predictions table to:
         1. Detect systematic prediction biases
-        2. Optimize parameters using actual outcomes
-        3. Adjust parameters to correct historical prediction errors
+        2. Optimize parameters using actual outcomes with REGULARIZATION
+        3. Apply DAMPENED updates to prevent volatility from single observations
+        4. Use BAYESIAN PRIORS to pull towards stable previous parameters
+
+        Key improvements for stability:
+        - Regularization: Pull parameters towards previous values (prevents wild swings)
+        - Sample-weighted updates: Larger samples = more confidence = larger updates
+        - Exponential moving average: Smooth parameter changes over time
+        - Minimum sample requirements: Prevent updates on insufficient data
 
         Args:
             user_data: DataFrame with columns ['difficulty', 'correct', 'response_time',
@@ -294,7 +301,7 @@ class TopicLNIRTModel:
         """
         if verbose:
             print(f"  Training user-specific parameters for {user_id}...")
-            print(f"  Using {len(user_data)} completed tasks")
+            print(f"  Using {len(user_data)} completed tasks (ALL historical data)")
 
         # Initialize user if not exists
         if user_id not in self.user_params:
@@ -340,80 +347,135 @@ class TopicLNIRTModel:
 
             return -log_like  # Negative for minimization
 
-        # STEP 3: Error-aware likelihood (penalizes parameters that would produce large errors)
-        def error_aware_likelihood(params, data, error_stats):
+        # STEP 3: REGULARIZED Error-aware likelihood with stability constraints
+        def error_aware_likelihood(params, data, error_stats, previous_params, n_samples):
             # Standard likelihood
             base_likelihood = user_log_likelihood(params, data)
 
-            if error_stats is None:
-                return base_likelihood
-
             theta, tau = params
+            prev_theta, prev_tau = previous_params
 
-            # Error correction penalty
-            # If we have systematic biases, penalize parameters that don't correct them
-            penalty = 0.0
+            # ===== REGULARIZATION: Bayesian prior pulling towards previous values =====
+            # This prevents wild parameter swings from single observations
+            # Regularization strength decreases as we have more data
 
-            # Correctness bias correction
-            # Positive bias means user is better than predicted → increase theta
-            # Negative bias means user is worse than predicted → decrease theta
-            if abs(error_stats['correctness_bias']) > 0.05:
-                # Expected adjustment: bias is roughly proportional to theta error
-                # If correctness_bias = +0.2, we want to increase theta
-                theta_adjustment_needed = error_stats['correctness_bias'] * 2.0
-                current_theta = self.user_params[user_id]['theta']
-                theta_shift = theta - current_theta
+            # Calculate regularization strength based on sample size
+            # More samples = we trust new data more, less regularization
+            # Fewer samples = we trust previous parameters more, more regularization
+            base_reg_strength = 2.0  # Base regularization coefficient
+            sample_factor = np.exp(-n_samples / 100.0)  # Decay with more samples
+            reg_strength = base_reg_strength * sample_factor
 
-                # Penalize if we're not shifting theta in the right direction
-                if np.sign(theta_shift) != np.sign(theta_adjustment_needed):
-                    penalty += 0.5 * abs(theta_adjustment_needed)
+            # L2 regularization: penalize deviation from previous parameters
+            theta_deviation = (theta - prev_theta) ** 2
+            tau_deviation = (tau - prev_tau) ** 2
+            regularization_penalty = reg_strength * (theta_deviation + tau_deviation)
 
-            # Time bias correction
-            # Positive log bias means user is slower than predicted → decrease tau
-            # Negative log bias means user is faster than predicted → increase tau
-            if abs(error_stats['time_bias_log']) > 0.15:
-                tau_adjustment_needed = -error_stats['time_bias_log']  # Negative because tau increases speed
-                current_tau = self.user_params[user_id]['tau']
-                tau_shift = tau - current_tau
+            if verbose and n_samples < 50:
+                print(f"    Regularization strength: {reg_strength:.3f} (sample factor: {sample_factor:.3f})")
+                print(f"    Pulling towards prev θ={prev_theta:.3f}, τ={prev_tau:.3f}")
 
-                # Penalize if we're not shifting tau in the right direction
-                if np.sign(tau_shift) != np.sign(tau_adjustment_needed):
-                    penalty += 0.5 * abs(tau_adjustment_needed)
+            # ===== ERROR-BASED GUIDANCE (not penalties, just soft guidance) =====
+            error_guidance = 0.0
 
-            return base_likelihood + penalty
+            if error_stats is not None:
+                # Only provide guidance if we have systematic biases (not noise)
+                # Make this MUCH gentler than before
 
-        # STEP 4: Optimize user-specific parameters with error-awareness
-        initial_params = [
-            self.user_params[user_id]['theta'],
-            self.user_params[user_id]['tau']
-        ]
+                # Correctness bias guidance (reduced from 2.0 to 0.5)
+                if abs(error_stats['correctness_bias']) > 0.1:
+                    theta_adjustment_suggested = error_stats['correctness_bias'] * 0.5
+                    theta_shift = theta - prev_theta
 
-        # Try error-aware optimization first
+                    # Soft guidance: reward moving in the right direction
+                    if np.sign(theta_shift) == np.sign(theta_adjustment_suggested):
+                        error_guidance -= 0.1 * abs(theta_adjustment_suggested)  # Reward
+                    else:
+                        error_guidance += 0.1 * abs(theta_adjustment_suggested)  # Small penalty
+
+                # Time bias guidance (reduced from direct penalty to soft guidance)
+                if abs(error_stats['time_bias_log']) > 0.2:
+                    tau_adjustment_suggested = -error_stats['time_bias_log'] * 0.3
+                    tau_shift = tau - prev_tau
+
+                    if np.sign(tau_shift) == np.sign(tau_adjustment_suggested):
+                        error_guidance -= 0.1 * abs(tau_adjustment_suggested)
+                    else:
+                        error_guidance += 0.1 * abs(tau_adjustment_suggested)
+
+            total_cost = base_likelihood + regularization_penalty + error_guidance
+            return total_cost
+
+        # STEP 4: Optimize user-specific parameters with REGULARIZATION
+        previous_theta = self.user_params[user_id]['theta']
+        previous_tau = self.user_params[user_id]['tau']
+
+        # SAFETY: Ensure τ is positive before starting optimization
+        if previous_tau <= 0:
+            if verbose:
+                print(f"  ⚠ Warning: Correcting negative/zero τ={previous_tau:.4f} → 0.1")
+            previous_tau = 0.1
+            self.user_params[user_id]['tau'] = 0.1
+
+        previous_params = [previous_theta, previous_tau]
+        n_samples = len(user_data)
+
+        initial_params = [previous_theta, previous_tau]
+
+        # Regularized optimization with stability constraints
+        # CRITICAL: τ (speed parameter) MUST be positive (it's a variance parameter in lognormal)
         result = minimize(
             error_aware_likelihood,
             initial_params,
-            args=(user_data, error_stats),
+            args=(user_data, error_stats, previous_params, n_samples),
             method='L-BFGS-B',
-            bounds=[(-3.0, 3.0), (-3.0, 3.0)],
-            options={'maxiter': 100}
+            bounds=[(-3.0, 3.0), (0.01, 3.0)],  # θ can be negative, τ must be positive
+            options={'maxiter': 150, 'ftol': 1e-8}
         )
 
         if result.success:
-            theta_new = float(result.x[0])
-            tau_new = float(result.x[1])
+            theta_optimized = float(result.x[0])
+            tau_optimized = float(result.x[1])
 
-            # STEP 5: Apply bias correction based on error analysis
-            if error_stats is not None:
-                # Additional correction for strong biases
-                if abs(error_stats['correctness_bias']) > 0.15:
-                    correction = error_stats['correctness_bias'] * 0.5
-                    theta_new += correction
-                    theta_new = np.clip(theta_new, -3.0, 3.0)
+            # STEP 5: Apply EXPONENTIAL MOVING AVERAGE for smooth parameter updates
+            # This prevents sudden jumps even if optimization suggests large changes
+            # α (alpha) determines how much we trust new vs old parameters
 
-                if abs(error_stats['time_bias_log']) > 0.25:
-                    correction = -error_stats['time_bias_log'] * 0.3
-                    tau_new += correction
-                    tau_new = np.clip(tau_new, -3.0, 3.0)
+            # Calculate adaptive learning rate based on sample size
+            # More samples = more confidence = higher alpha (trust new more)
+            # Fewer samples = less confidence = lower alpha (trust old more)
+            if n_samples < 10:
+                alpha = 0.1  # Very conservative with little data
+            elif n_samples < 50:
+                alpha = 0.3  # Moderate updates
+            elif n_samples < 200:
+                alpha = 0.5  # Balanced
+            else:
+                alpha = 0.7  # Trust new parameters more with lots of data
+
+            # Exponential moving average: new = α * optimized + (1-α) * previous
+            theta_new = alpha * theta_optimized + (1 - alpha) * previous_theta
+            tau_new = alpha * tau_optimized + (1 - alpha) * previous_tau
+
+            # Additional dampening for very small samples
+            if n_samples < 20:
+                # Extra conservative: only move parameters slightly
+                dampening = min(n_samples / 20.0, 1.0)
+                theta_new = previous_theta + dampening * (theta_new - previous_theta)
+                tau_new = previous_tau + dampening * (tau_new - previous_tau)
+
+            # Final safety clipping
+            # CRITICAL: τ must stay positive (it's a variance parameter)
+            theta_new = np.clip(theta_new, -3.0, 3.0)
+            tau_new = np.clip(tau_new, 0.01, 3.0)  # Minimum 0.01 to ensure positivity
+
+            if verbose:
+                print(f"  Parameter changes:")
+                print(f"    θ: {previous_theta:.3f} → {theta_optimized:.3f} (optimized) → {theta_new:.3f} (smoothed, α={alpha:.2f})")
+                print(f"    τ: {previous_tau:.3f} → {tau_optimized:.3f} (optimized) → {tau_new:.3f} (smoothed, α={alpha:.2f})")
+                change_theta = abs(theta_new - previous_theta)
+                change_tau = abs(tau_new - previous_tau)
+                print(f"    Actual change: Δθ={change_theta:.3f}, Δτ={change_tau:.3f}")
 
             self.user_params[user_id]['theta'] = theta_new
             self.user_params[user_id]['tau'] = tau_new

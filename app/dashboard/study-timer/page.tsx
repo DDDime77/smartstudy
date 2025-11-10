@@ -851,14 +851,17 @@ export default function StudyTimerPage() {
       // Always update active session on server (not just for assignments)
       try {
         const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
-        await ActiveSessionsService.update({
+        const updateData = {
           elapsed_seconds: currentElapsed,
           is_running: !isFinal,
-        });
+        };
+        console.log('🔍 Sending to active session API:', JSON.stringify(updateData));
+        const result = await ActiveSessionsService.update(updateData);
+        console.log('💾 Active session API response:', JSON.stringify(result));
         console.log(`💾 Active session updated: ${currentElapsed}s elapsed, running: ${!isFinal}`);
       } catch (err) {
         // Active session might not exist (e.g., free study mode without assignment)
-        console.log('No active session to update (normal for free study mode)');
+        console.log('No active session to update (normal for free study mode)', err);
       }
 
       // Also update assignment time if this is an assignment session

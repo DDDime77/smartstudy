@@ -186,8 +186,10 @@ class LNIRTService:
         user_id_str = str(user_id)
 
         # Fetch user-specific training data with predictions
+        # CRITICAL: Use ALL historical data, not just recent samples
+        # This ensures model doesn't overfit to recent behavior
         query = text("""
-            SELECT * FROM get_user_training_data(:user_id, :topic, 100)
+            SELECT * FROM get_user_training_data(:user_id, :topic, 10000)
         """)
 
         result = self.db.execute(query, {"user_id": user_id, "topic": topic})
