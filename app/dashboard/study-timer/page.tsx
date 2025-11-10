@@ -590,11 +590,15 @@ export default function StudyTimerPage() {
 
   // Update time remaining when technique changes
   useEffect(() => {
+    // Don't override timer if we're in an assignment session
+    if (assignmentSession) {
+      return;
+    }
     const technique = techniques.find(t => t.id === selectedTechnique);
     if (technique && !isRunning) {
       setTimeRemaining(technique.focusTime * 60);
     }
-  }, [selectedTechnique]);
+  }, [selectedTechnique, assignmentSession, isRunning]);
 
   // Timer countdown and elapsed time tracking
   useEffect(() => {
