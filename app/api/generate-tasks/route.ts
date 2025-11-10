@@ -161,15 +161,14 @@ ${formattingRules}
 
 Generate the solution now. Be thorough and educational.`;
 
-          const solutionStream = await client.responses.create({
-            model: 'o4-mini',
+          const solutionStream = await client.chat.completions.create({
+            model: 'o1-mini',
+            messages: [{
+              role: 'user',
+              content: solutionPrompt
+            }],
             stream: true,
-            instructions: 'You are a helpful tutor. Return clean Markdown content directly. Do NOT wrap your response in markdown code fences (no ```markdown). Output the raw markdown content only.',
-            input: solutionPrompt,
-            reasoning: {
-              effort: reasoningEffort,
-            },
-            max_output_tokens: 10000,
+            max_completion_tokens: 10000,
           });
 
           // Send periodic keepalives during solution generation
@@ -188,36 +187,14 @@ Generate the solution now. Be thorough and educational.`;
           }, 15000);
 
           // Stream solution content
-          for await (const event of solutionStream) {
+          for await (const chunk of solutionStream) {
             if (isClosed) break;
 
-            if (event.type === 'response.output_text.delta') {
-              const chunk = event.delta ?? '';
-              if (chunk.length > 0) {
-                controller.enqueue(
-                  new TextEncoder().encode(`data: ${JSON.stringify({ delta: chunk, stage: 'solution' })}\n\n`)
-                );
-              }
-            }
-
-            if (event.type === 'response.completed') {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
               controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
+                new TextEncoder().encode(`data: ${JSON.stringify({ delta: content, stage: 'solution' })}\n\n`)
               );
-              if (!isClosed) {
-                controller.close();
-                isClosed = true;
-              }
-            }
-
-            if (event.type === 'error') {
-              controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify({ error: event.error })}\n\n`)
-              );
-              if (!isClosed) {
-                controller.close();
-                isClosed = true;
-              }
             }
           }
 
