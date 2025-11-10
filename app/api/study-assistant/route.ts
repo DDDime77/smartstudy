@@ -273,42 +273,49 @@ export async function GET(req: NextRequest) {
       day: 'numeric'
     });
 
-    const systemPrompt = `You are an AI Study Assistant. Help the student with their question.
+    const systemPrompt = `You are an AI Study Assistant. You help students prepare for exams and manage their study schedule.
 
 Current Date: ${currentDateFormatted} (${currentDate})
 
 Student Context:
 ${contextText}
 
-You have access to two functions:
-1. generate_study_plan - Create a full week of study assignments across all subjects
-2. create_assignment - Create a single targeted assignment for a specific subject/topic/exam
+You have access to tools for creating study assignments. You can call tools multiple times in a single response if needed.
 
-Use create_assignment when the student asks for help with a specific subject or exam (e.g., "prepare for math exam", "study calculus").
-Use generate_study_plan when they want a comprehensive schedule.
+CRITICAL INTELLIGENCE GUIDELINES:
 
-IMPORTANT: When creating assignments for exam preparation:
-- Look at the exam's units field in the context (e.g., "Circular Motion, Gravitation")
-- Use those specific topics as the topic parameter
-- DO NOT use generic placeholders like "Unit 1, Unit 2" or "Exam Preparation"
-- Example: If exam has units ["Circular Motion", "Gravitation"], use topic: "Circular Motion, Gravitation"
+1. **Exam Preparation Strategy:**
+   - When a student asks to prepare for an exam (e.g., "Math summative in mid-December"), be SMART:
+   - Calculate time until exam (days/weeks)
+   - Create MULTIPLE study sessions spread over time, NOT just one
+   - For 1 month away: create 4-6 sessions (weekly)
+   - For 2 weeks away: create 3-4 sessions (every few days)
+   - For 1 week away: create 2-3 sessions (every other day)
+   - Break topics into chunks (e.g., "Derivatives", "Integrals", "Applications" instead of just "Calculus")
 
-IMPORTANT: When the student mentions a specific date or time:
-- Today's date is ${currentDate}
-- Calculate dates relative to today (e.g., "tomorrow" = ${new Date(today.getTime() + 86400000).toISOString().split('T')[0]})
-- Extract the date from their message and convert to YYYY-MM-DD format
-- Pass it as the due_date parameter
-- Also extract time-of-day hints and pass as time_of_day parameter:
-  * "morning" or "in the morning" → time_of_day: "morning"
-  * "afternoon" or "in the afternoon" → time_of_day: "afternoon"
-  * "evening" or "in the evening" or "night" → time_of_day: "evening"
-- Examples:
-  * "on November 20th" → due_date: "2025-11-20" (use current year ${today.getFullYear()})
-  * "tomorrow morning" → due_date: "${new Date(today.getTime() + 86400000).toISOString().split('T')[0]}", time_of_day: "morning"
-  * "next Monday" → calculate the date of next Monday from today
-  * "november 19th morning" → due_date: "2025-11-19", time_of_day: "morning"
+2. **Topic Breakdown:**
+   - If the student mentions a broad topic (e.g., "Calculus"), break it down into subtopics
+   - Examples:
+     * Calculus → "Limits & Continuity", "Derivatives", "Integration", "Applications"
+     * Physics → "Kinematics", "Dynamics", "Energy & Work"
+   - Use the exam's units field from context if available
 
-Be conversational, helpful, and reference their specific data when relevant.`;
+3. **Timing Intelligence:**
+   - Space sessions appropriately - don't cram everything in one day
+   - Use time_of_day: "morning"/"afternoon"/"evening" based on student preferences
+   - Create earlier sessions for foundational topics, later sessions for practice/review
+
+4. **When to Ask Questions:**
+   - If request is vague, ask clarifying questions BEFORE creating tasks
+   - Examples: "What specific topics?" "How many sessions would you like?" "Any particular dates?"
+
+5. **Date Calculation:**
+   - Today is ${currentDate}
+   - "mid-December" = around December 15-20
+   - "next week" = 7 days from now
+   - Calculate YYYY-MM-DD format for due_date parameter
+
+Be conversational and explain your reasoning. If you create multiple tasks, explain the study plan strategy.`;
 
     // Define functions for study plan generation and individual assignments
     const tools = [
@@ -334,7 +341,7 @@ Be conversational, helpful, and reference their specific data when relevant.`;
         type: 'function',
         function: {
           name: 'create_assignment',
-          description: 'Create a single study assignment for a specific subject, topic, or exam preparation. Use this when the student asks for help with a specific subject or to prepare for a specific exam.',
+          description: 'Create a single study assignment for a specific subject/topic. You can call this function MULTIPLE TIMES in one response to create a series of study sessions spread over time. For exam preparation, create 3-6 sessions with different subtopics and dates.',
           parameters: {
             type: 'object',
             properties: {
@@ -388,6 +395,7 @@ Be conversational, helpful, and reference their specific data when relevant.`;
       ],
       tools: tools as any,
       tool_choice: 'auto',
+      parallel_tool_calls: true, // Allow calling create_assignment multiple times
       temperature: 0.7,
     });
 
@@ -395,34 +403,62 @@ Be conversational, helpful, and reference their specific data when relevant.`;
 
     // Check if AI wants to call the function
     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-      const toolCall = responseMessage.tool_calls[0];
-      console.log('Function call detected:', toolCall.function.name, toolCall.function.arguments);
+      console.log('Function calls detected:', responseMessage.tool_calls.length);
 
-      // Create a streaming response with conversational intro + tool calling
+      // Create a streaming response with AI's natural response + tool calling
       const encoder = new TextEncoder();
       const readable = new ReadableStream({
         async start(controller) {
           try {
-            // Send initial conversational response
-            const initialText = "Yes, I'll help you with that. Let me create the tasks for you.\n\n";
-            controller.enqueue(encoder.encode(initialText));
-
-            // Send tool call start marker
-            controller.enqueue(encoder.encode('__TOOL_CALL_START__'));
-
-            // Execute the tool
-            if (toolCall.function.name === 'generate_study_plan') {
-              await generateStudyPlanInline(studentId, controller, encoder);
-            } else if (toolCall.function.name === 'create_assignment') {
-              const args = JSON.parse(toolCall.function.arguments);
-              await createSingleAssignmentInline(studentId, args, controller, encoder);
+            // First, stream the AI's natural conversational response
+            if (responseMessage.content) {
+              controller.enqueue(encoder.encode(responseMessage.content));
+              controller.enqueue(encoder.encode('\n\n'));
             }
 
-            // Send tool call end marker
-            controller.enqueue(encoder.encode('__TOOL_CALL_END__'));
+            // Execute each tool call
+            for (const toolCall of responseMessage.tool_calls) {
+              console.log('Executing tool:', toolCall.function.name, toolCall.function.arguments);
 
-            // Send completion message
-            controller.enqueue(encoder.encode('\n\n✅ Tasks created successfully! You can view them in the Preparation calendar.'));
+              // Send tool call start marker with newline
+              controller.enqueue(encoder.encode('\n__TOOL_CALL_START__\n'));
+
+              // Execute the tool
+              if (toolCall.function.name === 'generate_study_plan') {
+                await generateStudyPlanInline(studentId, controller, encoder);
+              } else if (toolCall.function.name === 'create_assignment') {
+                const args = JSON.parse(toolCall.function.arguments);
+                await createSingleAssignmentInline(studentId, args, controller, encoder);
+              }
+
+              // Send tool call end marker with newline
+              controller.enqueue(encoder.encode('\n__TOOL_CALL_END__\n'));
+            }
+
+            // Generate follow-up response from AI after tool execution
+            const toolResults = responseMessage.tool_calls.map((tc: any) => ({
+              role: 'tool',
+              content: 'Tasks created successfully',
+              tool_call_id: tc.id
+            }));
+
+            const followUpResponse = await openai.chat.completions.create({
+              model: 'gpt-4-turbo',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: message },
+                { role: 'assistant', content: responseMessage.content || '', tool_calls: responseMessage.tool_calls },
+                ...toolResults
+              ],
+              temperature: 0.7,
+              max_tokens: 300,
+            });
+
+            const followUpText = followUpResponse.choices[0].message.content;
+            if (followUpText) {
+              controller.enqueue(encoder.encode('\n\n'));
+              controller.enqueue(encoder.encode(followUpText));
+            }
 
             controller.close();
           } catch (error) {

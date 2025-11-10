@@ -449,15 +449,13 @@ class TaskPredictionModelV2:
             print("✅ Training Complete!")
             print(f"{'='*80}\n")
 
-    def predict(self, user_history: List[Dict], user_id: str, topic: str, difficulty: str) -> Tuple[float, float]:
+    def predict(self, user_history: List[Dict], next_task: Dict) -> Tuple[float, float]:
         """
         Predict correctness and time
 
         Args:
             user_history: List of completed tasks for this user
-            user_id: User ID string
-            topic: Topic string
-            difficulty: Difficulty string
+            next_task: Dict with keys 'user_id', 'topic', 'difficulty'
 
         Returns:
             (correctness_probability, estimated_time_seconds)
@@ -465,6 +463,11 @@ class TaskPredictionModelV2:
 
         if self.correctness_model is None or self.time_model is None:
             return 0.5, 60.0
+
+        # Extract from next_task dict
+        user_id = str(next_task['user_id'])
+        topic = next_task['topic']
+        difficulty = next_task['difficulty']
 
         # Check if categories are known
         if (user_id not in self.metadata['user_ids'] or

@@ -13,7 +13,7 @@ import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/o
 import { AssignmentsService, AIAssignment } from '@/lib/api/assignments';
 import { ScheduleService, BusySlot } from '@/lib/api/schedule';
 import { handleApiError } from '@/lib/api/client';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target, X } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target, X, ChevronDown, Folder, FolderOpen, ListTodo } from 'lucide-react';
 
 // Universal paper types for all education systems
 const PAPER_TYPES = [
@@ -66,6 +66,7 @@ export default function ExamsPage() {
   });
   const [dateInput, setDateInput] = useState(''); // For dd/mm/yyyy input
   const [dateError, setDateError] = useState('');
+  const [expandedExams, setExpandedExams] = useState<Set<string>>(new Set()); // Track expanded exam folders
 
   // Format date input with auto-slash (dd/mm/yyyy)
   const formatDateInput = (value: string) => {
@@ -341,6 +342,78 @@ export default function ExamsPage() {
     .sort((a, b) => new Date(a.exam_date).getTime() - new Date(b.exam_date).getTime())
     .slice(0, 5);
 
+  // Toggle exam folder expansion
+  const toggleExamFolder = (examId: string) => {
+    setExpandedExams(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(examId)) {
+        newSet.delete(examId);
+      } else {
+        newSet.add(examId);
+      }
+      return newSet;
+    });
+  };
+
+  // Get days until exam
+  const getDaysUntilExam = (examDate: string): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const exam = new Date(examDate);
+    exam.setHours(0, 0, 0, 0);
+    const diffTime = exam.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Get assignments grouped for an exam (daily or weekly)
+  const getAssignmentsForExam = (exam: ExamResponse) => {
+    const daysUntil = getDaysUntilExam(exam.exam_date);
+    const examSubject = subjects.find(s => s.id === exam.subject_id);
+
+    // Filter assignments related to this exam
+    const relatedAssignments = assignments.filter(assignment => {
+      // Match by subject name
+      return assignment.subject_name === examSubject?.name &&
+             assignment.scheduled_date <= exam.exam_date;
+    });
+
+    if (daysUntil < 10) {
+      // Show daily breakdown for exams less than 10 days away
+      const dailyGroups: { [date: string]: AIAssignment[] } = {};
+
+      for (let i = 0; i < daysUntil; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+        dailyGroups[dateStr] = relatedAssignments.filter(a => a.scheduled_date === dateStr);
+      }
+
+      return { type: 'daily' as const, groups: dailyGroups, daysUntil };
+    } else {
+      // Show weekly breakdown for exams more than 10 days away
+      const weeklyGroups: { [week: string]: AIAssignment[] } = {};
+      const weeksUntil = Math.ceil(daysUntil / 7);
+
+      for (let i = 0; i < weeksUntil; i++) {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() + (i * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+
+        const weekKey = `Week ${i + 1} (${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+
+        weeklyGroups[weekKey] = relatedAssignments.filter(a => {
+          const aDate = new Date(a.scheduled_date);
+          return aDate >= weekStart && aDate <= weekEnd;
+        });
+      }
+
+      return { type: 'weekly' as const, groups: weeklyGroups, daysUntil };
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -597,6 +670,182 @@ export default function ExamsPage() {
                             <Trash2 className="w-3 h-3 text-red-400" />
                           </button>
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Tasks Section - Exam Preparation Folders */}
+        <div className="mt-8">
+          <GlassCard>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
+                  <ListTodo className="w-5 h-5 text-green-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Exam Preparation Tasks</h3>
+              </div>
+
+              {upcomingExams.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl opacity-20 mb-4">📝</div>
+                  <p className="text-white/60">No upcoming exams</p>
+                  <p className="text-white/40 text-sm mt-2">Add exams to see preparation tasks</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingExams.map(exam => {
+                    const subject = subjects.find(s => s.id === exam.subject_id);
+                    const daysUntil = getDaysUntilExam(exam.exam_date);
+                    const isExpanded = expandedExams.has(exam.id);
+                    const assignmentData = getAssignmentsForExam(exam);
+                    const totalAssignments = Object.values(assignmentData.groups).flat().length;
+
+                    return (
+                      <div key={exam.id} className="border border-white/10 rounded-lg overflow-hidden">
+                        {/* Folder Header */}
+                        <button
+                          onClick={() => toggleExamFolder(exam.id)}
+                          className="w-full p-4 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between group"
+                          style={{ borderLeftWidth: '4px', borderLeftColor: subject?.color || '#6366f1' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? (
+                              <FolderOpen className="w-5 h-5 text-white/60" style={{ color: subject?.color }} />
+                            ) : (
+                              <Folder className="w-5 h-5 text-white/60" style={{ color: subject?.color }} />
+                            )}
+                            <div className="text-left">
+                              <h4 className="font-medium text-white">{subject?.name} - {exam.exam_type}</h4>
+                              <p className="text-white/60 text-sm">
+                                {new Date(exam.exam_date).toLocaleDateString('en-US', {
+                                  month: 'long',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                                {' • '}
+                                {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `${daysUntil} days`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <Badge variant={daysUntil <= 7 ? 'glow' : 'gradient'} className="text-xs">
+                              {totalAssignments} task{totalAssignments !== 1 ? 's' : ''}
+                            </Badge>
+                            <ChevronDown
+                              className={`w-5 h-5 text-white/60 transition-transform ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </div>
+                        </button>
+
+                        {/* Folder Content */}
+                        {isExpanded && (
+                          <div className="p-4 bg-white/[0.02]">
+                            {assignmentData.type === 'daily' ? (
+                              <div className="space-y-4">
+                                <p className="text-white/60 text-sm mb-4">
+                                  Daily breakdown ({daysUntil} days until exam)
+                                </p>
+                                {Object.entries(assignmentData.groups).map(([date, dayAssignments]) => {
+                                  const dateObj = new Date(date);
+                                  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                                  const dayDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                                  return (
+                                    <div key={date} className="border-l-2 border-white/10 pl-4">
+                                      <p className="text-white/80 text-sm font-medium mb-2">
+                                        {dayName}, {dayDate}
+                                      </p>
+                                      {dayAssignments.length > 0 ? (
+                                        <div className="space-y-2">
+                                          {dayAssignments.map(assignment => (
+                                            <div
+                                              key={assignment.id}
+                                              className="p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-all"
+                                              onClick={() => {
+                                                setSelectedAssignment(assignment);
+                                                setShowAssignmentModal(true);
+                                              }}
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                  <p className="text-white text-sm font-medium">{assignment.topic}</p>
+                                                  <p className="text-white/60 text-xs mt-1">
+                                                    {assignment.estimated_minutes} min • {assignment.tasks_completed}/{assignment.required_tasks_count} tasks
+                                                  </p>
+                                                </div>
+                                                <Badge variant={
+                                                  assignment.status === 'completed' ? 'glow' : 'default'
+                                                } className="text-xs">
+                                                  {assignment.progress_percentage}%
+                                                </Badge>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-white/40 text-sm italic">No tasks scheduled</p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                <p className="text-white/60 text-sm mb-4">
+                                  Weekly breakdown ({Math.ceil(daysUntil / 7)} weeks until exam)
+                                </p>
+                                {Object.entries(assignmentData.groups).map(([week, weekAssignments]) => {
+                                  return (
+                                    <div key={week} className="border-l-2 border-white/10 pl-4">
+                                      <p className="text-white/80 text-sm font-medium mb-2">{week}</p>
+                                      {weekAssignments.length > 0 ? (
+                                        <div className="space-y-2">
+                                          {weekAssignments.map(assignment => (
+                                            <div
+                                              key={assignment.id}
+                                              className="p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-all"
+                                              onClick={() => {
+                                                setSelectedAssignment(assignment);
+                                                setShowAssignmentModal(true);
+                                              }}
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                  <p className="text-white text-sm font-medium">{assignment.topic}</p>
+                                                  <p className="text-white/60 text-xs mt-1">
+                                                    {new Date(assignment.scheduled_date).toLocaleDateString('en-US', {
+                                                      month: 'short',
+                                                      day: 'numeric'
+                                                    })} • {assignment.estimated_minutes} min • {assignment.tasks_completed}/{assignment.required_tasks_count} tasks
+                                                  </p>
+                                                </div>
+                                                <Badge variant={
+                                                  assignment.status === 'completed' ? 'glow' : 'default'
+                                                } className="text-xs">
+                                                  {assignment.progress_percentage}%
+                                                </Badge>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-white/40 text-sm italic">No tasks scheduled</p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

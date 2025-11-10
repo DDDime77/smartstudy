@@ -175,6 +175,7 @@ export default function StudyAssistantPage() {
       let fullMessage = '';
       let toolCalls: any[] = [];
       let isProcessingTools = false;
+      let buffer = '';
 
       if (reader) {
         while (true) {
@@ -182,39 +183,55 @@ export default function StudyAssistantPage() {
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
 
-          // Check for tool call markers
-          if (chunk.includes('__TOOL_CALL_START__')) {
-            isProcessingTools = true;
-            setToolCallAnimation('Creating tasks...');
-            continue;
-          }
+          // Process line by line
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
 
-          if (chunk.includes('__TOOL_CALL_END__')) {
-            isProcessingTools = false;
-            setToolCallAnimation(null);
-            continue;
-          }
+          for (const line of lines) {
+            const trimmedLine = line.trim();
 
-          // Parse tool call data
-          if (chunk.startsWith('__TOOL_DATA__:')) {
-            try {
-              const toolData = JSON.parse(chunk.replace('__TOOL_DATA__:', ''));
-              toolCalls.push(toolData);
-              setToolCallAnimation(`Creating assignment: ${toolData.name}`);
-            } catch (e) {
-              console.error('Failed to parse tool data:', e);
+            // Check for tool call markers
+            if (trimmedLine === '__TOOL_CALL_START__') {
+              isProcessingTools = true;
+              setToolCallAnimation('Creating tasks...');
+              continue;
             }
-            continue;
-          }
 
-          if (!isProcessingTools) {
-            fullMessage += chunk;
-            setStreamingMessage(fullMessage);
+            if (trimmedLine === '__TOOL_CALL_END__') {
+              isProcessingTools = false;
+              setToolCallAnimation(null);
+              continue;
+            }
+
+            // Parse tool call data
+            if (trimmedLine.startsWith('__TOOL_DATA__:')) {
+              try {
+                const toolData = JSON.parse(trimmedLine.replace('__TOOL_DATA__:', ''));
+                toolCalls.push(toolData);
+                setToolCallAnimation(`Creating: ${toolData.args.topic || toolData.args.subject}`);
+              } catch (e) {
+                console.error('Failed to parse tool data:', e);
+              }
+              continue;
+            }
+
+            // Regular message content
+            if (!isProcessingTools && line) {
+              fullMessage += line + '\n';
+              setStreamingMessage(fullMessage);
+            }
           }
         }
 
-        setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage, toolCalls }]);
+        // Process any remaining buffer
+        if (buffer && !isProcessingTools) {
+          fullMessage += buffer;
+          setStreamingMessage(fullMessage);
+        }
+
+        setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage.trim(), toolCalls }]);
         setStreamingMessage('');
         setToolCallAnimation(null);
 
