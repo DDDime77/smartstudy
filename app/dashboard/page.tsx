@@ -11,7 +11,7 @@ import GridBackground from '@/components/GridBackground';
 import TaskGenerationModal from '@/components/TaskGenerationModal';
 import { SubjectsService } from '@/lib/api/subjects';
 import { SubjectResponse, OnboardingService, ProfileResponse } from '@/lib/api/onboarding';
-import { SessionsService, WeeklyStats, StudySessionResponse } from '@/lib/api/sessions';
+import { SessionsService, WeeklyStats, StudySessionResponse, WeeklySummary } from '@/lib/api/sessions';
 import { handleApiError } from '@/lib/api/client';
 import { Calendar, Clock, BookOpen, TrendingUp, Award, Target, Activity, Zap } from 'lucide-react';
 
@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<ProfileResponse | null>(null);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
+  const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const [recentSessions, setRecentSessions] = useState<StudySessionResponse[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function DashboardPage() {
     loadSubjects();
     loadUserProfile();
     loadWeeklyStats();
+    loadWeeklySummary();
     loadRecentSessions();
   }, []);
 
@@ -78,6 +80,15 @@ export default function DashboardPage() {
       handleApiError(error, 'Failed to load weekly stats');
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const loadWeeklySummary = async () => {
+    try {
+      const summary = await SessionsService.getWeeklySummary();
+      setWeeklySummary(summary);
+    } catch (error) {
+      handleApiError(error, 'Failed to load weekly summary');
     }
   };
 
@@ -172,15 +183,24 @@ export default function DashboardPage() {
 
   // Calculate statistics from data
   const totalWeeklyHours = weeklyStats.reduce((sum, day) => sum + day.hours, 0);
-  const sessionsThisWeek = recentSessions.length;
-  const avgSessionDuration = sessionsThisWeek > 0
-    ? recentSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / sessionsThisWeek
-    : 0;
+  const sessionsThisWeek = weeklySummary?.total_sessions || 0;
+  const avgSessionDuration = weeklySummary?.avg_duration_minutes || 0;
+
+  // Get today's hours from weeklyStats
+  const today = new Date();
+  const todayStats = weeklyStats.find(stat => {
+    const statDate = new Date(stat.date);
+    return statDate.toDateString() === today.toDateString();
+  });
+  const todayHours = todayStats?.hours || 0;
+
+  // Calculate daily goal
+  const dailyGoalHours = userProfile?.study_goal ? userProfile.study_goal / 7 : 3;
 
   const quickStats = [
     {
       label: 'Study Goal',
-      value: '0h',
+      value: `${todayHours.toFixed(1)}h / ${dailyGoalHours.toFixed(1)}h`,
       subtext: 'Progress today',
       icon: <Clock className="w-5 h-5" />,
       gradient: 'from-blue-500/20 to-cyan-500/10'
@@ -195,7 +215,7 @@ export default function DashboardPage() {
     {
       label: 'Study Sessions',
       value: `${sessionsThisWeek}`,
-      subtext: 'Recent sessions',
+      subtext: 'This week',
       icon: <Calendar className="w-5 h-5" />,
       gradient: 'from-green-500/20 to-emerald-500/10'
     },

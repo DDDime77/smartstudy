@@ -44,6 +44,12 @@ export interface WeeklyStats {
   date: string;
 }
 
+export interface WeeklySummary {
+  total_sessions: number;
+  avg_duration_minutes: number;
+  total_hours: number;
+}
+
 export const SessionsService = {
   async create(data: StudySessionCreate): Promise<StudySessionResponse> {
     return ApiClient.post<StudySessionResponse>('/sessions', data);
@@ -59,6 +65,10 @@ export const SessionsService = {
 
   async getWeeklyStats(): Promise<WeeklyStats[]> {
     return ApiClient.get<WeeklyStats[]>('/sessions/weekly-stats');
+  },
+
+  async getWeeklySummary(): Promise<WeeklySummary> {
+    return ApiClient.get<WeeklySummary>('/sessions/weekly-summary');
   },
 
   async delete(sessionId: string): Promise<void> {

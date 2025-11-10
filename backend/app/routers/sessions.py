@@ -62,6 +62,12 @@ class WeeklyStats(BaseModel):
     date: str
 
 
+class WeeklySummary(BaseModel):
+    total_sessions: int
+    avg_duration_minutes: float
+    total_hours: float
+
+
 @router.post("", response_model=StudySessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(
     session_data: StudySessionCreate,
@@ -252,6 +258,37 @@ async def get_weekly_stats(
         ))
 
     return result
+
+
+@router.get("/weekly-summary", response_model=WeeklySummary)
+async def get_weekly_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get summary statistics for the current week"""
+    today = datetime.utcnow().date()
+    week_ago = today - timedelta(days=6)  # Include today, so 7 days total
+
+    # Get all sessions from the past 7 days with duration
+    sessions = db.query(StudySession).filter(
+        and_(
+            StudySession.user_id == current_user.id,
+            func.date(StudySession.start_time) >= week_ago,
+            func.date(StudySession.start_time) <= today,
+            StudySession.duration_minutes.isnot(None)
+        )
+    ).all()
+
+    total_sessions = len(sessions)
+    total_minutes = sum(s.duration_minutes or 0 for s in sessions)
+    avg_duration = total_minutes / total_sessions if total_sessions > 0 else 0
+    total_hours = total_minutes / 60.0
+
+    return WeeklySummary(
+        total_sessions=total_sessions,
+        avg_duration_minutes=round(avg_duration, 1),
+        total_hours=round(total_hours, 1)
+    )
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
