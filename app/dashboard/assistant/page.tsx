@@ -312,10 +312,9 @@ export default function StudyAssistantPage() {
                         : 'bg-white/5 mr-12 border border-white/10'
                     }`}
                   >
-                    <div className="prose prose-invert max-w-none">
+                    <div className="prose prose-invert max-w-none text-white/90 text-sm">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
-                        className="text-white/90 text-sm"
                         components={{
                           p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                           ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
@@ -354,10 +353,9 @@ export default function StudyAssistantPage() {
                 ))}
                 {streamingMessage && (
                   <div className="p-4 rounded-lg bg-white/5 mr-12 border border-white/10">
-                    <div className="prose prose-invert max-w-none">
+                    <div className="prose prose-invert max-w-none text-white/90 text-sm">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
-                        className="text-white/90 text-sm"
                         components={{
                           p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                           ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
@@ -495,10 +493,9 @@ export default function StudyAssistantPage() {
                 <Sparkles className="w-5 h-5 text-purple-400" />
                 AI Recommendation
               </h3>
-              <div className="prose prose-invert max-w-none">
+              <div className="prose prose-invert max-w-none text-white/80 text-sm leading-relaxed">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  className="text-white/80 text-sm leading-relaxed"
                   components={{
                     p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                     ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
