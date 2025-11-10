@@ -149,9 +149,12 @@ export default function StudyTimerPage() {
           // Set timer and session goal based on assignment
           if (assignment.estimatedMinutes) {
             setSessionGoal(assignment.estimatedMinutes);
-            const timerSeconds = assignment.estimatedMinutes * 60;
-            setTimeRemaining(timerSeconds);
-            setInitialTimeRemaining(timerSeconds); // Store for progress calculation
+            const totalSeconds = assignment.estimatedMinutes * 60;
+            const alreadySpentSeconds = (assignment.timeSpent || 0) * 60; // timeSpent is in minutes
+            const remainingSeconds = Math.max(0, totalSeconds - alreadySpentSeconds);
+
+            setTimeRemaining(remainingSeconds); // Set remaining time, not total time
+            setInitialTimeRemaining(totalSeconds); // Store total for progress calculation
           }
 
           // Auto-generate first task
