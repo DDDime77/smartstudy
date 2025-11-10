@@ -947,6 +947,31 @@ export default function StudyTimerPage() {
         setInterruptions(0);
         setIsRunning(true);
         sessionStartTimeRef.current = Date.now();
+
+        // Create active session for free study mode (if not in assignment mode)
+        if (!hasAssignmentSessionRef.current) {
+          try {
+            const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+            const subject = subjects.find(s => s.id === selectedSubject);
+            const technique = techniques.find(t => t.id === selectedTechnique);
+
+            await ActiveSessionsService.create({
+              session_type: 'free_study',
+              subject_id: selectedSubject,
+              subject_name: subject?.name || 'Study',
+              topic: inlineTopic || 'General Study',
+              difficulty: inlineDifficulty,
+              initial_duration_seconds: technique ? technique.focusTime * 60 : 1500,
+              study_technique: selectedTechnique,
+              grade_level: inlineGrade,
+              study_system: 'IB',
+            });
+            console.log('✅ Created active session for free study mode');
+          } catch (err) {
+            console.error('Failed to create active session:', err);
+            // Non-critical error, continue anyway
+          }
+        }
       }
     } catch (error) {
       handleApiError(error, 'Failed to start session');
@@ -987,6 +1012,15 @@ export default function StudyTimerPage() {
             console.error('Failed to delete active session:', error);
           }
           setAssignmentSession(null);
+        }
+      } else {
+        // Free study mode - delete active session when finishing
+        try {
+          const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+          await ActiveSessionsService.delete();
+          console.log('✅ Deleted active session for free study mode');
+        } catch (error) {
+          console.error('Failed to delete active session:', error);
         }
       }
 
@@ -1035,6 +1069,15 @@ export default function StudyTimerPage() {
             const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
             await ActiveSessionsService.delete();
             setAssignmentSession(null);
+          }
+        } else {
+          // Free study mode - delete active session when timer completes
+          try {
+            const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+            await ActiveSessionsService.delete();
+            console.log('✅ Deleted active session for completed free study');
+          } catch (error) {
+            console.error('Failed to delete active session:', error);
           }
         }
 
