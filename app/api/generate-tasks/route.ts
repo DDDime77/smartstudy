@@ -162,13 +162,14 @@ ${formattingRules}
 Generate the solution now. Be thorough and educational.`;
 
           const solutionStream = await client.chat.completions.create({
-            model: 'o1-mini',
+            model: 'gpt-4o',
             messages: [{
               role: 'user',
               content: solutionPrompt
             }],
             stream: true,
-            max_completion_tokens: 10000,
+            temperature: 0.3,
+            max_tokens: 10000,
           });
 
           // Send periodic keepalives during solution generation
