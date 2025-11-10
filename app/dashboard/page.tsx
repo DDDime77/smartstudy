@@ -405,7 +405,9 @@ export default function DashboardPage() {
                       <div className="text-right">
                         <div className="text-xs text-white/40">Priority</div>
                         <div className="text-sm font-bold text-white">
-                          N/A
+                          {subject.priority_coefficient !== null && subject.priority_coefficient !== undefined
+                            ? `${subject.priority_coefficient.toFixed(2)}×`
+                            : 'N/A'}
                         </div>
                       </div>
                     </div>
