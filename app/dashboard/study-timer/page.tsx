@@ -144,6 +144,13 @@ export default function StudyTimerPage() {
           setSelectedSubject(assignment.subjectId || '');
           setInlineTopic(assignment.topic || '');
           setInlineDifficulty(assignment.difficulty || 'medium');
+
+          // Set timer and session goal based on assignment
+          if (assignment.estimatedMinutes) {
+            setSessionGoal(assignment.estimatedMinutes);
+            setTimeRemaining(assignment.estimatedMinutes * 60); // Convert to seconds
+          }
+
           // Auto-generate first task
           if (assignment.subject && assignment.topic) {
             startTaskGeneration({
@@ -1020,6 +1027,54 @@ export default function StudyTimerPage() {
                 </div>
                 <h3 className="text-xl font-bold text-white">Session Settings</h3>
               </div>
+
+              {/* Assignment Goals - Show when in assignment session */}
+              {assignmentSession && (
+                <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-blue-400" />
+                    <h4 className="text-sm font-bold text-white">Assignment Goals</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Subject:</span>
+                      <span className="text-white font-medium">{assignmentSession.subject}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Topic:</span>
+                      <span className="text-white font-medium">{assignmentSession.topic}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Tasks to Complete:</span>
+                      <span className="text-white font-medium">
+                        {assignmentTasksCompleted} / {assignmentSession.requiredTasks}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">Target Time:</span>
+                      <span className="text-white font-medium">{assignmentSession.estimatedMinutes} min</span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden mt-2">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(
+                            ((assignmentTasksCompleted / assignmentSession.requiredTasks) * 50 +
+                            (Math.floor(elapsedSeconds / 60) / assignmentSession.estimatedMinutes) * 50),
+                            100
+                          )}%`
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs text-center text-white/60 mt-1">
+                      {Math.round(
+                        (assignmentTasksCompleted / assignmentSession.requiredTasks) * 50 +
+                        (Math.floor(elapsedSeconds / 60) / assignmentSession.estimatedMinutes) * 50
+                      )}% Complete
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Session Goal */}
               <div className="mb-6">
