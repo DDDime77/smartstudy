@@ -48,8 +48,12 @@ export async function GET(request: NextRequest) {
 
     const courses = coursesResponse.data.courses || [];
 
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? 'https://sshours.cfd'
+      : new URL(request.url).origin;
+
     const response = NextResponse.redirect(
-      new URL('/dashboard?classroom=success', request.url)
+      new URL('/?classroom=success', baseUrl)
     );
 
     response.cookies.set('google_tokens', JSON.stringify(tokens), {
@@ -70,8 +74,11 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in OAuth callback:', error);
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? 'https://sshours.cfd'
+      : new URL(request.url).origin;
     return NextResponse.redirect(
-      new URL('/dashboard?error=' + encodeURIComponent('Failed to complete OAuth flow'), request.url)
+      new URL('/?error=' + encodeURIComponent('Failed to complete OAuth flow'), baseUrl)
     );
   }
 }

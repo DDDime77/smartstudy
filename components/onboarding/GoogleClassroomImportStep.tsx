@@ -277,11 +277,18 @@ export default function GoogleClassroomImportStep({
                     {course.section && (
                       <p className="text-xs text-slate-400">{course.section}</p>
                     )}
-                    {course.suggested_level && (
-                      <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70">
-                        {course.suggested_level}
-                      </span>
-                    )}
+                    <div className="flex gap-2 mt-1">
+                      {course.suggested_level && (
+                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70">
+                          {course.suggested_level}
+                        </span>
+                      )}
+                      {course.suggested_category && (
+                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+                          {course.suggested_category}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {isSelected && (
