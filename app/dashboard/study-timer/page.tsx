@@ -41,6 +41,9 @@ export default function StudyTimerPage() {
     solution: string;
     answer: string;
     estimatedTime?: number;
+    predicted_correct?: number;
+    predicted_time_seconds?: number;
+    lnirt_model_version?: string;
   } | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [taskLoadedAt, setTaskLoadedAt] = useState<number | null>(null);
@@ -307,6 +310,16 @@ export default function StudyTimerPage() {
                   setCurrentTaskId(savedTask.id);
                   setTaskLoadedAt(Date.now());
                   setNextTaskDifficulty(params.difficulty);
+
+                  // Update currentTask with LNIRT predictions from API response
+                  if (savedTask.predicted_correct !== undefined || savedTask.predicted_time_seconds !== undefined) {
+                    setCurrentTask(prev => prev ? {
+                      ...prev,
+                      predicted_correct: savedTask.predicted_correct,
+                      predicted_time_seconds: savedTask.predicted_time_seconds,
+                      lnirt_model_version: savedTask.lnirt_model_version
+                    } : prev);
+                  }
 
                   // Refresh task history
                   await fetchTaskHistory(params.subject);
@@ -1113,12 +1126,27 @@ export default function StudyTimerPage() {
                     {isGenerating ? 'Generating Practice Task...' : 'Practice Task'}
                   </h3>
                   {currentTask && (
-                    <p className="text-white/60 text-sm">
-                      {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
-                      {currentTask.estimatedTime && (
-                        <span className="text-white/40 ml-2">• Estimated time: {currentTask.estimatedTime} min</span>
+                    <>
+                      <p className="text-white/60 text-sm">
+                        {currentTask.subject} - {currentTask.topic} ({currentTask.difficulty})
+                        {currentTask.estimatedTime && (
+                          <span className="text-white/40 ml-2">• Estimated time: {currentTask.estimatedTime} min</span>
+                        )}
+                      </p>
+                      {currentTask.predicted_correct !== undefined && currentTask.predicted_time_seconds !== undefined && (
+                        <div className="mt-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                          <p className="text-xs text-blue-300/80 mb-1">LNIRT ML Predictions:</p>
+                          <div className="flex gap-4 text-sm">
+                            <span className="text-white">
+                              <span className="text-white/60">Success:</span> {(currentTask.predicted_correct * 100).toFixed(1)}%
+                            </span>
+                            <span className="text-white">
+                              <span className="text-white/60">Time:</span> {Math.floor(currentTask.predicted_time_seconds / 60)}m {currentTask.predicted_time_seconds % 60}s
+                            </span>
+                          </div>
+                        </div>
                       )}
-                    </p>
+                    </>
                   )}
                 </div>
               </div>
