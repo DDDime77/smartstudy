@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -47,6 +47,42 @@ export default function GoogleClassroomImportStep({
   };
 
   const gradeOptions = getGradeOptions();
+
+  useEffect(() => {
+    const checkOAuthCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('classroom') === 'success') {
+        setIsLoading(true);
+        try {
+          const response = await fetch('/api/google-classroom/courses');
+          if (!response.ok) {
+            throw new Error('Failed to fetch courses');
+          }
+
+          const coursesData = await response.json();
+          setCourses(coursesData);
+
+          setSelectedCourses(new Set(coursesData.map((c: Course) => c.id)));
+
+          const initialGrades = new Map();
+          coursesData.forEach((course: Course) => {
+            initialGrades.set(course.id, { current: '', target: '' });
+          });
+          setCourseGrades(initialGrades);
+
+          setStep('select_courses');
+
+          window.history.replaceState({}, '', window.location.pathname);
+        } catch (err: any) {
+          setError(err.message || 'Failed to load courses');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkOAuthCallback();
+  }, []);
 
   const handleGoogleOAuth = async () => {
     setIsLoading(true);
