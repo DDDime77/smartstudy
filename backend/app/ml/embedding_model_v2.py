@@ -44,10 +44,10 @@ class TaskPredictionModelV2:
     """
 
     def __init__(self, model_dir: str = None):
-        # Use absolute path
+        # Use absolute path - same directory as V1 for backend compatibility
         if model_dir is None:
             current_file = Path(__file__).resolve()
-            model_dir = current_file.parent / "models_v2"
+            model_dir = current_file.parent / "models"
         self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
 

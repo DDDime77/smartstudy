@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 import json
 
-from .embedding_model import TaskPredictionModel
+from .embedding_model_v2 import TaskPredictionModelV2 as TaskPredictionModel
 
 
 class EmbeddingModelService:
@@ -21,7 +21,7 @@ class EmbeddingModelService:
 
     Features:
     - Automatic training trigger every 5 new tasks
-    - Predicts correctness and time using LSTM with embeddings
+    - Predicts correctness and time using feed-forward NN with history features
     - Handles all users/topics in one global model
     """
 
@@ -262,7 +262,7 @@ class EmbeddingModelService:
             print()
 
         # Train models
-        self.model.train(training_data, epochs=20, verbose=verbose)
+        self.model.train(training_data, epochs=50, verbose=verbose)
 
         # Reset counter
         self._reset_training_counter(len(training_data))
@@ -293,7 +293,7 @@ class EmbeddingModelService:
             print()
 
         # Train
-        self.model.train(training_data, epochs=20, verbose=verbose)
+        self.model.train(training_data, epochs=50, verbose=verbose)
 
         # Reset counter
         self._reset_training_counter(len(training_data))
@@ -349,7 +349,7 @@ class EmbeddingModelService:
             'predicted_correct': correctness_prob,
             'predicted_time_seconds': estimated_time,
             'is_personalized': is_personalized,
-            'model_type': 'embedding_lstm'
+            'model_type': 'embedding_v2'
         }
 
     def on_task_completed(self, user_id: UUID, topic: str, verbose: bool = False, async_training: bool = True) -> Dict:
@@ -435,7 +435,7 @@ class EmbeddingModelService:
         all_tasks = self._get_all_completed_tasks()
 
         return {
-            'model_type': 'embedding_lstm',
+            'model_type': 'embedding_v2',
             'last_trained_at': tracker['last_trained_at'],
             'n_samples_total': len(all_tasks),
             'n_samples_last_training': tracker['n_samples_last_training'],
