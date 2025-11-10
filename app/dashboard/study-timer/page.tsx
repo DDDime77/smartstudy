@@ -130,7 +130,7 @@ export default function StudyTimerPage() {
 
   // Fetch data on mount
   useEffect(() => {
-    // Load user grade and subjects first, THEN check for assignment session
+    // Load user grade and subjects first, THEN check for active session from server
     const initializeData = async () => {
       // Fetch user grade first so it's available for task generation
       await fetchUserGrade();
@@ -138,79 +138,68 @@ export default function StudyTimerPage() {
       await fetchRecentSessions();
       await fetchWeeklyStats();
 
-      // Check for assignment session AFTER grade is loaded (client-side only)
-      if (typeof window !== 'undefined') {
-        const assignmentData = sessionStorage.getItem('assignmentSession');
-        if (assignmentData) {
-          try {
-            const assignment = JSON.parse(assignmentData);
-            hasAssignmentSessionRef.current = true;
+      // Fetch active session from server instead of sessionStorage
+      try {
+        const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+        const activeSession = await ActiveSessionsService.get();
 
-            setAssignmentSession(assignment);
-            setAssignmentTasksCompleted(assignment.currentTasks || 0);
-            setSelectedSubject(assignment.subjectId || '');
-            setInlineTopic(assignment.topic || '');
-            setInlineDifficulty(assignment.difficulty || 'medium');
+        if (activeSession) {
+          hasAssignmentSessionRef.current = true;
 
-            // Set timer, elapsed time, and session goal based on assignment
-            if (assignment.estimatedMinutes) {
-              setSessionGoal(assignment.estimatedMinutes);
-              const totalSeconds = assignment.estimatedMinutes * 60;
-              const alreadySpentSeconds = (assignment.timeSpent || 0) * 60; // timeSpent is in minutes
-              const remainingSeconds = Math.max(0, totalSeconds - alreadySpentSeconds);
+          // Map server session to local state
+          setAssignmentSession({
+            assignmentId: activeSession.assignment_id,
+            subject: activeSession.subject_name,
+            subjectId: activeSession.subject_id,
+            topic: activeSession.topic,
+            difficulty: activeSession.difficulty,
+            estimatedMinutes: activeSession.estimated_minutes || activeSession.initial_duration_seconds / 60,
+            requiredTasks: activeSession.required_tasks,
+            currentTasks: activeSession.tasks_completed,
+            timeSpent: activeSession.time_spent_minutes,
+          });
 
-              setTimeRemaining(remainingSeconds); // Set remaining time, not total time
-              setInitialTimeRemaining(totalSeconds); // Store total for progress calculation
-              setElapsedSeconds(alreadySpentSeconds); // Set elapsed time for progress display
-            }
+          setAssignmentTasksCompleted(activeSession.tasks_completed);
+          setSelectedSubject(activeSession.subject_id || '');
+          setInlineTopic(activeSession.topic || '');
+          setInlineDifficulty(activeSession.difficulty || 'medium');
 
-            // Auto-generate first task with actual topic (look up from exam if generic)
-            // Note: inlineGrade has been loaded by fetchUserGrade above
-            if (assignment.subject && assignment.topic) {
-              // If topic is generic like "exam preparation", try to get actual topic
-              const topicToUse = assignment.topic.toLowerCase().includes('exam preparation') ||
-                                 assignment.topic.toLowerCase().includes('exam prep')
-                ? (assignment.examTopic || assignment.topic) // Use examTopic if available, fallback to stored topic
-                : assignment.topic;
+          // Set timer, elapsed time, and session goal based on active session
+          const totalSeconds = activeSession.initial_duration_seconds;
+          const alreadySpentSeconds = activeSession.time_spent_minutes * 60;
+          const remainingSeconds = Math.max(0, totalSeconds - alreadySpentSeconds);
 
-              // Use a small delay to ensure inlineGrade state has updated
-              setTimeout(() => {
-                startTaskGeneration({
-                  subject: assignment.subject,
-                  topic: topicToUse,
-                  difficulty: assignment.difficulty,
-                  studySystem: 'IB',
-                  grade: inlineGrade || '9',
-                });
-              }, 100);
-            }
-          } catch (e) {
-            console.error('Failed to parse assignment session:', e);
+          setSessionGoal(activeSession.estimated_minutes || Math.floor(totalSeconds / 60));
+          setTimeRemaining(remainingSeconds);
+          setInitialTimeRemaining(totalSeconds);
+          setElapsedSeconds(alreadySpentSeconds);
+
+          // Restore current task if it exists
+          if (activeSession.current_task) {
+            setCurrentTask(activeSession.current_task);
           }
-        } else {
-          // Check for pending task generation
-          const pending = sessionStorage.getItem('pendingTaskGeneration');
-          if (pending) {
-            try {
-              const params = JSON.parse(pending);
-              sessionStorage.removeItem('pendingTaskGeneration');
-              startTaskGeneration(params);
-            } catch (e) {
-              console.error('Failed to parse pending task generation:', e);
-            }
-          } else {
-            // Load existing task from sessionStorage
-            const taskData = sessionStorage.getItem('currentTask');
-            if (taskData) {
-              try {
-                const parsedTask = JSON.parse(taskData);
-                setCurrentTask(parsedTask);
-              } catch (e) {
-                console.error('Failed to parse current task:', e);
-              }
-            }
+
+          // Auto-generate first task if no current task and we have topic
+          if (!activeSession.current_task && activeSession.subject_name && activeSession.topic) {
+            // Use a small delay to ensure inlineGrade state has updated
+            setTimeout(() => {
+              startTaskGeneration({
+                subject: activeSession.subject_name,
+                topic: activeSession.topic,
+                difficulty: activeSession.difficulty,
+                studySystem: activeSession.study_system || 'IB',
+                grade: inlineGrade || '9',
+              });
+            }, 100);
+          }
+
+          // Check if there are pending task params
+          if (activeSession.pending_task_params) {
+            startTaskGeneration(activeSession.pending_task_params);
           }
         }
+      } catch (error) {
+        console.error('Failed to fetch active session:', error);
       }
     };
 
@@ -321,8 +310,19 @@ export default function StudyTimerPage() {
                 };
 
                 setCurrentTask(newTask);
-                sessionStorage.setItem('currentTask', JSON.stringify(newTask));
                 setIsGenerating(false);
+
+                // Save current task to active session on server (only if in assignment mode)
+                if (hasAssignmentSessionRef.current) {
+                  try {
+                    const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+                    await ActiveSessionsService.update({
+                      current_task: newTask,
+                    });
+                  } catch (err) {
+                    console.error('Failed to save task to active session:', err);
+                  }
+                }
 
                 // Clear streaming states
                 setTaskText('');
@@ -481,25 +481,30 @@ export default function StudyTimerPage() {
             timeSpentMinutes
           );
 
+          // Update active session on server
+          const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+          await ActiveSessionsService.update({
+            tasks_completed: newTasksCompleted,
+            time_spent_minutes: timeSpentMinutes,
+          });
+
           // Check if assignment is complete
           if (
             newTasksCompleted >= assignmentSession.requiredTasks &&
             timeSpentMinutes >= assignmentSession.estimatedMinutes
           ) {
             alert('🎉 Assignment completed! Great work!');
-            sessionStorage.removeItem('assignmentSession');
+            // Delete active session from server
+            await ActiveSessionsService.delete();
             setAssignmentSession(null);
           } else {
-            // Update sessionStorage to keep it in sync with database
-            if (typeof window !== 'undefined') {
-              const updatedSession = {
-                ...assignmentSession,
-                currentTasks: newTasksCompleted,
-                timeSpent: timeSpentMinutes
-              };
-              sessionStorage.setItem('assignmentSession', JSON.stringify(updatedSession));
-              setAssignmentSession(updatedSession);
-            }
+            // Update local state
+            const updatedSession = {
+              ...assignmentSession,
+              currentTasks: newTasksCompleted,
+              timeSpent: timeSpentMinutes
+            };
+            setAssignmentSession(updatedSession);
           }
         } catch (error) {
           console.error('Failed to update assignment progress:', error);
@@ -809,7 +814,7 @@ export default function StudyTimerPage() {
         ...(isFinal && { end_time: new Date().toISOString(), focus_rating: 3 })
       });
 
-      // Also update assignment time if this is an assignment session
+      // Also update assignment time and active session if this is an assignment session
       if (assignmentSession && elapsedSeconds > 0) {
         await saveAssignmentTime();
       }
@@ -832,16 +837,21 @@ export default function StudyTimerPage() {
         timeSpentMinutes
       );
 
-      // Update sessionStorage to keep it in sync with database
-      if (typeof window !== 'undefined') {
-        const updatedSession = {
-          ...assignmentSession,
-          currentTasks: assignmentTasksCompleted,
-          timeSpent: timeSpentMinutes
-        };
-        sessionStorage.setItem('assignmentSession', JSON.stringify(updatedSession));
-        setAssignmentSession(updatedSession); // Update state too
-      }
+      // Update active session on server
+      const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+      await ActiveSessionsService.update({
+        tasks_completed: assignmentTasksCompleted,
+        time_spent_minutes: timeSpentMinutes,
+        elapsed_seconds: elapsedSeconds,
+      });
+
+      // Update local state
+      const updatedSession = {
+        ...assignmentSession,
+        currentTasks: assignmentTasksCompleted,
+        timeSpent: timeSpentMinutes
+      };
+      setAssignmentSession(updatedSession);
     } catch (error) {
       console.error('Failed to save assignment time:', error);
     }
@@ -901,7 +911,13 @@ export default function StudyTimerPage() {
           timeSpentMinutes >= assignmentSession.estimatedMinutes
         ) {
           alert('🎉 Assignment completed! Great work!');
-          sessionStorage.removeItem('assignmentSession');
+          // Delete active session from server
+          try {
+            const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+            await ActiveSessionsService.delete();
+          } catch (error) {
+            console.error('Failed to delete active session:', error);
+          }
           setAssignmentSession(null);
         }
       }
@@ -947,7 +963,9 @@ export default function StudyTimerPage() {
             timeSpentMinutes >= assignmentSession.estimatedMinutes
           ) {
             alert('🎉 Assignment completed! Great work!');
-            sessionStorage.removeItem('assignmentSession');
+            // Delete active session from server
+            const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+            await ActiveSessionsService.delete();
             setAssignmentSession(null);
           }
         }

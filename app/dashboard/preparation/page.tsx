@@ -861,9 +861,9 @@ export default function ExamsPage() {
                   {selectedAssignment.status !== 'completed' && (
                     <Button
                       variant="primary"
-                      onClick={() => {
-                        // Store assignment info and redirect to study timer
-                        if (typeof window !== 'undefined') {
+                      onClick={async () => {
+                        // Create active session on server instead of sessionStorage
+                        try {
                           // Try to get actual exam topic if this is exam preparation
                           let topicToUse = selectedAssignment.topic;
 
@@ -887,18 +887,28 @@ export default function ExamsPage() {
                             }
                           }
 
-                          sessionStorage.setItem('assignmentSession', JSON.stringify({
-                            assignmentId: selectedAssignment.id,
-                            subject: selectedAssignment.subject_name,
-                            subjectId: selectedAssignment.subject_id,
+                          // Create session on server
+                          const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+                          await ActiveSessionsService.create({
+                            session_type: 'assignment',
+                            assignment_id: selectedAssignment.id,
+                            subject_id: selectedAssignment.subject_id,
+                            subject_name: selectedAssignment.subject_name,
                             topic: topicToUse,
                             difficulty: selectedAssignment.difficulty,
-                            estimatedMinutes: selectedAssignment.estimated_minutes,
-                            requiredTasks: selectedAssignment.required_tasks_count,
-                            currentTasks: selectedAssignment.tasks_completed,
-                            timeSpent: selectedAssignment.time_spent_minutes,
-                          }));
+                            initial_duration_seconds: selectedAssignment.estimated_minutes * 60,
+                            estimated_minutes: selectedAssignment.estimated_minutes,
+                            required_tasks: selectedAssignment.required_tasks_count,
+                            tasks_completed: selectedAssignment.tasks_completed,
+                            time_spent_minutes: selectedAssignment.time_spent_minutes,
+                            study_system: 'IB'
+                          });
+
+                          // Redirect to study timer
                           window.location.href = '/dashboard/study-timer';
+                        } catch (error) {
+                          console.error('Failed to create session:', error);
+                          alert('Failed to start study session. Please try again.');
                         }
                       }}
                       className="flex-1"
