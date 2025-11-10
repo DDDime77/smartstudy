@@ -68,8 +68,7 @@ export default function SettingsPage() {
           setEducationData({
             educationSystem: profile.education_system || 'IB',
             educationProgram: profile.education_program || 'IBDP',
-            grade: profile.grade_level || 'Year 12',
-            school: 'International School'
+            grade: profile.grade_level || 'Year 12'
           });
         } catch (err) {
           console.log('Could not fetch profile data:', err);
@@ -99,8 +98,7 @@ export default function SettingsPage() {
   const [educationData, setEducationData] = useState({
     educationSystem: 'IB',
     educationProgram: 'IBDP',
-    grade: 'Year 12',
-    school: 'International School'
+    grade: 'Year 12'
   });
 
   const tabs = [
@@ -123,6 +121,57 @@ export default function SettingsPage() {
     'A-Level': ['AS Level', 'A2 Level', 'Combined'],
     'American': ['Standard', 'AP', 'Honors'],
     'GCSE': ['Standard', 'iGCSE'],
+  };
+
+  // Grade options based on education system and program
+  const gradeOptions: Record<string, Record<string, string[]>> = {
+    'IB': {
+      'IBDP': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)'],
+      'IBCP': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)'],
+      'IB Courses': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)']
+    },
+    'A-Level': {
+      'AS Level': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)'],
+      'A2 Level': ['Year 13 (Upper Sixth)'],
+      'Combined': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)']
+    },
+    'American': {
+      'Standard': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)'],
+      'AP': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)'],
+      'Honors': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)']
+    },
+    'GCSE': {
+      'Standard': ['Year 10', 'Year 11'],
+      'iGCSE': ['Year 10', 'Year 11']
+    }
+  };
+
+  const getGradeOptions = () => {
+    if (!educationData.educationSystem || !educationData.educationProgram) return [];
+    return gradeOptions[educationData.educationSystem]?.[educationData.educationProgram] || [];
+  };
+
+  const handleEducationSystemChange = (newSystem: string) => {
+    // Auto-reset program and grade when system changes
+    const firstProgram = educationPrograms[newSystem as keyof typeof educationPrograms][0];
+    const firstGrade = gradeOptions[newSystem]?.[firstProgram]?.[0] || '';
+
+    setEducationData({
+      educationSystem: newSystem,
+      educationProgram: firstProgram,
+      grade: firstGrade
+    });
+  };
+
+  const handleEducationProgramChange = (newProgram: string) => {
+    // Auto-reset grade when program changes
+    const firstGrade = gradeOptions[educationData.educationSystem]?.[newProgram]?.[0] || '';
+
+    setEducationData({
+      ...educationData,
+      educationProgram: newProgram,
+      grade: firstGrade
+    });
   };
 
   const handleSave = async () => {
@@ -306,7 +355,7 @@ export default function SettingsPage() {
                         <label className="block text-white/80 text-sm mb-2">Education System</label>
                         <select
                           value={educationData.educationSystem}
-                          onChange={(e) => setEducationData({...educationData, educationSystem: e.target.value})}
+                          onChange={(e) => handleEducationSystemChange(e.target.value)}
                           className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
                         >
                           {educationSystems.map((sys) => (
@@ -315,13 +364,16 @@ export default function SettingsPage() {
                             </option>
                           ))}
                         </select>
+                        <p className="text-white/40 text-xs mt-1">
+                          Changing this will reset your program and grade selections
+                        </p>
                       </div>
 
                       <div>
                         <label className="block text-white/80 text-sm mb-2">Program</label>
                         <select
                           value={educationData.educationProgram}
-                          onChange={(e) => setEducationData({...educationData, educationProgram: e.target.value})}
+                          onChange={(e) => handleEducationProgramChange(e.target.value)}
                           className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
                         >
                           {educationPrograms[educationData.educationSystem as keyof typeof educationPrograms]?.map((prog) => (
@@ -330,28 +382,27 @@ export default function SettingsPage() {
                             </option>
                           ))}
                         </select>
+                        <p className="text-white/40 text-xs mt-1">
+                          Your program type within the {educationData.educationSystem} system
+                        </p>
                       </div>
 
                       <div>
-                        <label className="block text-white/80 text-sm mb-2">Grade/Year</label>
-                        <input
-                          type="text"
+                        <label className="block text-white/80 text-sm mb-2">Grade/Year Level</label>
+                        <select
                           value={educationData.grade}
                           onChange={(e) => setEducationData({...educationData, grade: e.target.value})}
-                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
-                          placeholder="e.g., Year 12, Grade 11"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-white/80 text-sm mb-2">School</label>
-                        <input
-                          type="text"
-                          value={educationData.school}
-                          onChange={(e) => setEducationData({...educationData, school: e.target.value})}
-                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
-                          placeholder="Your school name"
-                        />
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
+                        >
+                          {getGradeOptions().map((grade) => (
+                            <option key={grade} value={grade} className="bg-gray-900">
+                              {grade}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-white/40 text-xs mt-1">
+                          Your current academic year level
+                        </p>
                       </div>
 
                       <div className="pt-4">
