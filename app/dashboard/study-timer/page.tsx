@@ -480,8 +480,9 @@ export default function StudyTimerPage() {
         const newTasksCompleted = assignmentTasksCompleted + 1;
         setAssignmentTasksCompleted(newTasksCompleted);
 
-        // Calculate time spent (elapsed seconds from timer / 60)
-        const timeSpentMinutes = Math.floor(elapsedSeconds / 60);
+        // Use refs to get current values (avoid stale state)
+        const currentElapsed = elapsedSecondsRef.current;
+        const timeSpentMinutes = Math.floor(currentElapsed / 60);
 
         // Update assignment via API
         try {
@@ -492,11 +493,12 @@ export default function StudyTimerPage() {
             timeSpentMinutes
           );
 
-          // Update active session on server
+          // Update active session on server with ALL current values
           const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
           await ActiveSessionsService.update({
             tasks_completed: newTasksCompleted,
             time_spent_minutes: timeSpentMinutes,
+            elapsed_seconds: currentElapsed, // Include elapsed seconds!
           });
 
           // Check if assignment is complete
