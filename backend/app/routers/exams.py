@@ -89,6 +89,8 @@ async def create_exam(
         user_id=current_user.id,
         subject_id=exam_data.subject_id,
         exam_date=exam_data.exam_date,
+        start_time=exam_data.start_time,
+        finish_time=exam_data.finish_time,
         exam_type=exam_data.exam_type,
         units=exam_data.units
     )
@@ -136,6 +138,10 @@ async def update_exam(
     # Update fields
     if exam_data.exam_date is not None:
         exam.exam_date = exam_data.exam_date
+    if exam_data.start_time is not None:
+        exam.start_time = exam_data.start_time
+    if exam_data.finish_time is not None:
+        exam.finish_time = exam_data.finish_time
     if exam_data.exam_type is not None:
         exam.exam_type = exam_data.exam_type
     if exam_data.units is not None:
