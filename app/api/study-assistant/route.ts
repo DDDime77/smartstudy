@@ -142,7 +142,7 @@ ${contextText}
 
     // Call OpenAI
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4-turbo',
       messages,
       temperature: 0.7,
       max_tokens: 800,
@@ -345,7 +345,7 @@ Be conversational, helpful, and reference their specific data when relevant.`;
 
     // First API call to get function calling decision
     const initialResponse = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4-turbo',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
@@ -360,20 +360,29 @@ Be conversational, helpful, and reference their specific data when relevant.`;
     // Check if AI wants to call the function
     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
       const toolCall = responseMessage.tool_calls[0];
+      console.log('Function call detected:', toolCall.function.name, toolCall.function.arguments);
 
       if (toolCall.function.name === 'generate_study_plan') {
         // Execute the function
         return await generateStudyPlan(studentId);
       } else if (toolCall.function.name === 'create_assignment') {
         // Parse the arguments and create a single assignment
-        const args = JSON.parse(toolCall.function.arguments);
-        return await createSingleAssignment(studentId, args);
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          console.log('Creating assignment with args:', args);
+          return await createSingleAssignment(studentId, args);
+        } catch (error) {
+          console.error('Error parsing or creating assignment:', error);
+          throw error;
+        }
       }
     }
 
+    console.log('No tool calls detected, returning normal response');
+
     // If no function call, stream normal response
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4-turbo',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
