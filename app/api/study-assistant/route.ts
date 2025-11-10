@@ -263,7 +263,19 @@ export async function GET(req: NextRequest) {
     const context = await assistantContext.buildContext(studentId);
     const contextText = assistantContext.formatContextForLLM(context);
 
+    // Get current date for context
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentDateFormatted = today.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
     const systemPrompt = `You are an AI Study Assistant. Help the student with their question.
+
+Current Date: ${currentDateFormatted} (${currentDate})
 
 Student Context:
 ${contextText}
@@ -282,9 +294,14 @@ IMPORTANT: When creating assignments for exam preparation:
 - Example: If exam has units ["Circular Motion", "Gravitation"], use topic: "Circular Motion, Gravitation"
 
 IMPORTANT: When the student mentions a specific date:
-- Extract the date from their message (e.g., "November 20th" = "2024-11-20", "next Monday" = calculate date)
-- Pass it as the due_date parameter in YYYY-MM-DD format
-- Examples: "on November 20th" → due_date: "2024-11-20", "tomorrow" → due_date: tomorrow's date
+- Today's date is ${currentDate}
+- Calculate dates relative to today (e.g., "tomorrow" = ${new Date(today.getTime() + 86400000).toISOString().split('T')[0]})
+- Extract the date from their message and convert to YYYY-MM-DD format
+- Pass it as the due_date parameter
+- Examples:
+  * "on November 20th" → due_date: "2025-11-20" (use current year ${today.getFullYear()})
+  * "tomorrow" → due_date: "${new Date(today.getTime() + 86400000).toISOString().split('T')[0]}"
+  * "next Monday" → calculate the date of next Monday from today
 
 Be conversational, helpful, and reference their specific data when relevant.`;
 
