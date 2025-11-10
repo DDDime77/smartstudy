@@ -37,6 +37,7 @@ async def complete_onboarding(
         existing_profile.timezone = onboarding_data.timezone
         existing_profile.education_system = onboarding_data.education_system
         existing_profile.education_program = onboarding_data.education_program
+        existing_profile.grade_level = onboarding_data.grade_level
         existing_profile.study_goal = onboarding_data.study_goal
         profile = existing_profile
     else:
@@ -46,6 +47,7 @@ async def complete_onboarding(
             timezone=onboarding_data.timezone,
             education_system=onboarding_data.education_system,
             education_program=onboarding_data.education_program,
+            grade_level=onboarding_data.grade_level,
             study_goal=onboarding_data.study_goal
         )
         db.add(profile)
@@ -148,6 +150,8 @@ async def update_profile(
         profile.education_system = profile_data.education_system
     if profile_data.education_program is not None:
         profile.education_program = profile_data.education_program
+    if profile_data.grade_level is not None:
+        profile.grade_level = profile_data.grade_level
     if profile_data.study_goal is not None:
         profile.study_goal = profile_data.study_goal
 

@@ -39,10 +39,11 @@ export default function SettingsPage() {
     studyGoal: 20
   });
 
-  // Fetch current user data
+  // Fetch current user data and profile
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchData = async () => {
       try {
+        // Fetch user basic info
         const user = await AuthService.getCurrentUser();
         setProfileData({
           name: user.full_name || 'Student',
@@ -50,6 +51,26 @@ export default function SettingsPage() {
           timezone: 'UTC+00:00',
           studyGoal: 20
         });
+
+        // Fetch user profile (education system, grade, etc.)
+        try {
+          const response = await fetch('/api/onboarding/profile', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          if (response.ok) {
+            const profile = await response.json();
+            setEducationData({
+              educationSystem: profile.education_system || 'IB',
+              educationProgram: profile.education_program || 'IBDP',
+              grade: profile.grade_level || 'Year 12',
+              school: 'International School'
+            });
+          }
+        } catch (err) {
+          console.log('Could not fetch profile data:', err);
+        }
       } catch (error) {
         handleApiError(error, 'Failed to load user data');
         setProfileData({
@@ -61,7 +82,7 @@ export default function SettingsPage() {
       }
     };
 
-    fetchUser();
+    fetchData();
   }, []);
 
   // Education form state
@@ -108,11 +129,37 @@ export default function SettingsPage() {
     'GCSE': ['Standard', 'iGCSE'],
   };
 
-  const handleSave = () => {
-    // Mock save functionality
-    setToastMessage('Settings saved successfully!');
-    setToastType('success');
-    setShowToast(true);
+  const handleSave = async () => {
+    try {
+      // Save profile data based on active tab
+      if (activeTab === 'education') {
+        const response = await fetch('/api/onboarding/profile', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            education_system: educationData.educationSystem,
+            education_program: educationData.educationProgram,
+            grade_level: educationData.grade
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save education settings');
+        }
+      }
+
+      setToastMessage('Settings saved successfully!');
+      setToastType('success');
+      setShowToast(true);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      setToastMessage('Failed to save settings');
+      setToastType('error');
+      setShowToast(true);
+    }
   };
 
   return (

@@ -31,6 +31,7 @@ class OnboardingStep2(BaseModel):
     """Education system selection"""
     education_system: str  # 'IB', 'A-Level', 'American'
     education_program: str  # 'IBDP', 'IBCP', 'IB Courses', 'A-Level', 'Standard', 'AP'
+    grade_level: Optional[str] = None  # 'Year 12', 'Grade 11', etc.
 
 
 class OnboardingStep3(BaseModel):
@@ -54,6 +55,7 @@ class OnboardingComplete(BaseModel):
     timezone: str
     education_system: str
     education_program: str
+    grade_level: Optional[str] = None  # 'Year 12', 'Grade 11', etc.
     import_method: str
     subjects: List[SubjectInput]
     availability: List[DayAvailability]
@@ -65,6 +67,7 @@ class UpdateProfile(BaseModel):
     timezone: Optional[str] = None
     education_system: Optional[str] = None
     education_program: Optional[str] = None
+    grade_level: Optional[str] = None  # 'Year 12', 'Grade 11', etc.
     study_goal: Optional[int] = None  # Study goal in hours per week
 
 
@@ -73,6 +76,7 @@ class ProfileResponse(BaseModel):
     user_id: UUID
     education_system: str
     education_program: Optional[str]
+    grade_level: Optional[str]  # 'Year 12', 'Grade 11', etc.
     timezone: str
     study_goal: Optional[int]  # Study goal in hours per week
 

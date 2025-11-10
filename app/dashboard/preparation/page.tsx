@@ -914,7 +914,8 @@ export default function ExamsPage() {
                             required_tasks: selectedAssignment.required_tasks_count,
                             tasks_completed: selectedAssignment.tasks_completed,
                             time_spent_minutes: selectedAssignment.time_spent_minutes,
-                            study_system: 'IB'
+                            grade_level: profile?.grade_level,
+                            study_system: profile?.education_system || 'IB'
                           });
 
                           // Redirect to study timer
