@@ -477,72 +477,67 @@ export default function ExamsPage() {
               <div className="grid grid-cols-7 gap-2">
                 {days.map((day, index) => {
                   const isToday = day.date.toDateString() === new Date().toDateString();
+
+                  // Determine day styling based on exams and assignments
+                  const hasExams = day.exams.length > 0;
+                  const hasAssignments = day.assignments.length > 0;
+
+                  // For exam days: use the first exam's subject color for full background
+                  const examSubject = hasExams ? subjects.find(s => s.id === day.exams[0].subject_id) : null;
+                  const examColor = examSubject?.color || '#6366f1';
+
+                  // For assignment days: use the first assignment's subject color for border
+                  const assignmentSubject = hasAssignments
+                    ? subjects.find(s => s.name === day.assignments[0].subject_name)
+                    : null;
+                  const assignmentColor = assignmentSubject?.color || '#3b82f6';
+
                   return (
                     <button
                       key={index}
                       onClick={() => handleDayClick(day)}
                       className={`
-                        min-h-[90px] p-2 rounded-lg transition-all
+                        min-h-[90px] p-2 rounded-lg transition-all relative overflow-hidden
                         ${day.isCurrentMonth
-                          ? 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20'
-                          : 'bg-white/[0.02] border border-white/5 text-white/30'
+                          ? 'hover:opacity-90'
+                          : 'text-white/30'
                         }
-                        ${isToday ? 'ring-2 ring-blue-400 border-blue-400' : ''}
+                        ${isToday ? 'ring-2 ring-blue-400' : ''}
                       `}
+                      style={{
+                        // Full background color for exam days
+                        background: hasExams
+                          ? `linear-gradient(135deg, ${examColor}40, ${examColor}20)`
+                          : day.isCurrentMonth
+                            ? 'rgba(255, 255, 255, 0.05)'
+                            : 'rgba(255, 255, 255, 0.02)',
+                        // Stroke/border for assignment days (only if no exam)
+                        border: !hasExams && hasAssignments
+                          ? `2px solid ${assignmentColor}`
+                          : day.isCurrentMonth
+                            ? '1px solid rgba(255, 255, 255, 0.1)'
+                            : '1px solid rgba(255, 255, 255, 0.05)',
+                      }}
                     >
-                      <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-400' : ''}`}>
+                      <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-400' : 'text-white'}`}>
                         {day.date.getDate()}
                       </div>
+
+                      {/* Show count of items on this day */}
                       <div className="space-y-1">
-                        {day.exams.slice(0, 2).map(exam => {
-                          const subject = subjects.find(s => s.id === exam.subject_id);
-                          return (
-                            <div
-                              key={exam.id}
-                              className="text-xs p-1 rounded truncate"
-                              style={{
-                                background: `linear-gradient(135deg, ${subject?.color || '#6366f1'}33, ${subject?.color || '#6366f1'}11)`,
-                                borderLeft: `2px solid ${subject?.color || '#6366f1'}`
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditExam(exam);
-                              }}
-                            >
-                              <div className="font-medium text-white/90 truncate">
-                                {subject?.name}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {day.assignments.slice(0, 2 - Math.min(2, day.exams.length)).map(assignment => {
-                          const statusColor = assignment.status === 'completed' ? 'green' : assignment.status === 'in_progress' ? 'yellow' : 'blue';
-                          const statusBg = assignment.status === 'completed' ? '#10b98133' : assignment.status === 'in_progress' ? '#eab30833' : '#3b82f633';
-                          const statusBorder = assignment.status === 'completed' ? '#10b981' : assignment.status === 'in_progress' ? '#eab308' : '#3b82f6';
-                          return (
-                            <div
-                              key={assignment.id}
-                              className="text-xs p-1 rounded truncate cursor-pointer"
-                              style={{
-                                background: statusBg,
-                                borderLeft: `2px solid ${statusBorder}`
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedAssignment(assignment);
-                                setShowAssignmentModal(true);
-                              }}
-                            >
-                              <div className="font-medium text-white/90 truncate flex items-center gap-1">
-                                {assignment.status === 'completed' && <CheckCircle className="w-3 h-3" />}
-                                {assignment.subject_name}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {(day.exams.length + day.assignments.length) > 2 && (
-                          <div className="text-xs text-white/60">
-                            +{day.exams.length + day.assignments.length - 2} more
+                        {hasExams && (
+                          <div className="text-xs text-white/90 font-medium">
+                            {day.exams.length} exam{day.exams.length > 1 ? 's' : ''}
+                          </div>
+                        )}
+                        {hasAssignments && (
+                          <div className="text-xs text-white/80 font-medium">
+                            {day.assignments.length} task{day.assignments.length > 1 ? 's' : ''}
+                          </div>
+                        )}
+                        {!hasExams && !hasAssignments && day.isCurrentMonth && (
+                          <div className="text-xs text-white/30">
+                            Free
                           </div>
                         )}
                       </div>
@@ -771,8 +766,9 @@ export default function ExamsPage() {
         {/* Assignment Session Modal */}
         {showAssignmentModal && selectedAssignment && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6" onClick={() => setShowAssignmentModal(false)}>
-            <GlassCard onClick={(e: React.MouseEvent) => e.stopPropagation()} className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
+            <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <GlassCard className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-2xl font-bold text-white">Study Assignment</h3>
                   <button
@@ -914,7 +910,7 @@ export default function ExamsPage() {
                             required_tasks: selectedAssignment.required_tasks_count,
                             tasks_completed: selectedAssignment.tasks_completed,
                             time_spent_minutes: selectedAssignment.time_spent_minutes,
-                            grade_level: profile?.grade_level,
+                            grade_level: profile?.grade_level || undefined,
                             study_system: profile?.education_system || 'IB'
                           });
 
@@ -939,7 +935,8 @@ export default function ExamsPage() {
                   </Button>
                 </div>
               </div>
-            </GlassCard>
+              </GlassCard>
+            </div>
           </div>
         )}
 
