@@ -130,84 +130,92 @@ export default function StudyTimerPage() {
 
   // Fetch data on mount
   useEffect(() => {
-    // Check for assignment session FIRST (client-side only)
-    let hasAssignment = false;
-    if (typeof window !== 'undefined') {
-      const assignmentData = sessionStorage.getItem('assignmentSession');
-      if (assignmentData) {
-        try {
-          const assignment = JSON.parse(assignmentData);
-          hasAssignment = true;
-          hasAssignmentSessionRef.current = true;
+    // Load user grade and subjects first, THEN check for assignment session
+    const initializeData = async () => {
+      // Fetch user grade first so it's available for task generation
+      await fetchUserGrade();
+      await fetchSubjects();
+      await fetchRecentSessions();
+      await fetchWeeklyStats();
 
-          setAssignmentSession(assignment);
-          setAssignmentTasksCompleted(assignment.currentTasks || 0);
-          setSelectedSubject(assignment.subjectId || '');
-          setInlineTopic(assignment.topic || '');
-          setInlineDifficulty(assignment.difficulty || 'medium');
-
-          // Set timer, elapsed time, and session goal based on assignment
-          if (assignment.estimatedMinutes) {
-            setSessionGoal(assignment.estimatedMinutes);
-            const totalSeconds = assignment.estimatedMinutes * 60;
-            const alreadySpentSeconds = (assignment.timeSpent || 0) * 60; // timeSpent is in minutes
-            const remainingSeconds = Math.max(0, totalSeconds - alreadySpentSeconds);
-
-            setTimeRemaining(remainingSeconds); // Set remaining time, not total time
-            setInitialTimeRemaining(totalSeconds); // Store total for progress calculation
-            setElapsedSeconds(alreadySpentSeconds); // Set elapsed time for progress display
-          }
-
-          // Auto-generate first task with actual topic (look up from exam if generic)
-          if (assignment.subject && assignment.topic) {
-            // If topic is generic like "exam preparation", try to get actual topic
-            const topicToUse = assignment.topic.toLowerCase().includes('exam preparation') ||
-                               assignment.topic.toLowerCase().includes('exam prep')
-              ? (assignment.examTopic || assignment.topic) // Use examTopic if available, fallback to stored topic
-              : assignment.topic;
-
-            startTaskGeneration({
-              subject: assignment.subject,
-              topic: topicToUse,
-              difficulty: assignment.difficulty,
-              studySystem: 'IB',
-              grade: inlineGrade || '9',
-            });
-          }
-        } catch (e) {
-          console.error('Failed to parse assignment session:', e);
-        }
-      } else {
-        // Check for pending task generation
-        const pending = sessionStorage.getItem('pendingTaskGeneration');
-        if (pending) {
+      // Check for assignment session AFTER grade is loaded (client-side only)
+      if (typeof window !== 'undefined') {
+        const assignmentData = sessionStorage.getItem('assignmentSession');
+        if (assignmentData) {
           try {
-            const params = JSON.parse(pending);
-            sessionStorage.removeItem('pendingTaskGeneration');
-            startTaskGeneration(params);
+            const assignment = JSON.parse(assignmentData);
+            hasAssignmentSessionRef.current = true;
+
+            setAssignmentSession(assignment);
+            setAssignmentTasksCompleted(assignment.currentTasks || 0);
+            setSelectedSubject(assignment.subjectId || '');
+            setInlineTopic(assignment.topic || '');
+            setInlineDifficulty(assignment.difficulty || 'medium');
+
+            // Set timer, elapsed time, and session goal based on assignment
+            if (assignment.estimatedMinutes) {
+              setSessionGoal(assignment.estimatedMinutes);
+              const totalSeconds = assignment.estimatedMinutes * 60;
+              const alreadySpentSeconds = (assignment.timeSpent || 0) * 60; // timeSpent is in minutes
+              const remainingSeconds = Math.max(0, totalSeconds - alreadySpentSeconds);
+
+              setTimeRemaining(remainingSeconds); // Set remaining time, not total time
+              setInitialTimeRemaining(totalSeconds); // Store total for progress calculation
+              setElapsedSeconds(alreadySpentSeconds); // Set elapsed time for progress display
+            }
+
+            // Auto-generate first task with actual topic (look up from exam if generic)
+            // Note: inlineGrade has been loaded by fetchUserGrade above
+            if (assignment.subject && assignment.topic) {
+              // If topic is generic like "exam preparation", try to get actual topic
+              const topicToUse = assignment.topic.toLowerCase().includes('exam preparation') ||
+                                 assignment.topic.toLowerCase().includes('exam prep')
+                ? (assignment.examTopic || assignment.topic) // Use examTopic if available, fallback to stored topic
+                : assignment.topic;
+
+              // Use a small delay to ensure inlineGrade state has updated
+              setTimeout(() => {
+                startTaskGeneration({
+                  subject: assignment.subject,
+                  topic: topicToUse,
+                  difficulty: assignment.difficulty,
+                  studySystem: 'IB',
+                  grade: inlineGrade || '9',
+                });
+              }, 100);
+            }
           } catch (e) {
-            console.error('Failed to parse pending task generation:', e);
+            console.error('Failed to parse assignment session:', e);
           }
         } else {
-          // Load existing task from sessionStorage
-          const taskData = sessionStorage.getItem('currentTask');
-          if (taskData) {
+          // Check for pending task generation
+          const pending = sessionStorage.getItem('pendingTaskGeneration');
+          if (pending) {
             try {
-              const parsedTask = JSON.parse(taskData);
-              setCurrentTask(parsedTask);
+              const params = JSON.parse(pending);
+              sessionStorage.removeItem('pendingTaskGeneration');
+              startTaskGeneration(params);
             } catch (e) {
-              console.error('Failed to parse current task:', e);
+              console.error('Failed to parse pending task generation:', e);
+            }
+          } else {
+            // Load existing task from sessionStorage
+            const taskData = sessionStorage.getItem('currentTask');
+            if (taskData) {
+              try {
+                const parsedTask = JSON.parse(taskData);
+                setCurrentTask(parsedTask);
+              } catch (e) {
+                console.error('Failed to parse current task:', e);
+              }
             }
           }
         }
       }
-    }
+    };
 
-    // Fetch data AFTER checking assignment to avoid race conditions
-    fetchSubjects();
-    fetchRecentSessions();
-    fetchWeeklyStats();
-    fetchUserGrade();
+    // Call the async initialization function
+    initializeData();
   }, []);
 
   // Load chat history when modal opens or task changes
@@ -970,7 +978,8 @@ export default function StudyTimerPage() {
     }
   };
 
-  const progress = timeRemaining === 0 ? 1 : 1 - (timeRemaining / initialTimeRemaining);
+  // Calculate progress based on elapsed time (more reliable than timeRemaining)
+  const progress = initialTimeRemaining > 0 ? Math.min(1, elapsedSeconds / initialTimeRemaining) : 0;
   const maxHours = Math.max(...weeklyStats.map(s => s.hours), 1);
   const totalWeekHours = weeklyStats.reduce((sum, stat) => sum + stat.hours, 0);
 

@@ -637,18 +637,22 @@ async function createSingleAssignment(studentId: string, params: {
         const estimatedMinutes = params.estimated_minutes || 45;
         const requiredTasksCount = params.required_tasks_count || 5;
 
-        // Determine the topic - if exam_name is provided, look up the exam's topic
+        // Determine the topic - if exam_name is provided, look up the exam's units/topics
         let topicToUse = params.topic;
         if (params.exam_name) {
-          // Try to find the exam in the database to get its topic
+          // Try to find the exam in the database to get its units (topics)
           const examResult = await db.query(
-            'SELECT topic FROM exams WHERE user_id = $1 AND (title ILIKE $2 OR title ILIKE $3) LIMIT 1',
-            [studentId, `%${params.exam_name}%`, `${params.exam_name}%`]
+            'SELECT units FROM exams WHERE user_id = $1 AND exam_type ILIKE $2 LIMIT 1',
+            [studentId, `%${params.exam_name}%`]
           );
 
-          if (examResult.rows.length > 0 && examResult.rows[0].topic) {
-            topicToUse = examResult.rows[0].topic;
-            controller.enqueue(encoder.encode(`✓ Using exam topic: ${topicToUse}\n`));
+          if (examResult.rows.length > 0 && examResult.rows[0].units) {
+            // units is a JSON array, join them into a comma-separated string
+            const units = examResult.rows[0].units;
+            if (Array.isArray(units) && units.length > 0) {
+              topicToUse = units.filter((u: string) => u && u.trim()).join(', ');
+              controller.enqueue(encoder.encode(`✓ Using exam topics: ${topicToUse}\n`));
+            }
           }
         }
 
