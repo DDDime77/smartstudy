@@ -185,6 +185,23 @@ export default function StudyTimerPage() {
           setInitialTimeRemaining(totalSeconds);
           setElapsedSeconds(alreadySpentSeconds);
 
+          // Auto-start timer by creating study session record
+          // This is needed for auto-save to work (requires currentSessionId)
+          if (activeSession.subject_id) {
+            try {
+              const session = await SessionsService.create({
+                subject_id: activeSession.subject_id,
+                start_time: new Date().toISOString(),
+              });
+              setCurrentSessionId(session.id);
+              setIsRunning(true); // Auto-start the timer
+              sessionStartTimeRef.current = Date.now();
+              console.log('✅ Study session auto-started from assignment:', session.id);
+            } catch (err) {
+              console.error('Failed to create study session:', err);
+            }
+          }
+
           // Restore current task if it exists
           if (activeSession.current_task) {
             setCurrentTask(activeSession.current_task);
