@@ -489,6 +489,17 @@ export default function StudyTimerPage() {
             alert('🎉 Assignment completed! Great work!');
             sessionStorage.removeItem('assignmentSession');
             setAssignmentSession(null);
+          } else {
+            // Update sessionStorage to keep it in sync with database
+            if (typeof window !== 'undefined') {
+              const updatedSession = {
+                ...assignmentSession,
+                currentTasks: newTasksCompleted,
+                timeSpent: timeSpentMinutes
+              };
+              sessionStorage.setItem('assignmentSession', JSON.stringify(updatedSession));
+              setAssignmentSession(updatedSession);
+            }
           }
         } catch (error) {
           console.error('Failed to update assignment progress:', error);
@@ -820,6 +831,17 @@ export default function StudyTimerPage() {
         assignmentTasksCompleted,
         timeSpentMinutes
       );
+
+      // Update sessionStorage to keep it in sync with database
+      if (typeof window !== 'undefined') {
+        const updatedSession = {
+          ...assignmentSession,
+          currentTasks: assignmentTasksCompleted,
+          timeSpent: timeSpentMinutes
+        };
+        sessionStorage.setItem('assignmentSession', JSON.stringify(updatedSession));
+        setAssignmentSession(updatedSession); // Update state too
+      }
     } catch (error) {
       console.error('Failed to save assignment time:', error);
     }
