@@ -19,14 +19,19 @@ app = FastAPI(
 # Add global validation error handler
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    body = await request.body()
     print(f"🔴 [FastAPI] ====== Validation Error ======")
     print(f"🔴 [FastAPI] Request URL: {request.url}")
     print(f"🔴 [FastAPI] Request method: {request.method}")
     print(f"🔴 [FastAPI] Validation errors: {exc.errors()}")
-    print(f"🔴 [FastAPI] Request body: {await request.body()}")
+    print(f"🔴 [FastAPI] Request body: {body.decode() if isinstance(body, bytes) else body}")
+
+    # Convert body to string for JSON serialization
+    body_str = body.decode('utf-8') if isinstance(body, bytes) else str(body)
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors(), "body": exc.body},
+        content={"detail": exc.errors(), "body": body_str},
     )
 
 # Configure CORS

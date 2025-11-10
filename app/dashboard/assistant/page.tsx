@@ -118,30 +118,50 @@ export default function StudyAssistantPage() {
     }
   };
 
-  const loadAssistantData = async (id: string, isInitial: boolean = false) => {
-    if (isInitial) {
-      setIsLoading(true);
-    }
+  // Load context (statistics) first - instant, no OpenAI
+  const loadContext = async (id: string) => {
     try {
-      console.log('🔍 Loading assistant data for student:', id);
+      console.log('🔍 Loading context for student:', id);
+      const response = await fetch(`/api/study-assistant/context?studentId=${id}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to load context: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Context loaded:', data);
+
+      // Set the context data immediately (shows page with statistics)
+      setAssistantData({
+        recommendation: '', // Empty initially, will be filled by streaming
+        taskAssignments: data.taskAssignments,
+        context: data.context
+      });
+
+      return data.hasData;
+    } catch (error) {
+      console.error('❌ Error loading context:', error);
+      throw error;
+    }
+  };
+
+  // Stream the AI recommendation after context is loaded
+  const loadRecommendation = async (id: string) => {
+    try {
+      console.log('🔍 Streaming recommendation for student:', id);
       const response = await fetch('/api/study-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: id })
       });
 
-      console.log('📡 Assistant API response status:', response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API error:', errorText);
-        throw new Error(`Failed to load assistant data: ${response.status}`);
+        throw new Error(`Failed to load recommendation: ${response.status}`);
       }
 
       // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let recommendation = '';
       let buffer = '';
 
       if (reader) {
@@ -152,49 +172,41 @@ export default function StudyAssistantPage() {
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
 
-          // Check if we've hit the structured data marker
-          if (buffer.includes('__STRUCTURED_DATA__')) {
-            const parts = buffer.split('__STRUCTURED_DATA__');
-            recommendation = parts[0].trim();
-            const structuredDataJson = parts[1].trim();
-
-            // Parse structured data
-            try {
-              const structuredData = JSON.parse(structuredDataJson);
-              setAssistantData({
-                recommendation,
-                ...structuredData
-              });
-            } catch (e) {
-              console.error('Failed to parse structured data:', e);
-            }
-            break;
-          }
-
           // Update recommendation as it streams
-          recommendation = buffer;
           setAssistantData(prev => ({
-            ...prev,
-            recommendation: buffer,
-            taskAssignments: prev?.taskAssignments || [],
-            context: prev?.context || {
-              summary: {
-                total_study_hours_this_week: 0,
-                total_study_hours_this_month: 0,
-                overall_success_rate: 0,
-                upcoming_exams_count: 0,
-                pending_assignments_count: 0,
-                goals_on_track: 0,
-                goals_behind: 0
-              },
-              topPriorities: { exams: [], assignments: [] },
-              nextSession: { duration: 0, subject: '', topics: [], reasoning: '' }
-            }
+            ...prev!,
+            recommendation: buffer
           }));
         }
       }
 
-      console.log('✅ Assistant data loaded');
+      console.log('✅ Recommendation loaded');
+    } catch (error) {
+      console.error('❌ Error loading recommendation:', error);
+      // Don't throw - context is already loaded, just show error in recommendation
+      setAssistantData(prev => ({
+        ...prev!,
+        recommendation: 'Unable to load AI recommendation. Please try refreshing the page.'
+      }));
+    }
+  };
+
+  // Main load function - calls both in sequence
+  const loadAssistantData = async (id: string, isInitial: boolean = false) => {
+    if (isInitial) {
+      setIsLoading(true);
+    }
+    try {
+      // Step 1: Load context (instant)
+      const hasData = await loadContext(id);
+
+      // If initial load, hide loading spinner after context is ready
+      if (isInitial) {
+        setIsLoading(false);
+      }
+
+      // Step 2: Stream recommendation (takes time)
+      await loadRecommendation(id);
     } catch (error) {
       console.error('❌ Error loading assistant:', error);
       // Set a minimal default data structure so the page doesn't crash

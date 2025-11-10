@@ -304,6 +304,79 @@ class EmbeddingModelService:
             'message': f'Training complete with {len(training_data)} samples'
         }
 
+    def _apply_adaptive_adjustment(self, base_prob: float, base_time: float,
+                                   history: List[Dict], topic: str, difficulty: str) -> Tuple[float, float]:
+        """
+        Apply rule-based adaptive adjustment to ensure correct adaptation direction
+
+        This ensures that predictions adapt in the RIGHT direction:
+        - Recent correct tasks → Increase success probability
+        - Recent incorrect tasks → Decrease success probability
+        """
+
+        # Filter for topic/difficulty
+        relevant_tasks = [t for t in history
+                         if t['topic'] == topic and t['difficulty'] == difficulty]
+
+        if len(relevant_tasks) < 3:
+            # Not enough history for adjustment
+            return base_prob, base_time
+
+        # Analyze recent performance (last 5 tasks)
+        recent_n = min(5, len(relevant_tasks))
+        recent_tasks = relevant_tasks[-recent_n:]
+        recent_success_rate = sum(t['correct'] for t in recent_tasks) / len(recent_tasks)
+        recent_avg_time = sum(t['actual_time'] for t in recent_tasks) / len(recent_tasks)
+
+        # Calculate overall performance for comparison
+        overall_success_rate = sum(t['correct'] for t in relevant_tasks) / len(relevant_tasks)
+        overall_avg_time = sum(t['actual_time'] for t in relevant_tasks) / len(relevant_tasks)
+
+        # Compute improvement/decline
+        success_improvement = recent_success_rate - overall_success_rate
+        time_improvement = overall_avg_time - recent_avg_time  # Positive = getting faster
+
+        # Apply adaptive adjustment
+        adjusted_prob = base_prob
+        adjusted_time = base_time
+
+        # RULE 1: If recent performance is significantly better, boost predictions
+        if recent_success_rate > 0.8 and success_improvement > 0.1:
+            # User is doing very well recently - boost significantly
+            boost_factor = 1.2 + (success_improvement * 0.5)
+            adjusted_prob = min(0.95, base_prob * boost_factor)
+        elif success_improvement > 0.05:
+            # User is improving - boost moderately
+            boost_factor = 1.1 + (success_improvement * 0.3)
+            adjusted_prob = min(0.95, base_prob * boost_factor)
+
+        # RULE 2: If recent performance is significantly worse, reduce predictions
+        elif recent_success_rate < 0.3 and success_improvement < -0.1:
+            # User is struggling recently - reduce significantly
+            reduction_factor = 0.8 + (success_improvement * 0.5)
+            adjusted_prob = max(0.05, base_prob * reduction_factor)
+        elif success_improvement < -0.05:
+            # User is declining - reduce moderately
+            reduction_factor = 0.9 + (success_improvement * 0.3)
+            adjusted_prob = max(0.05, base_prob * reduction_factor)
+
+        # RULE 3: Adjust time based on recent speed
+        if time_improvement > 30:  # Getting faster by 30+ seconds
+            adjusted_time = max(10, base_time * 0.9)
+        elif time_improvement < -30:  # Getting slower by 30+ seconds
+            adjusted_time = min(300, base_time * 1.1)
+
+        # RULE 4: If predictions are unreasonably low/high, constrain them
+        if len(relevant_tasks) >= 10:
+            if adjusted_prob < 0.15 and overall_success_rate > 0.5:
+                # Model predicts too low when user is actually doing okay
+                adjusted_prob = max(0.4, overall_success_rate * 0.8)
+            elif adjusted_prob > 0.85 and overall_success_rate < 0.3:
+                # Model predicts too high when user is actually struggling
+                adjusted_prob = min(0.5, overall_success_rate * 1.2)
+
+        return adjusted_prob, adjusted_time
+
     def predict(self, user_id: UUID, topic: str, difficulty: str) -> Tuple[float, float]:
         """
         Predict correctness probability and time for next task
@@ -322,10 +395,15 @@ class EmbeddingModelService:
             'timestamp': datetime.utcnow().timestamp()
         }
 
-        # Predict
-        correctness_prob, estimated_time = self.model.predict(history, next_task)
+        # Get ML model prediction
+        base_prob, base_time = self.model.predict(history, next_task)
 
-        return correctness_prob, estimated_time
+        # Apply adaptive adjustment to ensure correct adaptation direction
+        adjusted_prob, adjusted_time = self._apply_adaptive_adjustment(
+            base_prob, base_time, history, topic, difficulty
+        )
+
+        return adjusted_prob, adjusted_time
 
     def predict_and_save(self, user_id: UUID, topic: str, difficulty: str) -> Dict:
         """

@@ -149,38 +149,18 @@ ${contextText}
       stream: true, // Enable streaming
     });
 
-    // Create streaming response
+    // Create streaming response - ONLY stream the recommendation text
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          let fullRecommendation = '';
-
-          // Stream the recommendation
+          // Stream the recommendation only
           for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
             if (content) {
-              fullRecommendation += content;
               controller.enqueue(encoder.encode(content));
             }
           }
-
-          // After streaming completes, send structured data
-          const taskAssignments = await generateTaskAssignments(context);
-
-          // Send structured data marker and JSON
-          controller.enqueue(encoder.encode('\n\n__STRUCTURED_DATA__\n'));
-          controller.enqueue(encoder.encode(JSON.stringify({
-            taskAssignments,
-            context: {
-              summary: context.summary,
-              topPriorities: {
-                exams: context.predictions.examPriorities.slice(0, 3),
-                assignments: context.predictions.assignmentPriorities.slice(0, 3)
-              },
-              nextSession: context.predictions.nextSessionSuggestion
-            }
-          })));
 
           controller.close();
         } catch (error) {
