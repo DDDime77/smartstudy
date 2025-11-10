@@ -16,7 +16,8 @@ import {
   Loader2,
   Sparkles,
   ChevronRight,
-  Wrench
+  Wrench,
+  Check
 } from 'lucide-react';
 import { AuthService } from '@/lib/api/auth';
 import ReactMarkdown from 'react-markdown';
@@ -75,7 +76,7 @@ export default function StudyAssistantPage() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
-  const [toolCallAnimation, setToolCallAnimation] = useState<string | null>(null);
+  const [activeToolCalls, setActiveToolCalls] = useState<Array<{ name: string; args: any; status: 'calling' | 'complete' }>>([]);
   const [studentId, setStudentId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +86,7 @@ export default function StudyAssistantPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, streamingMessage, toolCallAnimation]);
+  }, [chatMessages, streamingMessage, activeToolCalls]);
 
   const loadStudentAndData = async () => {
     try {
@@ -161,7 +162,7 @@ export default function StudyAssistantPage() {
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsChatLoading(true);
     setStreamingMessage('');
-    setToolCallAnimation(null);
+    setActiveToolCalls([]);
 
     try {
       const response = await fetch(
@@ -195,13 +196,18 @@ export default function StudyAssistantPage() {
             // Check for tool call markers
             if (trimmedLine === '__TOOL_CALL_START__') {
               isProcessingTools = true;
-              setToolCallAnimation('Creating tasks...');
               continue;
             }
 
             if (trimmedLine === '__TOOL_CALL_END__') {
               isProcessingTools = false;
-              setToolCallAnimation(null);
+              // Mark the last active tool call as complete
+              setActiveToolCalls(prev => {
+                if (prev.length === 0) return prev;
+                const updated = [...prev];
+                updated[updated.length - 1] = { ...updated[updated.length - 1], status: 'complete' };
+                return updated;
+              });
               continue;
             }
 
@@ -210,7 +216,12 @@ export default function StudyAssistantPage() {
               try {
                 const toolData = JSON.parse(trimmedLine.replace('__TOOL_DATA__:', ''));
                 toolCalls.push(toolData);
-                setToolCallAnimation(`Creating: ${toolData.args.topic || toolData.args.subject}`);
+                // Add to active tool calls with 'calling' status
+                setActiveToolCalls(prev => [...prev, {
+                  name: toolData.name,
+                  args: toolData.args,
+                  status: 'calling'
+                }]);
               } catch (e) {
                 console.error('Failed to parse tool data:', e);
               }
@@ -233,7 +244,7 @@ export default function StudyAssistantPage() {
 
         setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage.trim(), toolCalls }]);
         setStreamingMessage('');
-        setToolCallAnimation(null);
+        setActiveToolCalls([]);
 
         // Reload assistant data if tasks were created
         if (toolCalls.length > 0 && studentId) {
@@ -246,7 +257,7 @@ export default function StudyAssistantPage() {
         ...prev,
         { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
       ]);
-      setToolCallAnimation(null);
+      setActiveToolCalls([]);
     } finally {
       setIsChatLoading(false);
     }
@@ -443,15 +454,65 @@ export default function StudyAssistantPage() {
                     </div>
                   </div>
                 )}
-                {toolCallAnimation && (
-                  <div className="p-4 rounded-lg bg-purple-500/10 mr-12 border border-purple-500/30">
-                    <div className="flex items-center gap-3">
-                      <Wrench className="w-5 h-5 text-purple-400 animate-pulse" />
-                      <span className="text-purple-300 font-medium animate-pulse">
-                        {toolCallAnimation}
-                      </span>
-                      <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
-                    </div>
+                {activeToolCalls.length > 0 && (
+                  <div className="mr-12 space-y-2">
+                    {activeToolCalls.map((toolCall, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30">
+                        {/* Tool Call Header */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-2 h-2 rounded-full ${toolCall.status === 'calling' ? 'bg-purple-400 animate-pulse' : 'bg-green-400'}`} />
+                          <span className="text-purple-300 font-mono text-sm font-medium">
+                            {toolCall.status === 'calling' ? 'Calling' : 'Called'} {toolCall.name}
+                          </span>
+                          {toolCall.status === 'calling' && (
+                            <Loader2 className="w-3 h-3 text-purple-400 animate-spin ml-auto" />
+                          )}
+                          {toolCall.status === 'complete' && (
+                            <CheckCircle className="w-3 h-3 text-green-400 ml-auto" />
+                          )}
+                        </div>
+
+                        {/* Tool Call Arguments - Inline Details */}
+                        <div className="ml-4 pl-3 border-l-2 border-purple-400/30 space-y-1">
+                          {toolCall.args.subject && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/40 text-xs font-mono">subject:</span>
+                              <span className="text-white/80 text-xs">{toolCall.args.subject}</span>
+                            </div>
+                          )}
+                          {toolCall.args.topic && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/40 text-xs font-mono">topic:</span>
+                              <span className="text-white/80 text-xs">{toolCall.args.topic}</span>
+                            </div>
+                          )}
+                          {toolCall.args.due_date && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/40 text-xs font-mono">due_date:</span>
+                              <span className="text-white/80 text-xs">{new Date(toolCall.args.due_date).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {toolCall.args.time_of_day && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/40 text-xs font-mono">time:</span>
+                              <span className="text-white/80 text-xs">{toolCall.args.time_of_day}</span>
+                            </div>
+                          )}
+                          {toolCall.args.estimated_minutes && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/40 text-xs font-mono">duration:</span>
+                              <span className="text-white/80 text-xs">{toolCall.args.estimated_minutes} min</span>
+                            </div>
+                          )}
+                          {toolCall.args.difficulty && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/40 text-xs font-mono">difficulty:</span>
+                              <span className="text-white/80 text-xs">{toolCall.args.difficulty}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
                 <div ref={chatEndRef} />
