@@ -20,16 +20,20 @@ interface AvailabilityStepProps {
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAY_ABBR = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-// Time slots: 2-hour blocks from 6am to 10pm
+// Time slots: 2-hour blocks covering full 24 hours
 const TIME_SLOTS = [
+  { start: '00:00', end: '02:00', label: '12-2 AM' },
+  { start: '02:00', end: '04:00', label: '2-4 AM' },
+  { start: '04:00', end: '06:00', label: '4-6 AM' },
   { start: '06:00', end: '08:00', label: '6-8 AM' },
   { start: '08:00', end: '10:00', label: '8-10 AM' },
-  { start: '10:00', end: '12:00', label: '10-12 PM' },
+  { start: '10:00', end: '12:00', label: '10 AM-12 PM' },
   { start: '12:00', end: '14:00', label: '12-2 PM' },
   { start: '14:00', end: '16:00', label: '2-4 PM' },
   { start: '16:00', end: '18:00', label: '4-6 PM' },
   { start: '18:00', end: '20:00', label: '6-8 PM' },
   { start: '20:00', end: '22:00', label: '8-10 PM' },
+  { start: '22:00', end: '00:00', label: '10 PM-12 AM' },
 ];
 
 export default function AvailabilityStep({ value, onChange }: AvailabilityStepProps) {
@@ -83,13 +87,28 @@ export default function AvailabilityStep({ value, onChange }: AvailabilityStepPr
 
     switch (presetName) {
       case 'school_hours':
-        // Mon-Fri, 8 AM - 3 PM (typical school hours)
+        // Mon-Fri, 8 AM - 4 PM (typical school hours including after-school)
         newAvailability = [0, 1, 2, 3, 4].map((day) => ({
           day,
           slots: [
             { start: '08:00', end: '10:00' },
             { start: '10:00', end: '12:00' },
             { start: '12:00', end: '14:00' },
+            { start: '14:00', end: '16:00' },
+          ],
+        }));
+        break;
+
+      case 'sleep_time':
+        // All days, 10 PM - 8 AM (typical sleep schedule)
+        newAvailability = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+          day,
+          slots: [
+            { start: '22:00', end: '00:00' },
+            { start: '00:00', end: '02:00' },
+            { start: '02:00', end: '04:00' },
+            { start: '04:00', end: '06:00' },
+            { start: '06:00', end: '08:00' },
           ],
         }));
         break;
@@ -150,10 +169,11 @@ export default function AvailabilityStep({ value, onChange }: AvailabilityStepPr
       {/* Quick Presets */}
       <div className="space-y-3">
         <label className="block text-sm font-medium text-slate-300">Quick Presets</label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { id: 'school_hours', label: 'School Hours', icon: '🎓' },
             { id: 'work_hours', label: 'Work Hours', icon: '💼' },
+            { id: 'sleep_time', label: 'Sleep Time', icon: '😴' },
             { id: 'evenings', label: 'Evening Activities', icon: '🌙' },
             { id: 'clear', label: 'Clear All', icon: '🗑️' },
           ].map((preset) => (
