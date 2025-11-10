@@ -23,9 +23,11 @@ export default function StudyTimerPage() {
   const [timeRemaining, setTimeRemaining] = useState(25 * 60); // Countdown timer in seconds
   const [initialTimeRemaining, setInitialTimeRemaining] = useState(25 * 60); // Store initial duration for progress calculation
   const [elapsedSeconds, setElapsedSeconds] = useState(0); // Actual elapsed time
+  const elapsedSecondsRef = useRef(0); // Ref to always have current value for auto-save
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [interruptions, setInterruptions] = useState(0);
+  const interruptionsRef = useRef(0); // Ref for interruptions
 
   // Data from API
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
@@ -127,6 +129,15 @@ export default function StudyTimerPage() {
       gradient: 'from-green-500/20 to-emerald-500/10'
     },
   ];
+
+  // Keep refs synced with state for auto-save (avoids stale closures)
+  useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
+
+  useEffect(() => {
+    interruptionsRef.current = interruptions;
+  }, [interruptions]);
 
   // Fetch data on mount
   useEffect(() => {
@@ -702,7 +713,7 @@ export default function StudyTimerPage() {
         clearInterval(saveTimeoutRef.current);
       }
     };
-  }, [isRunning, currentSessionId, elapsedSeconds]);
+  }, [isRunning, currentSessionId]); // Removed elapsedSeconds - it was causing re-renders every second!
 
   // Handle page visibility changes (tab switch, minimize, etc.)
   useEffect(() => {
@@ -807,17 +818,23 @@ export default function StudyTimerPage() {
   const saveElapsedTime = async (isFinal: boolean = false) => {
     if (!currentSessionId) return;
 
+    // Use refs to get current values (avoids stale closure in interval callback)
+    const currentElapsed = elapsedSecondsRef.current;
+    const currentInterruptions = interruptionsRef.current;
+
     try {
       await SessionsService.update(currentSessionId, {
-        elapsed_seconds: elapsedSeconds,
-        interruptions_count: interruptions,
+        elapsed_seconds: currentElapsed,
+        interruptions_count: currentInterruptions,
         ...(isFinal && { end_time: new Date().toISOString(), focus_rating: 3 })
       });
 
       // Also update assignment time and active session if this is an assignment session
-      if (assignmentSession && elapsedSeconds > 0) {
+      if (assignmentSession && currentElapsed > 0) {
         await saveAssignmentTime();
       }
+
+      console.log(`💾 Auto-saved: ${currentElapsed}s elapsed, ${currentInterruptions} interruptions`);
     } catch (error) {
       if (!isFinal) {
         console.error('Failed to save elapsed time:', error);
@@ -829,7 +846,8 @@ export default function StudyTimerPage() {
     if (!assignmentSession) return;
 
     try {
-      const timeSpentMinutes = Math.floor(elapsedSeconds / 60);
+      const currentElapsed = elapsedSecondsRef.current;
+      const timeSpentMinutes = Math.floor(currentElapsed / 60);
       const { AssignmentsService } = await import('@/lib/api/assignments');
       await AssignmentsService.updateProgress(
         assignmentSession.assignmentId,
@@ -842,7 +860,7 @@ export default function StudyTimerPage() {
       await ActiveSessionsService.update({
         tasks_completed: assignmentTasksCompleted,
         time_spent_minutes: timeSpentMinutes,
-        elapsed_seconds: elapsedSeconds,
+        elapsed_seconds: currentElapsed,
       });
 
       // Update local state
