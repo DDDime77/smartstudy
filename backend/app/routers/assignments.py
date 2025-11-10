@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 from datetime import date, time
 from pydantic import BaseModel
+from sqlalchemy import text
 from app.core.security import get_current_user
 from app.core.database import get_db
 
@@ -51,20 +52,20 @@ async def get_assignments(
     try:
         query = """
             SELECT * FROM ai_assignments
-            WHERE user_id = %s
+            WHERE user_id = :user_id
         """
-        params = [str(current_user.id)]
+        params = {"user_id": str(current_user.id)}
 
         if start_date and end_date:
-            query += " AND scheduled_date BETWEEN %s AND %s"
-            params.extend([start_date, end_date])
+            query += " AND scheduled_date BETWEEN :start_date AND :end_date"
+            params["start_date"] = start_date
+            params["end_date"] = end_date
 
         query += " ORDER BY scheduled_date ASC, scheduled_time ASC"
 
-        cursor = db.cursor()
-        cursor.execute(query, params)
-        columns = [desc[0] for desc in cursor.description]
-        rows = cursor.fetchall()
+        result = db.execute(text(query), params)
+        columns = result.keys()
+        rows = result.fetchall()
 
         assignments = []
         for row in rows:
@@ -78,11 +79,10 @@ async def get_assignments(
                 assignment['created_at'] = assignment['created_at'].isoformat()
             if assignment.get('updated_at'):
                 assignment['updated_at'] = assignment['updated_at'].isoformat()
-            if assignment.get('completed_at'):
+            if assignment.get('completed_at') and assignment['completed_at']:
                 assignment['completed_at'] = assignment['completed_at'].isoformat()
             assignments.append(assignment)
 
-        cursor.close()
         return assignments
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,18 +96,16 @@ async def get_assignment(
 ):
     """Get a specific assignment"""
     try:
-        cursor = db.cursor()
-        cursor.execute(
-            "SELECT * FROM ai_assignments WHERE id = %s AND user_id = %s",
-            (assignment_id, str(current_user.id))
+        result = db.execute(
+            text("SELECT * FROM ai_assignments WHERE id = :id AND user_id = :user_id"),
+            {"id": assignment_id, "user_id": str(current_user.id)}
         )
-        row = cursor.fetchone()
+        row = result.fetchone()
 
         if not row:
-            cursor.close()
             raise HTTPException(status_code=404, detail="Assignment not found")
 
-        columns = [desc[0] for desc in cursor.description]
+        columns = result.keys()
         assignment = dict(zip(columns, row))
 
         # Convert date/time to ISO format strings
@@ -119,10 +117,9 @@ async def get_assignment(
             assignment['created_at'] = assignment['created_at'].isoformat()
         if assignment.get('updated_at'):
             assignment['updated_at'] = assignment['updated_at'].isoformat()
-        if assignment.get('completed_at'):
+        if assignment.get('completed_at') and assignment['completed_at']:
             assignment['completed_at'] = assignment['completed_at'].isoformat()
 
-        cursor.close()
         return assignment
     except HTTPException:
         raise
@@ -138,46 +135,45 @@ async def create_assignment(
 ):
     """Create a new assignment"""
     try:
-        cursor = db.cursor()
-        cursor.execute(
-            """
+        result = db.execute(
+            text("""
             INSERT INTO ai_assignments (
                 user_id, subject_id, title, subject_name, topic, difficulty,
                 scheduled_date, scheduled_time, estimated_minutes, required_tasks_count
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (:user_id, :subject_id, :title, :subject_name, :topic, :difficulty,
+                      :scheduled_date, :scheduled_time, :estimated_minutes, :required_tasks_count)
             RETURNING *
-            """,
-            (
-                str(current_user.id),
-                assignment.subject_id,
-                assignment.title,
-                assignment.subject_name,
-                assignment.topic,
-                assignment.difficulty,
-                assignment.scheduled_date,
-                assignment.scheduled_time,
-                assignment.estimated_minutes,
-                assignment.required_tasks_count
-            )
+            """),
+            {
+                "user_id": str(current_user.id),
+                "subject_id": assignment.subject_id,
+                "title": assignment.title,
+                "subject_name": assignment.subject_name,
+                "topic": assignment.topic,
+                "difficulty": assignment.difficulty,
+                "scheduled_date": assignment.scheduled_date,
+                "scheduled_time": assignment.scheduled_time,
+                "estimated_minutes": assignment.estimated_minutes,
+                "required_tasks_count": assignment.required_tasks_count
+            }
         )
-        row = cursor.fetchone()
-        columns = [desc[0] for desc in cursor.description]
-        result = dict(zip(columns, row))
+        row = result.fetchone()
+        columns = result.keys()
+        created = dict(zip(columns, row))
 
         db.commit()
-        cursor.close()
 
         # Convert date/time to ISO format strings
-        if result.get('scheduled_date'):
-            result['scheduled_date'] = str(result['scheduled_date'])
-        if result.get('scheduled_time'):
-            result['scheduled_time'] = str(result['scheduled_time'])
-        if result.get('created_at'):
-            result['created_at'] = result['created_at'].isoformat()
-        if result.get('updated_at'):
-            result['updated_at'] = result['updated_at'].isoformat()
+        if created.get('scheduled_date'):
+            created['scheduled_date'] = str(created['scheduled_date'])
+        if created.get('scheduled_time'):
+            created['scheduled_time'] = str(created['scheduled_time'])
+        if created.get('created_at'):
+            created['created_at'] = created['created_at'].isoformat()
+        if created.get('updated_at'):
+            created['updated_at'] = created['updated_at'].isoformat()
 
-        return result
+        return created
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -194,12 +190,12 @@ async def update_assignment(
     try:
         # Build dynamic update query
         updates = []
-        values = []
+        values = {}
 
         for field, value in assignment.dict(exclude_unset=True).items():
             if value is not None:
-                updates.append(f"{field} = %s")
-                values.append(value)
+                updates.append(f"{field} = :{field}")
+                values[field] = value
 
         if not updates:
             raise HTTPException(status_code=400, detail="No fields to update")
@@ -208,42 +204,40 @@ async def update_assignment(
         if assignment.status == 'completed':
             updates.append("completed_at = NOW()")
 
-        values.extend([assignment_id, str(current_user.id)])
+        values["assignment_id"] = assignment_id
+        values["user_id"] = str(current_user.id)
 
         query = f"""
             UPDATE ai_assignments
             SET {', '.join(updates)}
-            WHERE id = %s AND user_id = %s
+            WHERE id = :assignment_id AND user_id = :user_id
             RETURNING *
         """
 
-        cursor = db.cursor()
-        cursor.execute(query, values)
-        row = cursor.fetchone()
+        result = db.execute(text(query), values)
+        row = result.fetchone()
 
         if not row:
-            cursor.close()
             raise HTTPException(status_code=404, detail="Assignment not found")
 
-        columns = [desc[0] for desc in cursor.description]
-        result = dict(zip(columns, row))
+        columns = result.keys()
+        updated = dict(zip(columns, row))
 
         db.commit()
-        cursor.close()
 
         # Convert date/time to ISO format strings
-        if result.get('scheduled_date'):
-            result['scheduled_date'] = str(result['scheduled_date'])
-        if result.get('scheduled_time'):
-            result['scheduled_time'] = str(result['scheduled_time'])
-        if result.get('created_at'):
-            result['created_at'] = result['created_at'].isoformat()
-        if result.get('updated_at'):
-            result['updated_at'] = result['updated_at'].isoformat()
-        if result.get('completed_at') and result['completed_at']:
-            result['completed_at'] = result['completed_at'].isoformat()
+        if updated.get('scheduled_date'):
+            updated['scheduled_date'] = str(updated['scheduled_date'])
+        if updated.get('scheduled_time'):
+            updated['scheduled_time'] = str(updated['scheduled_time'])
+        if updated.get('created_at'):
+            updated['created_at'] = updated['created_at'].isoformat()
+        if updated.get('updated_at'):
+            updated['updated_at'] = updated['updated_at'].isoformat()
+        if updated.get('completed_at') and updated['completed_at']:
+            updated['completed_at'] = updated['completed_at'].isoformat()
 
-        return result
+        return updated
     except HTTPException:
         raise
     except Exception as e:
@@ -261,18 +255,16 @@ async def update_progress(
     """Update assignment progress"""
     try:
         # Get current assignment
-        cursor = db.cursor()
-        cursor.execute(
-            "SELECT * FROM ai_assignments WHERE id = %s AND user_id = %s",
-            (assignment_id, str(current_user.id))
+        result = db.execute(
+            text("SELECT * FROM ai_assignments WHERE id = :id AND user_id = :user_id"),
+            {"id": assignment_id, "user_id": str(current_user.id)}
         )
-        row = cursor.fetchone()
+        row = result.fetchone()
 
         if not row:
-            cursor.close()
             raise HTTPException(status_code=404, detail="Assignment not found")
 
-        columns = [desc[0] for desc in cursor.description]
+        columns = result.keys()
         assignment = dict(zip(columns, row))
 
         # Calculate progress percentage
@@ -289,47 +281,46 @@ async def update_progress(
             new_status = 'completed'
 
         # Update
-        cursor.execute(
-            """
+        result = db.execute(
+            text("""
             UPDATE ai_assignments
-            SET tasks_completed = %s,
-                time_spent_minutes = %s,
-                progress_percentage = %s,
-                status = %s,
-                completed_at = CASE WHEN %s = 'completed' THEN NOW() ELSE completed_at END
-            WHERE id = %s AND user_id = %s
+            SET tasks_completed = :tasks_completed,
+                time_spent_minutes = :time_spent_minutes,
+                progress_percentage = :progress_percentage,
+                status = :status,
+                completed_at = CASE WHEN :status_check = 'completed' THEN NOW() ELSE completed_at END
+            WHERE id = :id AND user_id = :user_id
             RETURNING *
-            """,
-            (
-                progress.tasks_completed,
-                progress.time_spent_minutes,
-                progress_percentage,
-                new_status,
-                new_status,
-                assignment_id,
-                str(current_user.id)
-            )
+            """),
+            {
+                "tasks_completed": progress.tasks_completed,
+                "time_spent_minutes": progress.time_spent_minutes,
+                "progress_percentage": progress_percentage,
+                "status": new_status,
+                "status_check": new_status,
+                "id": assignment_id,
+                "user_id": str(current_user.id)
+            }
         )
-        row = cursor.fetchone()
-        columns = [desc[0] for desc in cursor.description]
-        result = dict(zip(columns, row))
+        row = result.fetchone()
+        columns = result.keys()
+        updated = dict(zip(columns, row))
 
         db.commit()
-        cursor.close()
 
         # Convert date/time to ISO format strings
-        if result.get('scheduled_date'):
-            result['scheduled_date'] = str(result['scheduled_date'])
-        if result.get('scheduled_time'):
-            result['scheduled_time'] = str(result['scheduled_time'])
-        if result.get('created_at'):
-            result['created_at'] = result['created_at'].isoformat()
-        if result.get('updated_at'):
-            result['updated_at'] = result['updated_at'].isoformat()
-        if result.get('completed_at') and result['completed_at']:
-            result['completed_at'] = result['completed_at'].isoformat()
+        if updated.get('scheduled_date'):
+            updated['scheduled_date'] = str(updated['scheduled_date'])
+        if updated.get('scheduled_time'):
+            updated['scheduled_time'] = str(updated['scheduled_time'])
+        if updated.get('created_at'):
+            updated['created_at'] = updated['created_at'].isoformat()
+        if updated.get('updated_at'):
+            updated['updated_at'] = updated['updated_at'].isoformat()
+        if updated.get('completed_at') and updated['completed_at']:
+            updated['completed_at'] = updated['completed_at'].isoformat()
 
-        return result
+        return updated
     except HTTPException:
         raise
     except Exception as e:
@@ -345,19 +336,16 @@ async def delete_assignment(
 ):
     """Delete an assignment"""
     try:
-        cursor = db.cursor()
-        cursor.execute(
-            "DELETE FROM ai_assignments WHERE id = %s AND user_id = %s RETURNING id",
-            (assignment_id, str(current_user.id))
+        result = db.execute(
+            text("DELETE FROM ai_assignments WHERE id = :id AND user_id = :user_id RETURNING id"),
+            {"id": assignment_id, "user_id": str(current_user.id)}
         )
-        row = cursor.fetchone()
+        row = result.fetchone()
 
         if not row:
-            cursor.close()
             raise HTTPException(status_code=404, detail="Assignment not found")
 
         db.commit()
-        cursor.close()
         return {"success": True}
     except HTTPException:
         raise
