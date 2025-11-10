@@ -47,9 +47,7 @@ export default function EducationSystemStep({
         'IB Courses': ['Year 1 (Grade 11)', 'Year 2 (Grade 12)']
       },
       'A-Level': {
-        'AS Level': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)'],
-        'A2 Level': ['Year 13 (Upper Sixth)'],
-        'Combined': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)']
+        'A-Level': ['Year 12 (Lower Sixth)', 'Year 13 (Upper Sixth)']
       },
       'American': {
         'Standard': ['Grade 9 (Freshman)', 'Grade 10 (Sophomore)', 'Grade 11 (Junior)', 'Grade 12 (Senior)'],
