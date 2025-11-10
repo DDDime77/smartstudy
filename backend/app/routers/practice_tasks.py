@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import User, PracticeTask
 from app.schemas import PracticeTaskCreate, PracticeTaskUpdate, PracticeTaskResponse
-from app.ml import LNIRTService
+from app.ml import LNIRTService, EmbeddingModelService
 
 router = APIRouter(prefix="/practice-tasks", tags=["practice-tasks"])
 
@@ -39,19 +39,32 @@ async def create_practice_task(
 
     if predicted_correct is None or predicted_time_seconds is None:
         try:
-            lnirt_service = LNIRTService(db)
-            prediction = lnirt_service.predict_and_save(
+            # Use Embedding Model by default (NEW - LSTM with embeddings)
+            embedding_service = EmbeddingModelService(db)
+            prediction = embedding_service.predict_and_save(
                 user_id=current_user.id,
                 topic=task_data.topic,
                 difficulty=task_data.difficulty
             )
             predicted_correct = prediction['predicted_correct']
             predicted_time_seconds = prediction['predicted_time_seconds']
-            lnirt_model_version = prediction['lnirt_model_version']
+            lnirt_model_version = prediction.get('model_type', 'embedding_lstm')
         except Exception as e:
-            # If LNIRT prediction fails, continue without it
-            print(f"LNIRT prediction failed: {e}")
-            pass
+            # Fallback to LNIRT if embedding model fails
+            print(f"Embedding model prediction failed, falling back to LNIRT: {e}")
+            try:
+                lnirt_service = LNIRTService(db)
+                prediction = lnirt_service.predict_and_save(
+                    user_id=current_user.id,
+                    topic=task_data.topic,
+                    difficulty=task_data.difficulty
+                )
+                predicted_correct = prediction['predicted_correct']
+                predicted_time_seconds = prediction['predicted_time_seconds']
+                lnirt_model_version = prediction['lnirt_model_version']
+            except Exception as e2:
+                print(f"LNIRT prediction also failed: {e2}")
+                pass
 
     new_task = PracticeTask(
         user_id=current_user.id,
@@ -185,16 +198,23 @@ async def update_practice_task(
     db.commit()
     db.refresh(task)
 
-    # AUTOMATIC USER-SPECIFIC TRAINING
+    # AUTOMATIC TRAINING
     # Trigger training when task is completed with actual results
+    # Uses Embedding Model (trains every 5 new tasks globally)
     if is_now_completed and was_not_completed and task.is_correct is not None and task.actual_time_seconds is not None:
         try:
-            lnirt_service = LNIRTService(db)
-            training_result = lnirt_service.auto_train_on_completion(
+            # Use Embedding Model service (trains every 5 tasks)
+            embedding_service = EmbeddingModelService(db)
+            training_result = embedding_service.on_task_completed(
                 user_id=current_user.id,
-                topic=task.topic
+                topic=task.topic,
+                verbose=True
             )
-            print(f"Auto-training completed: {training_result}")
+            if training_result['training_triggered']:
+                print(f"Embedding model auto-training triggered: {training_result['training_result']}")
+            else:
+                tracker = training_result['training_result']
+                print(f"Embedding model: {tracker['message']}")
         except Exception as e:
             # Log error but don't fail the request
             print(f"Auto-training failed: {e}")
