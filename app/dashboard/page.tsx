@@ -444,26 +444,6 @@ export default function DashboardPage() {
           </GlassCard>
         </div>
 
-        {/* Call to Action - Exam Dates */}
-        <GlassCard glow className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30">
-          <div className="flex flex-col md:flex-row items-center gap-6 p-2">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-              <Award className="w-8 h-8 text-purple-400" />
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <GradientText gradient="from-purple-400 to-pink-400">
-                <h3 className="text-xl font-bold mb-1">Add Your Exam Dates</h3>
-              </GradientText>
-              <p className="text-white/60 text-sm">
-                Enable AI-powered spaced repetition and exam preparation timelines
-              </p>
-            </div>
-            <Button variant="primary" onClick={() => router.push('/dashboard/preparation')}>
-              + Add Exams
-            </Button>
-          </div>
-        </GlassCard>
-
         {/* Weekly Progress */}
         <GlassCard className="mt-6">
           <div className="flex items-center justify-between mb-6">
