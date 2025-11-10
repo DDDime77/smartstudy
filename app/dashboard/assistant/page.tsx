@@ -208,9 +208,9 @@ export default function StudyAssistantPage() {
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
 
-          // Process line by line for tool markers
+          // Check for complete lines (for tool markers)
           const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          const incompleteLine = lines.pop() || '';
 
           for (const line of lines) {
             const trimmedLine = line.trim();
@@ -267,20 +267,29 @@ export default function StudyAssistantPage() {
               continue;
             }
 
-            // Regular message content
+            // Regular message content - add the line
             if (!isProcessingTools && line) {
               currentText += line + '\n';
-              // Update streaming display character-by-character
-              setCurrentTextBuffer(currentText);
-              setStreamingSegments([...segments, { type: 'text', content: currentText }]);
             }
           }
+
+          // Stream the incomplete line character-by-character (true streaming!)
+          if (!isProcessingTools) {
+            currentText += incompleteLine;
+            // Update UI immediately with each chunk - show segments + current streaming text
+            const currentStreamingSegments = currentText
+              ? [...segments, { type: 'text' as const, content: currentText }]
+              : segments;
+            setStreamingSegments(currentStreamingSegments);
+          }
+
+          // Keep the incomplete line in buffer for next iteration
+          buffer = incompleteLine;
         }
 
         // Process any remaining buffer
         if (buffer && !isProcessingTools) {
           currentText += buffer;
-          setCurrentTextBuffer(currentText);
         }
 
         // Save final message with text segment
