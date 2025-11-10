@@ -71,6 +71,7 @@ interface AssistantResponse {
 
 export default function StudyAssistantPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [assistantData, setAssistantData] = useState<AssistantResponse | null>(null);
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string; toolCalls?: any[] }>>([]);
   const [chatInput, setChatInput] = useState('');
@@ -93,15 +94,18 @@ export default function StudyAssistantPage() {
       // Get the actual student ID from auth
       const user = await AuthService.getCurrentUser();
       setStudentId(user.id);
-      await loadAssistantData(user.id);
+      await loadAssistantData(user.id, true);
     } catch (error) {
       console.error('Error loading student:', error);
       setIsLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
-  const loadAssistantData = async (id: string) => {
-    setIsLoading(true);
+  const loadAssistantData = async (id: string, isInitial: boolean = false) => {
+    if (isInitial) {
+      setIsLoading(true);
+    }
     try {
       console.log('🔍 Loading assistant data for student:', id);
       const response = await fetch('/api/study-assistant', {
@@ -150,7 +154,10 @@ export default function StudyAssistantPage() {
         }
       });
     } finally {
-      setIsLoading(false);
+      if (isInitial) {
+        setIsLoading(false);
+        setIsInitialLoad(false);
+      }
     }
   };
 
@@ -283,7 +290,7 @@ export default function StudyAssistantPage() {
     return 'text-red-400';
   };
 
-  if (isLoading) {
+  if (isInitialLoad) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -455,61 +462,45 @@ export default function StudyAssistantPage() {
                   </div>
                 )}
                 {activeToolCalls.length > 0 && (
-                  <div className="mr-12 space-y-2">
+                  <div className="mr-12 space-y-3">
                     {activeToolCalls.map((toolCall, idx) => (
-                      <div key={idx} className="p-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30">
-                        {/* Tool Call Header */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-2 h-2 rounded-full ${toolCall.status === 'calling' ? 'bg-purple-400 animate-pulse' : 'bg-green-400'}`} />
-                          <span className="text-purple-300 font-mono text-sm font-medium">
-                            {toolCall.status === 'calling' ? 'Calling' : 'Called'} {toolCall.name}
-                          </span>
-                          {toolCall.status === 'calling' && (
-                            <Loader2 className="w-3 h-3 text-purple-400 animate-spin ml-auto" />
-                          )}
-                          {toolCall.status === 'complete' && (
-                            <CheckCircle className="w-3 h-3 text-green-400 ml-auto" />
-                          )}
-                        </div>
+                      <div key={idx} className="text-sm">
+                        {/* Tool Call Header - Simple bullet point style */}
+                        <div className="flex items-start gap-2 mb-1">
+                          <span className="text-white/60 select-none">*</span>
+                          <div className="flex-1">
+                            <span className={`font-medium ${toolCall.status === 'calling' ? 'text-white/50 animate-pulse' : 'text-white/60'}`}>
+                              {toolCall.status === 'calling' ? 'Calling' : 'Called'} mcp tool{' '}
+                              <span className="font-mono">{toolCall.name}</span>
+                            </span>
 
-                        {/* Tool Call Arguments - Inline Details */}
-                        <div className="ml-4 pl-3 border-l-2 border-purple-400/30 space-y-1">
-                          {toolCall.args.subject && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-white/40 text-xs font-mono">subject:</span>
-                              <span className="text-white/80 text-xs">{toolCall.args.subject}</span>
+                            {/* Task Details - Dropdown paragraph */}
+                            <div className={`mt-1.5 ml-2 space-y-0.5 ${toolCall.status === 'calling' ? 'animate-[pulse_2s_ease-in-out_infinite]' : ''}`}>
+                              <p className={`leading-relaxed ${toolCall.status === 'calling' ? 'text-white/40' : 'text-white/50'}`}>
+                                {toolCall.args.subject && toolCall.args.topic && (
+                                  <>
+                                    <span className="font-medium">{toolCall.args.subject}</span>
+                                    {' - '}
+                                    <span>{toolCall.args.topic}</span>
+                                  </>
+                                )}
+                              </p>
+                              <p className={`text-xs leading-relaxed ${toolCall.status === 'calling' ? 'text-white/30' : 'text-white/40'}`}>
+                                {toolCall.args.due_date && (
+                                  <>Scheduled: {new Date(toolCall.args.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                                )}
+                                {toolCall.args.time_of_day && (
+                                  <>, {toolCall.args.time_of_day}</>
+                                )}
+                                {toolCall.args.estimated_minutes && (
+                                  <> · {toolCall.args.estimated_minutes} minutes</>
+                                )}
+                                {toolCall.args.difficulty && (
+                                  <> · {toolCall.args.difficulty}</>
+                                )}
+                              </p>
                             </div>
-                          )}
-                          {toolCall.args.topic && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-white/40 text-xs font-mono">topic:</span>
-                              <span className="text-white/80 text-xs">{toolCall.args.topic}</span>
-                            </div>
-                          )}
-                          {toolCall.args.due_date && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-white/40 text-xs font-mono">due_date:</span>
-                              <span className="text-white/80 text-xs">{new Date(toolCall.args.due_date).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          {toolCall.args.time_of_day && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-white/40 text-xs font-mono">time:</span>
-                              <span className="text-white/80 text-xs">{toolCall.args.time_of_day}</span>
-                            </div>
-                          )}
-                          {toolCall.args.estimated_minutes && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-white/40 text-xs font-mono">duration:</span>
-                              <span className="text-white/80 text-xs">{toolCall.args.estimated_minutes} min</span>
-                            </div>
-                          )}
-                          {toolCall.args.difficulty && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-white/40 text-xs font-mono">difficulty:</span>
-                              <span className="text-white/80 text-xs">{toolCall.args.difficulty}</span>
-                            </div>
-                          )}
+                          </div>
                         </div>
                       </div>
                     ))}
