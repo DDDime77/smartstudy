@@ -51,8 +51,8 @@ export const EDUCATION_SYSTEMS = {
         },
         requirements: 'Students must select 6 subjects (one from each group, or replace Group 6 with another from Groups 1-4). Must take 3-4 subjects at HL and rest at SL.',
         grading: {
-          scale: [1, 2, 3, 4, 5, 6, 7],
-          passing: 4,
+          scale: ['1', '2', '3', '4', '5', '6', '7'],
+          passing: '4',
           description: '7 is highest, 1 is lowest. Maximum 45 points total (42 from subjects + 3 from TOK/EE).',
         },
       },
@@ -61,8 +61,8 @@ export const EDUCATION_SYSTEMS = {
         requirements: 'Select minimum 2 DP courses (HL or SL) from any subject group + Career-related Study + CP Core',
         subjectGroups: 'Same subjects as IBDP (any 2+ DP courses)',
         grading: {
-          scale: [1, 2, 3, 4, 5, 6, 7],
-          passing: 4,
+          scale: ['1', '2', '3', '4', '5', '6', '7'],
+          passing: '4',
           description: '7 is highest, 1 is lowest for DP courses.',
         },
       },
@@ -81,8 +81,8 @@ export const EDUCATION_SYSTEMS = {
           'IB Visual Arts',
         ],
         grading: {
-          scale: [1, 2, 3, 4, 5, 6, 7],
-          passing: 4,
+          scale: ['1', '2', '3', '4', '5', '6', '7'],
+          passing: '4',
           description: '7 is highest, 1 is lowest.',
         },
       },
