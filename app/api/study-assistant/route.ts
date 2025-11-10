@@ -607,17 +607,59 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
                 { role: 'assistant', content: fullContent, tool_calls: toolCalls },
                 ...toolResults
               ],
+              tools: tools as any, // Enable tools for follow-up response!
+              tool_choice: 'auto',
+              parallel_tool_calls: true,
               temperature: 0.7,
-              max_tokens: 300,
+              max_tokens: 800,
               stream: true,
             });
 
-            // Stream the follow-up response
+            // Stream the follow-up response and handle any additional tool calls
             controller.enqueue(encoder.encode('\n\n'));
+            let followUpContent = '';
+            const followUpToolCalls: any[] = [];
+            const followUpToolCallsMap = new Map<number, any>();
+
             for await (const chunk of followUpStream) {
-              const content = chunk.choices[0]?.delta?.content || '';
-              if (content) {
-                controller.enqueue(encoder.encode(content));
+              const delta = chunk.choices[0]?.delta;
+
+              // Stream content
+              if (delta?.content) {
+                followUpContent += delta.content;
+                controller.enqueue(encoder.encode(delta.content));
+              }
+
+              // Handle tool calls in follow-up
+              if (delta?.tool_calls) {
+                for (const toolCallDelta of delta.tool_calls) {
+                  const index = toolCallDelta.index;
+
+                  if (!followUpToolCallsMap.has(index)) {
+                    followUpToolCallsMap.set(index, {
+                      id: toolCallDelta.id || '',
+                      type: 'function',
+                      function: {
+                        name: toolCallDelta.function?.name || '',
+                        arguments: toolCallDelta.function?.arguments || ''
+                      }
+                    });
+                  } else {
+                    const existing = followUpToolCallsMap.get(index);
+                    if (toolCallDelta.id) existing.id = toolCallDelta.id;
+                    if (toolCallDelta.function?.name) existing.function.name = toolCallDelta.function.name;
+                    if (toolCallDelta.function?.arguments) existing.function.arguments += toolCallDelta.function.arguments;
+                  }
+                }
+              }
+            }
+
+            // Execute any tools called in follow-up response
+            for (let i = 0; i < followUpToolCallsMap.size; i++) {
+              if (followUpToolCallsMap.has(i)) {
+                const toolCall = followUpToolCallsMap.get(i);
+                followUpToolCalls.push(toolCall);
+                await executeToolCall(toolCall);
               }
             }
           }

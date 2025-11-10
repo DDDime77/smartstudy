@@ -422,35 +422,39 @@ export default function StudyAssistantPage() {
     return 'text-red-400';
   };
 
-  // Show loading spinner during initial load
-  if (isLoading && !assistantData) {
-    return (
-      <div className="min-h-screen p-6 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
-          <p className="text-white/60">Loading your study data...</p>
+  // Show loading spinner OR error (but only client-side to avoid SSR mismatch)
+  if (!assistantData) {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen p-6 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
+            <p className="text-white/60">Loading your study data...</p>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  // Show error only if data failed to load (not during initial load)
-  if (!isLoading && !assistantData) {
-    return (
-      <div className="min-h-screen p-6 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <AlertTriangle className="w-12 h-12 text-orange-400" />
-          <p className="text-white">Failed to load assistant data</p>
-          <p className="text-white/60 text-sm">Please try refreshing the page</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
+      );
+    } else {
+      // Only show error if client-side and load failed
+      if (typeof window !== 'undefined') {
+        return (
+          <div className="min-h-screen p-6 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <AlertTriangle className="w-12 h-12 text-orange-400" />
+              <p className="text-white">Failed to load assistant data</p>
+              <p className="text-white/60 text-sm">Please try refreshing the page</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all"
+              >
+                Refresh Page
+              </button>
+            </div>
+          </div>
+        );
+      }
+      // Server-side: show nothing (loading spinner will appear after hydration)
+      return null;
+    }
   }
 
   return (
