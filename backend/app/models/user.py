@@ -19,6 +19,10 @@ class User(Base):
     email_verified = Column(Boolean, default=False)
     profile_completed = Column(Boolean, default=False)
 
+    # Security fields
+    password_updated_at = Column(DateTime, nullable=True)  # Track password changes
+    deleted_at = Column(DateTime, nullable=True)  # Soft delete - keeps data for ML
+
     # OAuth fields
     oauth_provider = Column(String, nullable=True)  # 'google', 'github', etc.
     oauth_id = Column(String, nullable=True)

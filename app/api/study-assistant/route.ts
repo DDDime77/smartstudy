@@ -254,9 +254,20 @@ export async function GET(req: NextRequest) {
   try {
     const studentId = req.nextUrl.searchParams.get('studentId');
     const message = req.nextUrl.searchParams.get('message');
+    const conversationHistoryParam = req.nextUrl.searchParams.get('conversationHistory');
 
     if (!studentId || !message) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    // Parse conversation history if provided
+    let conversationHistory: any[] = [];
+    if (conversationHistoryParam) {
+      try {
+        conversationHistory = JSON.parse(conversationHistoryParam);
+      } catch (error) {
+        console.error('Failed to parse conversation history:', error);
+      }
     }
 
     // Build context
@@ -411,13 +422,23 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
       }
     ];
 
+    // Build messages array with conversation history
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Add conversation history if exists
+    if (conversationHistory && conversationHistory.length > 0) {
+      messages.push(...conversationHistory);
+    }
+
+    // Add current message
+    messages.push({ role: 'user', content: message });
+
     // Stream the initial API call to get real-time response
     const initialStream = await openai.chat.completions.create({
       model: 'gpt-4-turbo',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
+      messages,
       tools: tools as any,
       tool_choice: 'auto',
       parallel_tool_calls: true,
@@ -524,8 +545,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             const followUpStream = await openai.chat.completions.create({
               model: 'gpt-4-turbo',
               messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: message },
+                ...messages,
                 { role: 'assistant', content: fullContent, tool_calls: toolCalls },
                 ...toolResults
               ],

@@ -28,6 +28,15 @@ export interface UpdateUserData {
   full_name?: string;
 }
 
+export interface ChangePasswordData {
+  current_password: string;
+  new_password: string;
+}
+
+export interface DeleteAccountData {
+  password: string;
+}
+
 export interface GoogleAuthData {
   token: string;
 }
@@ -55,6 +64,14 @@ export const AuthService = {
 
   async updateUser(data: UpdateUserData): Promise<UserResponse> {
     return ApiClient.put<UserResponse>('/auth/me', data);
+  },
+
+  async changePassword(data: ChangePasswordData): Promise<{ message: string }> {
+    return ApiClient.post<{ message: string }>('/auth/change-password', data);
+  },
+
+  async deleteAccount(data: DeleteAccountData): Promise<{ message: string }> {
+    return ApiClient.post<{ message: string }>('/auth/delete-account', data);
   },
 
   logout() {

@@ -229,9 +229,45 @@ export class StudyAssistantContextService {
   }
 
   private async getPendingAssignments(studentId: string) {
-    // Assignments table doesn't exist yet - return empty array
-    console.warn('Assignments feature not yet implemented in database');
-    return [];
+    try {
+      const result = await db.query(`
+        SELECT
+          id,
+          subject_name as subject,
+          title,
+          scheduled_date as due_date,
+          estimated_minutes / 60.0 as estimated_hours,
+          COALESCE(progress_percentage, 0) as completion_percentage,
+          topic,
+          scheduled_time
+        FROM ai_assignments
+        WHERE user_id = $1
+          AND status IN ('pending', 'in_progress')
+        ORDER BY scheduled_date ASC, scheduled_time ASC
+        LIMIT 20
+      `, [studentId]);
+
+      return result.rows.map((row: any) => {
+        const dueDate = new Date(`${row.due_date}T${row.scheduled_time || '00:00:00'}`);
+        const now = new Date();
+        const hoursUntil = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        return {
+          id: row.id, // This will be the UUID from the database
+          subject: row.subject,
+          subject_name: row.subject,
+          topic: row.topic,
+          title: row.title || `${row.subject} - ${row.topic}`,
+          due_date: dueDate,
+          estimated_hours: row.estimated_hours || 1,
+          completion_percentage: row.completion_percentage,
+          hours_until: hoursUntil
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      return [];
+    }
   }
 
   private async getGoals(studentId: string) {

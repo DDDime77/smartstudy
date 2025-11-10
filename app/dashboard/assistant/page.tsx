@@ -181,18 +181,35 @@ export default function StudyAssistantPage() {
 
     const userMessage = chatInput.trim();
     setChatInput('');
-    setChatMessages(prev => [...prev, {
+
+    // Add user message to chat
+    const newUserMessage = {
       role: 'user',
       segments: [{ type: 'text', content: userMessage }]
-    }]);
+    };
+    setChatMessages(prev => [...prev, newUserMessage]);
     setIsChatLoading(true);
     setStreamingSegments([]);
     setCurrentTextBuffer('');
 
     try {
-      const response = await fetch(
-        `/api/study-assistant?studentId=${studentId}&message=${encodeURIComponent(userMessage)}`
-      );
+      // Convert chat messages to OpenAI format (only text content, no tool calls)
+      const conversationHistory = chatMessages.map(msg => ({
+        role: msg.role,
+        content: msg.segments
+          .filter(seg => seg.type === 'text')
+          .map(seg => seg.content)
+          .join('\n')
+      }));
+
+      // Build query string with conversation history
+      const params = new URLSearchParams({
+        studentId,
+        message: userMessage,
+        conversationHistory: JSON.stringify(conversationHistory)
+      });
+
+      const response = await fetch(`/api/study-assistant?${params.toString()}`);
 
       if (!response.ok) throw new Error('Failed to get response');
 

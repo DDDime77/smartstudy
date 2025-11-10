@@ -32,6 +32,17 @@ class UpdateUser(BaseModel):
     full_name: Optional[str] = None
 
 
+class ChangePassword(BaseModel):
+    """Change user password"""
+    current_password: str
+    new_password: str
+
+
+class DeleteAccount(BaseModel):
+    """Delete user account (requires password confirmation)"""
+    password: str
+
+
 class UserResponse(BaseModel):
     id: UUID
     email: str
