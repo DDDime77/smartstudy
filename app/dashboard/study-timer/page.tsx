@@ -177,13 +177,15 @@ export default function StudyTimerPage() {
 
           // Set timer, elapsed time, and session goal based on active session
           const totalSeconds = activeSession.initial_duration_seconds;
-          const alreadySpentSeconds = activeSession.time_spent_minutes * 60;
+          // Use elapsed_seconds directly (more accurate than time_spent_minutes)
+          const alreadySpentSeconds = activeSession.elapsed_seconds || 0;
           const remainingSeconds = Math.max(0, totalSeconds - alreadySpentSeconds);
 
           setSessionGoal(activeSession.estimated_minutes || Math.floor(totalSeconds / 60));
           setTimeRemaining(remainingSeconds);
           setInitialTimeRemaining(totalSeconds);
           setElapsedSeconds(alreadySpentSeconds);
+          console.log(`✅ Restored session: ${alreadySpentSeconds}s elapsed (${activeSession.time_spent_minutes}min in DB)`);
 
           // Auto-start timer by creating study session record
           // This is needed for auto-save to work (requires currentSessionId)
