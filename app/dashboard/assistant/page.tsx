@@ -82,7 +82,7 @@ interface ChatMessage {
 }
 
 export default function StudyAssistantPage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading state
   const [assistantData, setAssistantData] = useState<AssistantResponse | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');

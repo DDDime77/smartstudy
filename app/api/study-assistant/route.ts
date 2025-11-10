@@ -495,6 +495,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
           let fullContent = '';
           const toolCalls: any[] = [];
           const toolCallsMap = new Map<number, any>();
+          const toolResultsMap = new Map<string, string>(); // Store actual tool outputs
           let lastProcessedIndex = -1;
 
           // Helper function to execute a completed tool call
@@ -507,19 +508,33 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             // Send tool data for frontend
             controller.enqueue(encoder.encode(`__TOOL_DATA__:${JSON.stringify({ name: toolCall.function.name, args: JSON.parse(toolCall.function.arguments) })}\n`));
 
+            // Capture tool output for AI follow-up
+            let toolOutput = '';
+            const captureEncoder = new TextEncoder();
+            const captureController = {
+              enqueue: (chunk: Uint8Array) => {
+                const text = new TextDecoder().decode(chunk);
+                toolOutput += text;
+                controller.enqueue(chunk); // Still send to user
+              }
+            } as ReadableStreamDefaultController;
+
             // Execute the tool
             if (toolCall.function.name === 'generate_study_plan') {
-              await generateStudyPlanInline(studentId, controller, encoder);
+              await generateStudyPlanInline(studentId, captureController, captureEncoder);
             } else if (toolCall.function.name === 'create_assignment') {
               const args = JSON.parse(toolCall.function.arguments);
-              await createSingleAssignmentInline(studentId, args, controller, encoder);
+              await createSingleAssignmentInline(studentId, args, captureController, captureEncoder);
             } else if (toolCall.function.name === 'delete_assignment') {
               const args = JSON.parse(toolCall.function.arguments);
-              await deleteAssignmentInline(studentId, args, controller, encoder);
+              await deleteAssignmentInline(studentId, args, captureController, captureEncoder);
             } else if (toolCall.function.name === 'list_assignments') {
               const args = JSON.parse(toolCall.function.arguments);
-              await listAssignmentsInline(studentId, args, controller, encoder);
+              await listAssignmentsInline(studentId, args, captureController, captureEncoder);
             }
+
+            // Store the actual output for follow-up response
+            toolResultsMap.set(toolCall.id, toolOutput.trim());
 
             // Send tool call end marker
             controller.enqueue(encoder.encode('\n__TOOL_CALL_END__\n'));
@@ -581,7 +596,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
           if (toolCalls.length > 0) {
             const toolResults = toolCalls.map((tc: any) => ({
               role: 'tool',
-              content: 'Tasks created successfully',
+              content: toolResultsMap.get(tc.id) || 'Tool executed successfully',
               tool_call_id: tc.id
             }));
 
