@@ -386,8 +386,8 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
       }
     ];
 
-    // First API call to get function calling decision
-    const initialResponse = await openai.chat.completions.create({
+    // Stream the initial API call to get real-time response
+    const initialStream = await openai.chat.completions.create({
       model: 'gpt-4-turbo',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -395,29 +395,65 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
       ],
       tools: tools as any,
       tool_choice: 'auto',
-      parallel_tool_calls: true, // Allow calling create_assignment multiple times
+      parallel_tool_calls: true,
       temperature: 0.7,
+      stream: true, // Enable streaming for initial response!
     });
 
-    const responseMessage = initialResponse.choices[0].message;
+    // Create a streaming response
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          // Accumulate the response content and tool calls from stream
+          let fullContent = '';
+          const toolCalls: any[] = [];
+          const toolCallsMap = new Map<number, any>();
 
-    // Check if AI wants to call the function
-    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-      console.log('Function calls detected:', responseMessage.tool_calls.length);
+          // Stream the initial response and collect tool calls
+          for await (const chunk of initialStream) {
+            const delta = chunk.choices[0]?.delta;
 
-      // Create a streaming response with AI's natural response + tool calling
-      const encoder = new TextEncoder();
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            // First, stream the AI's natural conversational response
-            if (responseMessage.content) {
-              controller.enqueue(encoder.encode(responseMessage.content));
-              controller.enqueue(encoder.encode('\n\n'));
+            // Stream content as it arrives
+            if (delta?.content) {
+              fullContent += delta.content;
+              controller.enqueue(encoder.encode(delta.content));
             }
 
+            // Accumulate tool call deltas
+            if (delta?.tool_calls) {
+              for (const toolCallDelta of delta.tool_calls) {
+                const index = toolCallDelta.index;
+
+                if (!toolCallsMap.has(index)) {
+                  toolCallsMap.set(index, {
+                    id: toolCallDelta.id || '',
+                    type: 'function',
+                    function: {
+                      name: toolCallDelta.function?.name || '',
+                      arguments: toolCallDelta.function?.arguments || ''
+                    }
+                  });
+                } else {
+                  const existing = toolCallsMap.get(index);
+                  if (toolCallDelta.id) existing.id = toolCallDelta.id;
+                  if (toolCallDelta.function?.name) existing.function.name = toolCallDelta.function.name;
+                  if (toolCallDelta.function?.arguments) existing.function.arguments += toolCallDelta.function.arguments;
+                }
+              }
+            }
+          }
+
+          // Convert map to array
+          toolCalls.push(...Array.from(toolCallsMap.values()));
+
+          // Execute tool calls if any
+          if (toolCalls.length > 0) {
+            console.log('Function calls detected:', toolCalls.length);
+            controller.enqueue(encoder.encode('\n\n'));
+
             // Execute each tool call
-            for (const toolCall of responseMessage.tool_calls) {
+            for (const toolCall of toolCalls) {
               console.log('Executing tool:', toolCall.function.name, toolCall.function.arguments);
 
               // Send tool call start marker with newline
@@ -436,7 +472,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             }
 
             // Generate follow-up response from AI after tool execution
-            const toolResults = responseMessage.tool_calls.map((tc: any) => ({
+            const toolResults = toolCalls.map((tc: any) => ({
               role: 'tool',
               content: 'Tasks created successfully',
               tool_call_id: tc.id
@@ -447,7 +483,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: message },
-                { role: 'assistant', content: responseMessage.content || '', tool_calls: responseMessage.tool_calls },
+                { role: 'assistant', content: fullContent, tool_calls: toolCalls },
                 ...toolResults
               ],
               temperature: 0.7,
@@ -463,53 +499,15 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
                 controller.enqueue(encoder.encode(content));
               }
             }
-
-            controller.close();
-          } catch (error) {
-            console.error('Tool execution error:', error);
-            controller.enqueue(encoder.encode('\n\n❌ Error creating tasks. Please try again.'));
-            controller.close();
           }
-        }
-      });
 
-      return new Response(readable, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Transfer-Encoding': 'chunked',
-        },
-      });
-    }
-
-    console.log('No tool calls detected, returning normal response');
-
-    // If no function call, stream normal response
-    const stream = await openai.chat.completions.create({
-      model: 'gpt-4-turbo',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-      stream: true,
-    });
-
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-              controller.enqueue(encoder.encode(content));
-            }
-          }
           controller.close();
         } catch (error) {
-          controller.error(error);
+          console.error('Tool execution error:', error);
+          controller.enqueue(encoder.encode('\n\n❌ Error creating tasks. Please try again.'));
+          controller.close();
         }
-      },
+      }
     });
 
     return new Response(readable, {
