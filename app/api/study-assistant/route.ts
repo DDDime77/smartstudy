@@ -510,7 +510,8 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             }
           }
 
-            // Generate follow-up response from AI after tool execution
+          // Generate follow-up response from AI after tool execution (if tools were called)
+          if (toolCalls.length > 0) {
             const toolResults = toolCalls.map((tc: any) => ({
               role: 'tool',
               content: 'Tasks created successfully',
@@ -966,11 +967,6 @@ async function createSingleAssignmentInline(
   encoder: TextEncoder
 ) {
   const { db } = await import('@/lib/db');
-
-  controller.enqueue(encoder.encode('__TOOL_DATA__:' + JSON.stringify({
-    name: 'create_assignment',
-    args: params
-  }) + '\n'));
 
   const subjectsResult = await db.query(
     'SELECT * FROM subjects WHERE user_id = $1',
