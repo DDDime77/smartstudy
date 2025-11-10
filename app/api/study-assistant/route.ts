@@ -398,20 +398,47 @@ Be conversational, helpful, and reference their specific data when relevant.`;
       const toolCall = responseMessage.tool_calls[0];
       console.log('Function call detected:', toolCall.function.name, toolCall.function.arguments);
 
-      if (toolCall.function.name === 'generate_study_plan') {
-        // Execute the function
-        return await generateStudyPlan(studentId);
-      } else if (toolCall.function.name === 'create_assignment') {
-        // Parse the arguments and create a single assignment
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
-          console.log('Creating assignment with args:', args);
-          return await createSingleAssignment(studentId, args);
-        } catch (error) {
-          console.error('Error parsing or creating assignment:', error);
-          throw error;
+      // Create a streaming response with conversational intro + tool calling
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            // Send initial conversational response
+            const initialText = "Yes, I'll help you with that. Let me create the tasks for you.\n\n";
+            controller.enqueue(encoder.encode(initialText));
+
+            // Send tool call start marker
+            controller.enqueue(encoder.encode('__TOOL_CALL_START__'));
+
+            // Execute the tool
+            if (toolCall.function.name === 'generate_study_plan') {
+              await generateStudyPlanInline(studentId, controller, encoder);
+            } else if (toolCall.function.name === 'create_assignment') {
+              const args = JSON.parse(toolCall.function.arguments);
+              await createSingleAssignmentInline(studentId, args, controller, encoder);
+            }
+
+            // Send tool call end marker
+            controller.enqueue(encoder.encode('__TOOL_CALL_END__'));
+
+            // Send completion message
+            controller.enqueue(encoder.encode('\n\n✅ Tasks created successfully! You can view them in the Preparation calendar.'));
+
+            controller.close();
+          } catch (error) {
+            console.error('Tool execution error:', error);
+            controller.enqueue(encoder.encode('\n\n❌ Error creating tasks. Please try again.'));
+            controller.close();
+          }
         }
-      }
+      });
+
+      return new Response(readable, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Transfer-Encoding': 'chunked',
+        },
+      });
     }
 
     console.log('No tool calls detected, returning normal response');
@@ -850,4 +877,204 @@ async function createSingleAssignment(studentId: string, params: {
       'Transfer-Encoding': 'chunked',
     },
   });
+}
+
+/**
+ * Inline version of createSingleAssignment for streaming responses
+ */
+async function createSingleAssignmentInline(
+  studentId: string,
+  params: any,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+) {
+  const { db } = await import('@/lib/db');
+
+  controller.enqueue(encoder.encode('__TOOL_DATA__:' + JSON.stringify({
+    name: 'create_assignment',
+    args: params
+  }) + '\n'));
+
+  const subjectsResult = await db.query(
+    'SELECT * FROM subjects WHERE user_id = $1',
+    [studentId]
+  );
+  const subjects = subjectsResult.rows;
+
+  const matchingSubject = subjects.find((s: any) =>
+    s.name.toLowerCase().includes(params.subject.toLowerCase()) ||
+    params.subject.toLowerCase().includes(s.name.toLowerCase())
+  );
+
+  if (!matchingSubject) {
+    controller.enqueue(encoder.encode('⚠️ Could not find subject "' + params.subject + '"\n'));
+    return;
+  }
+
+  const profileResult = await db.query(
+    'SELECT * FROM user_profiles WHERE user_id = $1',
+    [studentId]
+  );
+  const profile = profileResult.rows[0];
+  let availability = profile?.preferred_study_times || [];
+
+  if (!availability || availability.length === 0) {
+    availability = [
+      { day: 1, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 2, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 3, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 4, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 5, slots: [{ start: '16:00', end: '18:00' }] },
+    ];
+  }
+
+  const today = new Date();
+  let scheduledDate: Date | null = null;
+  let scheduledTime: string | null = null;
+
+  if (params.due_date) {
+    scheduledDate = new Date(params.due_date);
+    const dayOfWeek = scheduledDate.getDay();
+    const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+
+    if (params.time_of_day) {
+      const timeMap: any = { 'morning': '09:00', 'afternoon': '14:00', 'evening': '18:00' };
+      scheduledTime = timeMap[params.time_of_day] || '16:00';
+    } else if (dayAvailability && dayAvailability.slots && dayAvailability.slots.length > 0) {
+      scheduledTime = dayAvailability.slots[0].start;
+    } else {
+      scheduledTime = '16:00';
+    }
+  } else {
+    for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + dayOffset);
+      const dayOfWeek = targetDate.getDay();
+
+      const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+
+      if (dayAvailability && dayAvailability.slots && dayAvailability.slots.length > 0) {
+        scheduledDate = targetDate;
+        scheduledTime = dayAvailability.slots[0].start;
+        break;
+      }
+    }
+  }
+
+  if (!scheduledDate || !scheduledTime) {
+    controller.enqueue(encoder.encode('⚠️ Could not find an available time slot\n'));
+    return;
+  }
+
+  const dateStr = scheduledDate.toISOString().split('T')[0];
+  const difficulty = params.difficulty || 'medium';
+  const estimatedMinutes = params.estimated_minutes || 45;
+  const requiredTasksCount = params.required_tasks_count || 5;
+  const title = 'Study Session: ' + matchingSubject.name;
+
+  await db.query(
+    'INSERT INTO ai_assignments (user_id, subject_id, title, subject_name, topic, difficulty, scheduled_date, scheduled_time, estimated_minutes, required_tasks_count) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+    [
+      studentId,
+      matchingSubject.id,
+      title,
+      matchingSubject.name,
+      params.topic,
+      difficulty,
+      dateStr,
+      scheduledTime,
+      estimatedMinutes,
+      requiredTasksCount
+    ]
+  );
+
+  const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][scheduledDate.getDay()];
+  controller.enqueue(encoder.encode(
+    'Created: ' + matchingSubject.name + ' - ' + params.topic + ' on ' + dayName + ' ' + scheduledDate.getDate() + '/' + (scheduledDate.getMonth()+1) + ' at ' + scheduledTime + '\n'
+  ));
+}
+
+/**
+ * Inline version of generateStudyPlan for streaming responses
+ */
+async function generateStudyPlanInline(
+  studentId: string,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+) {
+  const { db } = await import('@/lib/db');
+
+  controller.enqueue(encoder.encode('__TOOL_DATA__:' + JSON.stringify({
+    name: 'generate_study_plan',
+    args: { days: 7 }
+  }) + '\n'));
+
+  const [subjectsResult, profileResult] = await Promise.all([
+    db.query('SELECT * FROM subjects WHERE user_id = $1', [studentId]),
+    db.query('SELECT * FROM user_profiles WHERE user_id = $1', [studentId])
+  ]);
+
+  const subjects = subjectsResult.rows;
+  const profile = profileResult.rows[0];
+
+  if (subjects.length === 0) {
+    controller.enqueue(encoder.encode('⚠️ No subjects found. Please add subjects first.\n'));
+    return;
+  }
+
+  let availability = profile?.preferred_study_times || [];
+  if (!availability || availability.length === 0) {
+    availability = [
+      { day: 1, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 2, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 3, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 4, slots: [{ start: '16:00', end: '18:00' }] },
+      { day: 5, slots: [{ start: '16:00', end: '18:00' }] },
+    ];
+  }
+
+  const today = new Date();
+  let assignmentsCount = 0;
+
+  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + dayOffset);
+    const dayOfWeek = targetDate.getDay();
+
+    const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+    if (!dayAvailability || !dayAvailability.slots || dayAvailability.slots.length === 0) continue;
+
+    const subjectsForDay = subjects.filter((_: any, idx: number) =>
+      (idx + dayOffset) % Math.ceil(7 / subjects.length) === 0
+    ).slice(0, 2);
+
+    for (const subject of subjectsForDay) {
+      const slot = dayAvailability.slots[0];
+      const dateStr = targetDate.toISOString().split('T')[0];
+
+      await db.query(
+        'INSERT INTO ai_assignments (user_id, subject_id, title, subject_name, topic, difficulty, scheduled_date, scheduled_time, estimated_minutes, required_tasks_count) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        [
+          studentId,
+          subject.id,
+          'Study Session: ' + subject.name,
+          subject.name,
+          'Practice & Review',
+          'medium',
+          dateStr,
+          slot.start,
+          45,
+          5
+        ]
+      );
+
+      assignmentsCount++;
+      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+      controller.enqueue(encoder.encode(
+        'Created ' + assignmentsCount + ': ' + subject.name + ' on ' + dayName + ' ' + targetDate.getDate() + '/' + (targetDate.getMonth()+1) + ' at ' + slot.start + '\n'
+      ));
+    }
+  }
+
+  controller.enqueue(encoder.encode('\nTotal assignments created: ' + assignmentsCount + '\n'));
 }

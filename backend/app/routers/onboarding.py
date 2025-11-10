@@ -27,6 +27,12 @@ async def complete_onboarding(
 ):
     """Complete the entire onboarding process"""
 
+    print(f"🟢 [Onboarding Complete] ====== Starting onboarding completion ======")
+    print(f"🟢 [Onboarding Complete] User: {current_user.email}")
+    print(f"🟢 [Onboarding Complete] Import method: {onboarding_data.import_method}")
+    print(f"🟢 [Onboarding Complete] Number of subjects: {len(onboarding_data.subjects)}")
+    print(f"🟢 [Onboarding Complete] Subjects data: {[s.dict() for s in onboarding_data.subjects]}")
+
     # Get current user
     user = current_user
 
@@ -34,6 +40,7 @@ async def complete_onboarding(
     existing_profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
     if existing_profile:
         # Update existing profile
+        print(f"🟢 [Onboarding Complete] Updating existing profile")
         existing_profile.timezone = onboarding_data.timezone
         existing_profile.education_system = onboarding_data.education_system
         existing_profile.education_program = onboarding_data.education_program
@@ -42,6 +49,7 @@ async def complete_onboarding(
         profile = existing_profile
     else:
         # Create new profile
+        print(f"🟢 [Onboarding Complete] Creating new profile")
         profile = UserProfile(
             user_id=user.id,
             timezone=onboarding_data.timezone,
@@ -52,32 +60,36 @@ async def complete_onboarding(
         )
         db.add(profile)
 
-    # Delete existing subjects if updating
-    if onboarding_data.import_method == "manual":
-        db.query(Subject).filter(Subject.user_id == user.id).delete()
+    # Delete existing subjects and add new ones
+    print(f"🟢 [Onboarding Complete] Deleting existing subjects...")
+    deleted_count = db.query(Subject).filter(Subject.user_id == user.id).delete()
+    print(f"🟢 [Onboarding Complete] Deleted {deleted_count} existing subjects")
 
-        # Add new subjects with priority coefficients
-        for subject_data in onboarding_data.subjects:
-            # Calculate priority coefficient based on grade gap
-            priority_coef = calculate_priority_coefficient(
-                current_grade=subject_data.current_grade,
-                target_grade=subject_data.target_grade,
-                education_system=onboarding_data.education_system,
-                education_program=onboarding_data.education_program,
-                level=subject_data.level
-            )
+    # Add new subjects with priority coefficients
+    print(f"🟢 [Onboarding Complete] Adding {len(onboarding_data.subjects)} new subjects...")
+    for i, subject_data in enumerate(onboarding_data.subjects):
+        print(f"🟢 [Onboarding Complete] Processing subject {i+1}: {subject_data.name}")
+        # Calculate priority coefficient based on grade gap
+        priority_coef = calculate_priority_coefficient(
+            current_grade=subject_data.current_grade,
+            target_grade=subject_data.target_grade,
+            education_system=onboarding_data.education_system,
+            education_program=onboarding_data.education_program,
+            level=subject_data.level
+        )
 
-            subject = Subject(
-                user_id=user.id,
-                name=subject_data.name,
-                level=subject_data.level,
-                category=subject_data.category,
-                current_grade=subject_data.current_grade,
-                target_grade=subject_data.target_grade,
-                color=subject_data.color,
-                priority_coefficient=priority_coef
-            )
-            db.add(subject)
+        subject = Subject(
+            user_id=user.id,
+            name=subject_data.name,
+            level=subject_data.level,
+            category=subject_data.category,
+            current_grade=subject_data.current_grade,
+            target_grade=subject_data.target_grade,
+            color=subject_data.color,
+            priority_coefficient=priority_coef
+        )
+        db.add(subject)
+        print(f"✅ [Onboarding Complete] Added subject: {subject_data.name} (priority: {priority_coef})")
 
     # Delete existing busy schedule and add new ones
     db.query(BusySchedule).filter(BusySchedule.user_id == user.id).delete()
@@ -101,8 +113,14 @@ async def complete_onboarding(
     # Mark profile as completed
     user.profile_completed = True
 
+    print(f"🟢 [Onboarding Complete] Committing changes to database...")
     db.commit()
     db.refresh(profile)
+
+    # Verify subjects were saved
+    saved_subjects = db.query(Subject).filter(Subject.user_id == user.id).count()
+    print(f"✅ [Onboarding Complete] Verified {saved_subjects} subjects saved to database")
+    print(f"🎉 [Onboarding Complete] ====== Onboarding completion successful ======")
 
     return profile
 

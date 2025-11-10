@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Brain,
   Target,
@@ -15,9 +15,12 @@ import {
   Send,
   Loader2,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Wrench
 } from 'lucide-react';
 import { AuthService } from '@/lib/api/auth';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface TaskAssignment {
   type: string;
@@ -68,15 +71,21 @@ interface AssistantResponse {
 export default function StudyAssistantPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [assistantData, setAssistantData] = useState<AssistantResponse | null>(null);
-  const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string; toolCalls?: any[] }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [toolCallAnimation, setToolCallAnimation] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadStudentAndData();
   }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, streamingMessage, toolCallAnimation]);
 
   const loadStudentAndData = async () => {
     try {
@@ -118,6 +127,7 @@ export default function StudyAssistantPage() {
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsChatLoading(true);
     setStreamingMessage('');
+    setToolCallAnimation(null);
 
     try {
       const response = await fetch(
@@ -129,6 +139,8 @@ export default function StudyAssistantPage() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullMessage = '';
+      let toolCalls: any[] = [];
+      let isProcessingTools = false;
 
       if (reader) {
         while (true) {
@@ -136,12 +148,46 @@ export default function StudyAssistantPage() {
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          fullMessage += chunk;
-          setStreamingMessage(fullMessage);
+
+          // Check for tool call markers
+          if (chunk.includes('__TOOL_CALL_START__')) {
+            isProcessingTools = true;
+            setToolCallAnimation('Creating tasks...');
+            continue;
+          }
+
+          if (chunk.includes('__TOOL_CALL_END__')) {
+            isProcessingTools = false;
+            setToolCallAnimation(null);
+            continue;
+          }
+
+          // Parse tool call data
+          if (chunk.startsWith('__TOOL_DATA__:')) {
+            try {
+              const toolData = JSON.parse(chunk.replace('__TOOL_DATA__:', ''));
+              toolCalls.push(toolData);
+              setToolCallAnimation(`Creating assignment: ${toolData.name}`);
+            } catch (e) {
+              console.error('Failed to parse tool data:', e);
+            }
+            continue;
+          }
+
+          if (!isProcessingTools) {
+            fullMessage += chunk;
+            setStreamingMessage(fullMessage);
+          }
         }
 
-        setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage }]);
+        setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage, toolCalls }]);
         setStreamingMessage('');
+        setToolCallAnimation(null);
+
+        // Reload assistant data if tasks were created
+        if (toolCalls.length > 0 && studentId) {
+          await loadAssistantData(studentId);
+        }
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -149,6 +195,7 @@ export default function StudyAssistantPage() {
         ...prev,
         { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
       ]);
+      setToolCallAnimation(null);
     } finally {
       setIsChatLoading(false);
     }
@@ -245,16 +292,126 @@ export default function StudyAssistantPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Recommendations & Tasks */}
+          {/* Left Column - Chat (Now Large) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* AI Recommendation */}
-            <div className="bg-white/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-400" />
-                AI Recommendation
+            {/* Chat with Assistant - Now Primary */}
+            <div className="bg-white/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6 h-[800px] flex flex-col">
+              <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+                <MessageSquare className="w-6 h-6 text-purple-400" />
+                Ask Your Assistant
               </h2>
-              <div className="text-white/80 whitespace-pre-line leading-relaxed">
-                {assistantData?.recommendation}
+
+              {/* Chat messages */}
+              <div className="flex-1 space-y-4 mb-4 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                {chatMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-lg ${
+                      msg.role === 'user'
+                        ? 'bg-blue-500/20 ml-12 border border-blue-500/30'
+                        : 'bg-white/5 mr-12 border border-white/10'
+                    }`}
+                  >
+                    <div className="prose prose-invert max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        className="text-white/90 text-sm"
+                        components={{
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                          li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                          code: ({node, inline, ...props}: any) =>
+                            inline ? (
+                              <code className="bg-white/10 px-1.5 py-0.5 rounded text-purple-300" {...props} />
+                            ) : (
+                              <code className="block bg-black/30 p-3 rounded-lg my-2 overflow-x-auto" {...props} />
+                            ),
+                          strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                          h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2" {...props} />,
+                          h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-base font-bold mb-1" {...props} />,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                    {msg.toolCalls && msg.toolCalls.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <div className="flex items-center gap-2 text-purple-300 text-sm mb-2">
+                          <Wrench className="w-4 h-4" />
+                          <span className="font-medium">Tool Calls</span>
+                        </div>
+                        {msg.toolCalls.map((tool, tidx) => (
+                          <div key={tidx} className="bg-black/20 rounded p-2 mb-2 text-xs">
+                            <div className="text-purple-300 font-mono">{tool.name}</div>
+                            <div className="text-white/60 mt-1">{JSON.stringify(tool.args, null, 2)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {streamingMessage && (
+                  <div className="p-4 rounded-lg bg-white/5 mr-12 border border-white/10">
+                    <div className="prose prose-invert max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        className="text-white/90 text-sm"
+                        components={{
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                          li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                          code: ({node, inline, ...props}: any) =>
+                            inline ? (
+                              <code className="bg-white/10 px-1.5 py-0.5 rounded text-purple-300" {...props} />
+                            ) : (
+                              <code className="block bg-black/30 p-3 rounded-lg my-2" {...props} />
+                            ),
+                        }}
+                      >
+                        {streamingMessage}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+                {toolCallAnimation && (
+                  <div className="p-4 rounded-lg bg-purple-500/10 mr-12 border border-purple-500/30">
+                    <div className="flex items-center gap-3">
+                      <Wrench className="w-5 h-5 text-purple-400 animate-pulse" />
+                      <span className="text-purple-300 font-medium animate-pulse">
+                        {toolCallAnimation}
+                      </span>
+                      <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  placeholder="Ask for help, request tasks, or get study advice..."
+                  className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-purple-500 transition-all"
+                  disabled={isChatLoading}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={isChatLoading || !chatInput.trim()}
+                  className="px-6 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-white/10 disabled:text-white/40 text-white rounded-lg transition-all font-medium"
+                >
+                  {isChatLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -330,15 +487,38 @@ export default function StudyAssistantPage() {
             </div>
           </div>
 
-          {/* Right Column - Priorities & Chat */}
+          {/* Right Column - Recommendations & Priorities */}
           <div className="space-y-6">
+            {/* AI Recommendation - Now Smaller */}
+            <div className="bg-white/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-4">
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                AI Recommendation
+              </h3>
+              <div className="prose prose-invert max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  className="text-white/80 text-sm leading-relaxed"
+                  components={{
+                    p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                    ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                    ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                    li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                    strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                  }}
+                >
+                  {assistantData?.recommendation}
+                </ReactMarkdown>
+              </div>
+            </div>
+
             {/* Top Exam Priorities */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-orange-400" />
                 Top Exam Priorities
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {assistantData?.context.topPriorities.exams.map((exam, idx) => (
                   <div key={idx} className="bg-white/5 rounded-lg p-3 border border-white/10">
                     <div className="flex items-start justify-between mb-2">
@@ -355,59 +535,6 @@ export default function StudyAssistantPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Chat with Assistant */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-purple-400" />
-                Ask Your Assistant
-              </h3>
-
-              {/* Chat messages */}
-              <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
-                {chatMessages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-lg ${
-                      msg.role === 'user'
-                        ? 'bg-blue-500/20 ml-8'
-                        : 'bg-white/5 mr-8'
-                    }`}
-                  >
-                    <p className="text-white/80 text-sm whitespace-pre-line">{msg.content}</p>
-                  </div>
-                ))}
-                {streamingMessage && (
-                  <div className="p-3 rounded-lg bg-white/5 mr-8">
-                    <p className="text-white/80 text-sm whitespace-pre-line">{streamingMessage}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat input */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Ask for help or advice..."
-                  className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-purple-500"
-                  disabled={isChatLoading}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={isChatLoading || !chatInput.trim()}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-white/10 disabled:text-white/40 text-white rounded-lg transition-all"
-                >
-                  {isChatLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
-                </button>
               </div>
             </div>
           </div>
