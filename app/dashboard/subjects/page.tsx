@@ -705,9 +705,12 @@ export default function SubjectsPage() {
                             {subjectStats.current_grade && (
                               <div className="flex items-center gap-2">
                                 <span className="text-white/60">Current:</span>
-                                <Badge variant="glow" className="text-lg px-3">
+                                <span
+                                  className="text-lg px-3 py-1 rounded-full text-white font-medium"
+                                  style={{ backgroundColor: subjectStats.subject_color || '#6366f1' }}
+                                >
                                   {subjectStats.current_grade}
-                                </Badge>
+                                </span>
                               </div>
                             )}
                             {subjectStats.current_grade && subjectStats.target_grade && (
