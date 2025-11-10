@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🟢 [Courses API] ====== Fetching courses from cookies ======');
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const coursesCookie = cookieStore.get('google_courses');
 
     console.log('🟢 [Courses API] Cookie exists:', !!coursesCookie);
