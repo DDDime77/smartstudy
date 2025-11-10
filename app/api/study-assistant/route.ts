@@ -311,17 +311,31 @@ You have access to tools for managing study assignments:
 CRITICAL WORKFLOW: When deleting or modifying tasks:
 1. **ALWAYS call list_assignments FIRST** to see current tasks and get their UUIDs
 2. **READ THE TOOL RESULTS CAREFULLY** - if list_assignments returns assignments, they exist!
-3. Use the exact UUIDs from the tool results to delete tasks
-4. Then create new tasks as needed
+3. **EXTRACT THE EXACT UUID VALUES** - Each assignment will show "UUID: abc-123-def-456..." on a separate line
+4. **USE THOSE EXACT UUID STRINGS** when calling delete_assignment - NOT numbers like 1, 2, 3!
+5. Then create new tasks as needed
 
 Example: User says "delete physics tasks and create quantum physics ones"
 1. Call list_assignments(subject="Physics")
-2. Tool returns: "📋 Found 11 assignment(s): • [ID: abc-123...] Physics - Topic..."
-3. **IMPORTANT**: This means 11 assignments exist! Don't say "no tasks found" or "issue retrieving"
-4. Call delete_assignment(assignment_id="abc-123...") for EACH UUID shown
-5. Call create_assignment to create new quantum physics sessions
+2. Tool returns:
+   "📋 Found 2 assignment(s):
+
+   Assignment 1:
+   UUID: 550e8400-e29b-41d4-a716-446655440000
+   Subject: Physics - Thermodynamics
+   ...
+
+   Assignment 2:
+   UUID: 660e8400-e29b-41d4-a716-446655440001
+   Subject: Physics - Mechanics
+   ..."
+3. **IMPORTANT**: Extract the UUID values from each "UUID: " line
+4. Call delete_assignment(assignment_id="550e8400-e29b-41d4-a716-446655440000")
+5. Call delete_assignment(assignment_id="660e8400-e29b-41d4-a716-446655440001")
+6. Call create_assignment to create new quantum physics sessions
 
 NEVER ignore or dismiss tool results. If a tool returns data, USE that data!
+**NEVER use integer IDs like 1, 2, 3 - ALWAYS use the full UUID string from the "UUID:" field!**
 
 CRITICAL INTELLIGENCE GUIDELINES:
 
@@ -642,6 +656,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
 
               // Handle tool calls in follow-up
               if (delta?.tool_calls) {
+                console.log('Follow-up tool call delta:', JSON.stringify(delta.tool_calls));
                 for (const toolCallDelta of delta.tool_calls) {
                   const index = toolCallDelta.index;
 
@@ -664,10 +679,13 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               }
             }
 
+            console.log(`Follow-up tool calls map size: ${followUpToolCallsMap.size}`);
+
             // Execute any tools called in follow-up response
             for (let i = 0; i < followUpToolCallsMap.size; i++) {
               if (followUpToolCallsMap.has(i)) {
                 const toolCall = followUpToolCallsMap.get(i);
+                console.log('Executing follow-up tool:', toolCall.function.name);
                 followUpToolCalls.push(toolCall);
                 await executeToolCall(toolCall);
               }
@@ -1297,15 +1315,19 @@ async function listAssignmentsInline(
 
     controller.enqueue(encoder.encode(`📋 Found ${result.rows.length} assignment(s):\n\n`));
 
+    let assignmentNumber = 1;
     for (const assignment of result.rows) {
       const date = new Date(assignment.scheduled_date);
       const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
 
       controller.enqueue(encoder.encode(
-        `• [ID: ${assignment.id}] ${assignment.subject_name} - ${assignment.topic}\n` +
-        `  📅 ${dayName}, ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} at ${assignment.scheduled_time}\n` +
-        `  ⏱️  ${assignment.estimated_minutes} minutes | 💪 ${assignment.difficulty} | ${assignment.progress_percentage || 0}% complete\n\n`
+        `Assignment ${assignmentNumber}:\n` +
+        `UUID: ${assignment.id}\n` +
+        `Subject: ${assignment.subject_name} - ${assignment.topic}\n` +
+        `Date: ${dayName}, ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} at ${assignment.scheduled_time}\n` +
+        `Duration: ${assignment.estimated_minutes} minutes | Difficulty: ${assignment.difficulty} | Progress: ${assignment.progress_percentage || 0}%\n\n`
       ));
+      assignmentNumber++;
     }
   } catch (error) {
     console.error('Error listing assignments:', error);

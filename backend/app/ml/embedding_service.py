@@ -364,11 +364,15 @@ class EmbeddingModelService:
             reduction_factor = 0.9 + (success_improvement * 0.3)
             adjusted_prob = max(0.05, base_prob * reduction_factor)
 
-        # RULE 3: Adjust time based on recent speed
-        if time_improvement > 30:  # Getting faster by 30+ seconds
-            adjusted_time = max(10, base_time * 0.9)
-        elif time_improvement < -30:  # Getting slower by 30+ seconds
-            adjusted_time = min(300, base_time * 1.1)
+        # RULE 3: Adjust time based on recent speed (MORE SENSITIVE)
+        if time_improvement > 10:  # Getting faster by 10+ seconds
+            # User is getting faster - reduce time prediction
+            time_factor = 0.9 - (min(time_improvement, 60) / 300)  # Up to 10% reduction
+            adjusted_time = max(10, base_time * time_factor)
+        elif time_improvement < -10:  # Getting slower by 10+ seconds
+            # User is getting slower - increase time prediction
+            time_factor = 1.1 + (min(abs(time_improvement), 60) / 300)  # Up to 10% increase
+            adjusted_time = min(300, base_time * time_factor)
 
         # RULE 4: If predictions are unreasonably low/high, constrain them
         if len(relevant_tasks) >= 10:
@@ -410,9 +414,11 @@ class EmbeddingModelService:
             base_prob, base_time, history, topic, difficulty
         )
 
-        # Log if adjustment made significant change (for debugging)
-        if abs(adjusted_prob - base_prob) > 0.1:
-            print(f"[Adaptive Adjustment] {topic} {difficulty}: {base_prob:.1%} → {adjusted_prob:.1%}")
+        # Log adjustment details for debugging
+        if abs(adjusted_prob - base_prob) > 0.05 or abs(adjusted_time - base_time) > 5:
+            print(f"[Adaptive Adjustment] {topic} {difficulty}:")
+            print(f"  Accuracy: {base_prob:.1%} → {adjusted_prob:.1%} (change: {adjusted_prob - base_prob:+.1%})")
+            print(f"  Time: {base_time:.0f}s → {adjusted_time:.0f}s (change: {adjusted_time - base_time:+.0f}s)")
 
         return adjusted_prob, adjusted_time
 

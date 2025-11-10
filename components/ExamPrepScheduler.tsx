@@ -43,7 +43,7 @@ export default function ExamPrepScheduler({
     calculateSchedule();
   }, []);
 
-  const calculateSchedule = () => {
+  const calculateSchedule = async () => {
     try {
       // Calculate days until exam
       const today = new Date();
@@ -84,35 +84,73 @@ export default function ExamPrepScheduler({
       const dailyAvailableHours = calculateDailyAvailableHours();
       const totalAvailableHours = dailyAvailableHours * daysUntil;
 
-      // Estimate hours needed based on units and exam type
       const units = exam.units || [];
-      const unitCount = units.filter(u => u && u.trim()).length;
+      const cleanUnits = units.filter(u => u && u.trim());
 
-      // Base hours per unit (adjustable)
-      let hoursPerUnit = 8;
+      // Get AI-based estimation with fallback to rule-based
+      let estimatedHoursNeeded = 0;
+      let usedAI = false;
 
-      // Adjust based on exam type
-      if (exam.exam_type.includes('Paper 1')) hoursPerUnit = 6;
-      if (exam.exam_type.includes('Paper 2')) hoursPerUnit = 8;
-      if (exam.exam_type.includes('Paper 3')) hoursPerUnit = 10;
-      if (exam.exam_type.includes('IA') || exam.exam_type.includes('Internal Assessment')) hoursPerUnit = 15;
-      if (exam.exam_type.includes('Extended Essay')) hoursPerUnit = 20;
+      try {
+        // Fetch user profile for education context
+        const profileRes = await fetch('/api/user/profile');
+        const profileData = await profileRes.json();
 
-      const estimatedHoursNeeded = Math.max(unitCount * hoursPerUnit, 4); // Minimum 4 hours
+        // Call AI estimation API
+        const estimationRes = await fetch('/api/estimate-study-time', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: subject?.name || 'Unknown',
+            paperType: exam.exam_type,
+            units: cleanUnits,
+            daysUntilExam: daysUntil,
+            availableHours: totalAvailableHours,
+            gradeLevel: profileData.grade_level || '12',
+            educationSystem: profileData.education_system || 'IB',
+            educationProgram: profileData.education_program || 'IB Diploma Programme',
+          }),
+        });
+
+        if (estimationRes.ok) {
+          const aiResult = await estimationRes.json();
+          estimatedHoursNeeded = aiResult.estimatedHours;
+          usedAI = true;
+          console.log('✅ Using AI estimation:', estimatedHoursNeeded, 'hours');
+        } else {
+          throw new Error('AI estimation failed');
+        }
+      } catch (aiError) {
+        console.warn('AI estimation failed, falling back to rule-based:', aiError);
+
+        // Fallback to rule-based estimation
+        const unitCount = cleanUnits.length;
+        let hoursPerUnit = 8;
+
+        // Adjust based on exam type
+        if (exam.exam_type.includes('Paper 1')) hoursPerUnit = 6;
+        if (exam.exam_type.includes('Paper 2')) hoursPerUnit = 8;
+        if (exam.exam_type.includes('Paper 3')) hoursPerUnit = 10;
+        if (exam.exam_type.includes('IA') || exam.exam_type.includes('Internal Assessment')) hoursPerUnit = 15;
+        if (exam.exam_type.includes('Extended Essay')) hoursPerUnit = 20;
+
+        estimatedHoursNeeded = Math.max(unitCount * hoursPerUnit, 4);
+        console.log('📊 Using rule-based estimation:', estimatedHoursNeeded, 'hours');
+      }
 
       // Calculate recommended sessions based on days until exam
       let recommendedSessions = 0;
       if (daysUntil <= 7) {
-        recommendedSessions = Math.min(Math.floor(daysUntil * 0.7), 5); // Up to 5 sessions for 1 week
+        recommendedSessions = Math.min(Math.floor(daysUntil * 0.7), 5);
       } else if (daysUntil <= 14) {
-        recommendedSessions = Math.min(Math.floor(daysUntil * 0.4), 8); // Up to 8 sessions for 2 weeks
+        recommendedSessions = Math.min(Math.floor(daysUntil * 0.4), 8);
       } else if (daysUntil <= 30) {
-        recommendedSessions = Math.min(Math.floor(daysUntil * 0.25), 12); // Up to 12 sessions for 1 month
+        recommendedSessions = Math.min(Math.floor(daysUntil * 0.25), 12);
       } else {
-        recommendedSessions = Math.min(Math.floor(daysUntil * 0.15), 20); // Up to 20 sessions for longer
+        recommendedSessions = Math.min(Math.floor(daysUntil * 0.15), 20);
       }
 
-      recommendedSessions = Math.max(recommendedSessions, Math.min(unitCount, 3)); // At least 3 or unit count
+      recommendedSessions = Math.max(recommendedSessions, Math.min(cleanUnits.length, 3));
 
       const hoursPerSession = estimatedHoursNeeded / recommendedSessions;
 
