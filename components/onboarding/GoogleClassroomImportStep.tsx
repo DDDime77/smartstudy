@@ -35,6 +35,42 @@ export default function GoogleClassroomImportStep({
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set());
   const [courseGrades, setCourseGrades] = useState<Map<string, { current: string; target: string }>>(new Map());
+  const [courseLevels, setCourseLevels] = useState<Map<string, string>>(new Map());
+
+  // Detect level (HL/SL/AP/etc) from course name
+  const detectLevelFromName = (name: string): string | null => {
+    const nameLower = name.toLowerCase();
+
+    // IB levels
+    if (nameLower.includes(' hl') || nameLower.includes('higher level')) return 'HL';
+    if (nameLower.includes(' sl') || nameLower.includes('standard level')) return 'SL';
+
+    // AP courses (check at start, middle, or end)
+    if (nameLower.startsWith('ap ') || nameLower.includes(' ap ') || nameLower.endsWith(' ap')) return 'AP';
+
+    // A-Level
+    if (nameLower.includes('a-level') || nameLower.includes('a level')) return 'A-Level';
+    if (nameLower.includes('as-level') || nameLower.includes('as level')) return 'AS-Level';
+
+    // Honors
+    if (nameLower.includes('honors') || nameLower.includes('honour')) return 'Honors';
+
+    return null;
+  };
+
+  // Get level options based on education system
+  const getLevelOptions = () => {
+    if (educationSystem === 'IB') {
+      return ['HL', 'SL'];
+    } else if (educationSystem === 'A-Level') {
+      return ['A-Level', 'AS-Level'];
+    } else {
+      // American system
+      return ['AP', 'Honors', 'Regular'];
+    }
+  };
+
+  const levelOptions = getLevelOptions();
 
   // Grade options based on education system
   const getGradeOptions = () => {
@@ -77,12 +113,20 @@ export default function GoogleClassroomImportStep({
           console.log('🟣 [GoogleClassroom Frontend] Auto-selecting all courses...');
           setSelectedCourses(new Set(coursesData.map((c: Course) => c.id)));
 
-          console.log('🟣 [GoogleClassroom Frontend] Initializing grade inputs...');
+          console.log('🟣 [GoogleClassroom Frontend] Initializing grade inputs and detecting levels...');
           const initialGrades = new Map();
+          const initialLevels = new Map();
           coursesData.forEach((course: Course) => {
             initialGrades.set(course.id, { current: '', target: '' });
+            // Auto-detect level from course name
+            const detectedLevel = detectLevelFromName(course.name);
+            initialLevels.set(course.id, detectedLevel || '');
+            if (detectedLevel) {
+              console.log(`✅ [GoogleClassroom Frontend] Detected level "${detectedLevel}" for course: ${course.name}`);
+            }
           });
           setCourseGrades(initialGrades);
+          setCourseLevels(initialLevels);
 
           console.log('✅ [GoogleClassroom Frontend] Transitioning to course selection UI');
           setStep('select_courses');
@@ -162,6 +206,12 @@ export default function GoogleClassroomImportStep({
     setCourseGrades(newGrades);
   };
 
+  const updateLevel = (courseId: string, value: string) => {
+    const newLevels = new Map(courseLevels);
+    newLevels.set(courseId, value);
+    setCourseLevels(newLevels);
+  };
+
   const handleImport = async () => {
     setIsLoading(true);
     setError(null);
@@ -183,12 +233,13 @@ export default function GoogleClassroomImportStep({
       // Prepare import data
       const subjectsToImport = selectedCoursesArray.map(course => {
         const grades = courseGrades.get(course.id)!;
+        const level = courseLevels.get(course.id) || null;
         return {
           course_id: course.id,
           course_name: course.name,
           current_grade: grades.current,
           target_grade: grades.target,
-          level: course.suggested_level,
+          level: level,
           category: course.suggested_category
         };
       });
@@ -289,6 +340,8 @@ export default function GoogleClassroomImportStep({
         {courses.map((course) => {
           const isSelected = selectedCourses.has(course.id);
           const grades = courseGrades.get(course.id) || { current: '', target: '' };
+          const level = courseLevels.get(course.id) || '';
+          const detectedLevel = detectLevelFromName(course.name);
 
           return (
             <div
@@ -312,57 +365,81 @@ export default function GoogleClassroomImportStep({
                       <p className="text-xs text-slate-400">{course.section}</p>
                     )}
                     <div className="flex gap-2 mt-1">
-                      {course.suggested_level && (
-                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70">
-                          {course.suggested_level}
-                        </span>
-                      )}
                       {course.suggested_category && (
                         <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
                           {course.suggested_category}
+                        </span>
+                      )}
+                      {detectedLevel && (
+                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-300">
+                          Auto-detected: {detectedLevel}
                         </span>
                       )}
                     </div>
                   </div>
 
                   {isSelected && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-3">
                       <div className="space-y-1">
-                        <label className="text-xs font-medium text-slate-300">Current Grade</label>
+                        <label className="text-xs font-medium text-slate-300">
+                          Level (HL/SL/AP/etc)
+                          {detectedLevel && <span className="text-green-400 ml-1">✓</span>}
+                        </label>
                         <Select
-                          value={grades.current}
-                          onValueChange={(value) => updateGrade(course.id, 'current', value)}
+                          value={level}
+                          onValueChange={(value) => updateLevel(course.id, value)}
                         >
                           <SelectTrigger className="bg-black/60 border-white/20 text-white">
-                            <SelectValue placeholder="Select" />
+                            <SelectValue placeholder="Select level" />
                           </SelectTrigger>
                           <SelectContent className="bg-black border-white/20">
-                            {gradeOptions.map((grade) => (
-                              <SelectItem key={grade} value={grade} className="text-white hover:bg-white/10">
-                                {grade}
+                            {levelOptions.map((lvl) => (
+                              <SelectItem key={lvl} value={lvl} className="text-white hover:bg-white/10">
+                                {lvl}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-slate-300">Target Grade</label>
-                        <Select
-                          value={grades.target}
-                          onValueChange={(value) => updateGrade(course.id, 'target', value)}
-                        >
-                          <SelectTrigger className="bg-black/60 border-white/20 text-white">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-black border-white/20">
-                            {gradeOptions.map((grade) => (
-                              <SelectItem key={grade} value={grade} className="text-white hover:bg-white/10">
-                                {grade}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-slate-300">Current Grade</label>
+                          <Select
+                            value={grades.current}
+                            onValueChange={(value) => updateGrade(course.id, 'current', value)}
+                          >
+                            <SelectTrigger className="bg-black/60 border-white/20 text-white">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-black border-white/20">
+                              {gradeOptions.map((grade) => (
+                                <SelectItem key={grade} value={grade} className="text-white hover:bg-white/10">
+                                  {grade}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-slate-300">Target Grade</label>
+                          <Select
+                            value={grades.target}
+                            onValueChange={(value) => updateGrade(course.id, 'target', value)}
+                          >
+                            <SelectTrigger className="bg-black/60 border-white/20 text-white">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-black border-white/20">
+                              {gradeOptions.map((grade) => (
+                                <SelectItem key={grade} value={grade} className="text-white hover:bg-white/10">
+                                  {grade}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
                   )}
