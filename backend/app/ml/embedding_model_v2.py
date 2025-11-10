@@ -120,6 +120,7 @@ class TaskPredictionModelV2:
         - Average time (overall, per topic, per difficulty)
         - Task counts
         - Recent performance (last 5 tasks)
+        - Improvement metrics (recent vs previous) - NEW!
         """
 
         user_tasks = [t for t in data if str(t['user_id']) == user_id and 'correct' in t]
@@ -137,6 +138,8 @@ class TaskPredictionModelV2:
                 'difficulty_task_count': 0.0,
                 'recent_success_rate': 0.5,
                 'recent_avg_time': 60.0,
+                'success_improvement': 0.0,  # NEW
+                'time_improvement': 0.0,     # NEW
             }
 
         # Overall stats
@@ -158,6 +161,25 @@ class TaskPredictionModelV2:
         recent_correct = [t['correct'] for t in recent_tasks]
         recent_times = [t['actual_time'] for t in recent_tasks]
 
+        # Improvement metrics (recent vs previous) - NEW!
+        # This captures whether user is IMPROVING at this topic/difficulty
+        if len(user_tasks) >= 10:
+            # Compare last 5 vs previous 5 tasks
+            previous_tasks = user_tasks[-10:-5]
+            previous_correct = [t['correct'] for t in previous_tasks]
+            previous_times = [t['actual_time'] for t in previous_tasks]
+
+            # Success improvement: positive = improving, negative = declining
+            success_improvement = float(np.mean(recent_correct) - np.mean(previous_correct))
+
+            # Time improvement: positive = getting faster, negative = getting slower
+            # Normalized to keep in reasonable range
+            time_improvement = float((np.mean(previous_times) - np.mean(recent_times)) / 100.0)
+        else:
+            # Not enough data to compute improvement
+            success_improvement = 0.0
+            time_improvement = 0.0
+
         return {
             'overall_success_rate': float(np.mean(overall_correct)),
             'overall_avg_time': float(np.mean(overall_times)),
@@ -170,6 +192,8 @@ class TaskPredictionModelV2:
             'difficulty_task_count': float(len(diff_tasks)) / 20.0,  # Normalized
             'recent_success_rate': float(np.mean(recent_correct)),
             'recent_avg_time': float(np.mean(recent_times)) / 100.0,  # Normalized
+            'success_improvement': float(success_improvement),  # NEW: -1 to +1 range
+            'time_improvement': float(time_improvement),  # NEW: normalized, positive = faster
         }
 
     def _build_correctness_model(self):
@@ -186,7 +210,7 @@ class TaskPredictionModelV2:
         user_input = layers.Input(shape=(1,), dtype=tf.int32, name='user_id')
         topic_input = layers.Input(shape=(1,), dtype=tf.int32, name='topic')
         difficulty_input = layers.Input(shape=(1,), dtype=tf.int32, name='difficulty')
-        history_input = layers.Input(shape=(11,), dtype=tf.float32, name='history_features')
+        history_input = layers.Input(shape=(13,), dtype=tf.float32, name='history_features')
 
         # Embeddings
         user_emb = layers.Embedding(self.metadata['n_users'], self.user_embedding_dim)(user_input)
@@ -242,7 +266,7 @@ class TaskPredictionModelV2:
         user_input = layers.Input(shape=(1,), dtype=tf.int32, name='user_id')
         topic_input = layers.Input(shape=(1,), dtype=tf.int32, name='topic')
         difficulty_input = layers.Input(shape=(1,), dtype=tf.int32, name='difficulty')
-        history_input = layers.Input(shape=(11,), dtype=tf.float32, name='history_features')
+        history_input = layers.Input(shape=(13,), dtype=tf.float32, name='history_features')
 
         # Embeddings
         user_emb = layers.Embedding(self.metadata['n_users'], self.user_embedding_dim)(user_input)
@@ -332,6 +356,8 @@ class TaskPredictionModelV2:
                 hist_features['difficulty_task_count'],
                 hist_features['recent_success_rate'],
                 hist_features['recent_avg_time'],
+                hist_features['success_improvement'],  # NEW
+                hist_features['time_improvement'],     # NEW
             ])
 
             correctness_targets.append(float(sample['correct']))
@@ -495,6 +521,8 @@ class TaskPredictionModelV2:
                 hist_features['difficulty_task_count'],
                 hist_features['recent_success_rate'],
                 hist_features['recent_avg_time'],
+                hist_features['success_improvement'],  # NEW: Recent vs previous success
+                hist_features['time_improvement'],     # NEW: Recent vs previous time
             ]]),
         }
 

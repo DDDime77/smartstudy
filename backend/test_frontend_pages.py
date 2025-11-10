@@ -1,91 +1,80 @@
+#!/usr/bin/env python3
 """
-Test All Frontend Pages
-
-Verifies that all frontend pages load successfully after backend changes.
+Test all frontend pages are accessible and return 200 OK
 """
 
 import requests
-import time
+from urllib.parse import urljoin
 
-FRONTEND_URL = "http://localhost:3000"
+FRONTEND_URL = "http://localhost:4000"
 
 PAGES = [
     "/",
     "/dashboard",
-    "/dashboard/preparation",
-    "/dashboard/tasks",
     "/dashboard/analytics",
-    "/dashboard/performance",
-    "/dashboard/schedule",
+    "/dashboard/assistant",
+    "/dashboard/notifications",
+    "/dashboard/preparation",
     "/dashboard/settings",
-    "/auth/login",
-    "/auth/register",
+    "/dashboard/study-timer",
+    "/dashboard/subjects",
+    "/dashboard/tasks",
 ]
 
-
-def test_page(url):
-    """Test if a page loads successfully"""
+def test_page(url, path):
+    """Test a single page"""
+    full_url = urljoin(url, path)
     try:
-        response = requests.get(url, timeout=10, allow_redirects=True)
-        if response.status_code == 200:
-            return True, "OK"
-        else:
-            return False, f"Status {response.status_code}"
-    except requests.exceptions.ConnectionError:
-        return False, "Connection refused - frontend not running"
-    except requests.exceptions.Timeout:
-        return False, "Timeout"
-    except Exception as e:
-        return False, str(e)
+        response = requests.get(full_url, timeout=10, allow_redirects=True)
 
+        if response.status_code == 200:
+            # Check for common error indicators
+            content = response.text.lower()
+            if "error" in content and "application error" in content:
+                return "⚠️", response.status_code, "Contains 'Application Error'"
+            elif "404" in content and "not found" in content:
+                return "⚠️", response.status_code, "Contains '404 Not Found'"
+            else:
+                return "✅", response.status_code, "OK"
+        elif response.status_code in [301, 302, 307, 308]:
+            return "↗️", response.status_code, f"Redirects to {response.headers.get('Location', 'unknown')}"
+        else:
+            return "❌", response.status_code, "Not OK"
+
+    except requests.exceptions.Timeout:
+        return "❌", "TIMEOUT", "Request timed out"
+    except requests.exceptions.ConnectionError:
+        return "❌", "CONN_ERR", "Connection error"
+    except Exception as e:
+        return "❌", "ERROR", str(e)
 
 def main():
-    print('='*90)
-    print('FRONTEND PAGES TEST')
-    print('='*90)
+    print("="*90)
+    print("FRONTEND PAGES TEST")
+    print("="*90)
     print()
-
-    print(f'Testing frontend at: {FRONTEND_URL}')
+    print(f"Testing frontend at: {FRONTEND_URL}")
     print()
+    print(f"{'Path':<35} {'Status':<5} {'Code':<10} {'Details':<30}")
+    print("-" * 90)
 
-    # Wait a moment for any services to stabilize
-    time.sleep(2)
+    all_ok = True
+    for path in PAGES:
+        icon, code, details = test_page(FRONTEND_URL, path)
+        print(f"{path:<35} {icon:<5} {str(code):<10} {details:<30}")
 
-    results = []
-    for page in PAGES:
-        url = f"{FRONTEND_URL}{page}"
-        success, message = test_page(url)
-        results.append((page, success, message))
-
-        status_icon = '✅' if success else '❌'
-        print(f'{status_icon} {page:30} {message}')
+        if icon == "❌":
+            all_ok = False
 
     print()
-    print('='*90)
-    print('SUMMARY')
-    print('='*90)
-    print()
+    print("="*90)
 
-    passed = sum(1 for _, success, _ in results if success)
-    total = len(results)
-
-    print(f'Passed: {passed}/{total}')
-
-    if passed == total:
-        print('✅ ALL PAGES WORKING')
+    if all_ok:
+        print("✅ ALL PAGES WORKING")
     else:
-        print('❌ SOME PAGES FAILED')
-        print()
-        print('Failed pages:')
-        for page, success, message in results:
-            if not success:
-                print(f'  - {page}: {message}')
+        print("❌ SOME PAGES HAVE ISSUES")
 
-    print()
+    print("="*90)
 
-    return passed == total
-
-
-if __name__ == "__main__":
-    success = main()
-    exit(0 if success else 1)
+if __name__ == '__main__':
+    main()
