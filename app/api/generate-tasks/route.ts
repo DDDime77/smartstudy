@@ -17,45 +17,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prompt for o4-mini Responses API - Generate single task with solution and answer
-    const prompt = `You are an expert ${studySystem || 'IB'} ${subject} teacher creating a practice problem for students.
-
-CONTEXT:
-- Study System: ${studySystem || 'IB (International Baccalaureate)'}
-- Subject: ${subject}
-- Topic: ${topic}
-- Difficulty Level: ${difficulty}
-
-TASK:
-Generate ONE complete practice problem with the following FOUR sections:
-
-1. TIME_ESTIMATE section - Estimated time in minutes for a student to complete this task
-2. TASK section - The actual problem/question for the student
-3. SOLUTION section - Step-by-step worked solution showing the methodology
-4. ANSWER section - The final answer(s) only
-
-REQUIREMENTS:
-- Align with ${studySystem || 'IB'} curriculum standards and command terms
-- Adjust complexity to ${difficulty} difficulty level
-- Make the problem relevant and engaging
-- Solution should teach the methodology clearly
-- For mathematics, physics, or chemistry: include proper LaTeX formatting
-
-OUTPUT FORMAT - CRITICAL:
-You MUST structure your output EXACTLY like this:
-
-# TIME_ESTIMATE
-[Write only a number representing minutes, e.g., "5" or "10" or "15"]
-
-# TASK
-[Write the problem statement here - what the student needs to solve]
-
-# SOLUTION
-[Write the step-by-step solution with clear explanations]
-
-# ANSWER
-[Write only the final answer(s) here]
-
+    // Common formatting rules for both stages
+    const formattingRules = `
 IMPORTANT FORMATTING RULES:
 - Use proper markdown formatting
 - For mathematical formulas, use ONLY these delimiters:
@@ -72,71 +35,157 @@ IMPORTANT FORMATTING RULES:
   * Use simple delimiters: () [] {} - avoid complex bracket sizing
   * Keep LaTeX as simple as possible - avoid advanced TeX commands
   * Every formula must be complete within ONE pair of $ or $$ - no splitting
-- Use the section headers exactly as shown: # TIME_ESTIMATE, # TASK, # SOLUTION, # ANSWER
 - Write formulas inline with text using $...$ for better readability
-- Each step in the solution should be on a new line for clarity
+- Each step in the solution should be on a new line for clarity`;
+
+    // STAGE 1: Fast task generation with GPT-4 (2-3 seconds)
+    const taskPrompt = `You are an expert ${studySystem || 'IB'} ${subject} teacher creating a practice problem for students.
+
+CONTEXT:
+- Study System: ${studySystem || 'IB (International Baccalaureate)'}
+- Subject: ${subject}
+- Topic: ${topic}
+- Difficulty Level: ${difficulty}
+
+TASK:
+Generate a practice problem with TWO sections ONLY:
+
+1. TIME_ESTIMATE section - Estimated time in minutes for a student to complete this task
+2. TASK section - The actual problem/question for the student
+
+REQUIREMENTS:
+- Align with ${studySystem || 'IB'} curriculum standards and command terms
+- Adjust complexity to ${difficulty} difficulty level
+- Make the problem relevant, engaging, and clear
+- For mathematics, physics, or chemistry: include proper LaTeX formatting
+
+OUTPUT FORMAT - CRITICAL:
+You MUST structure your output EXACTLY like this:
+
+# TIME_ESTIMATE
+[Write only a number representing minutes, e.g., "5" or "10" or "15"]
+
+# TASK
+[Write the problem statement here - what the student needs to solve]
+
+${formattingRules}
 
 Generate the problem now.`;
 
-    // Use o4-mini Responses API with streaming
-    const stream = await client.responses.create({
-      model: 'o4-mini',
-      stream: true,
-      instructions: 'You are a helpful tutor. Return clean Markdown content directly. Do NOT wrap your response in markdown code fences (no ```markdown). Output the raw markdown content only.',
-      input: prompt,
-      reasoning: {
-        effort: 'high',
-      },
-      max_output_tokens: 10000,
-    });
-
-    // Handle client disconnects
-    req.signal.addEventListener('abort', () => {
-      if (typeof (stream as any).abort === 'function') {
-        (stream as any).abort();
-      }
-    });
-
-    // Stream the response in real-time using Responses API events
+    // Stream the response in real-time
     const readableStream = new ReadableStream({
       async start(controller) {
         let isClosed = false;
-
-        // Send immediate keepalive to prevent proxy timeout
-        controller.enqueue(
-          new TextEncoder().encode(`data: ${JSON.stringify({ status: 'generating' })}\n\n`)
-        );
-
-        // Send periodic keepalives every 15 seconds
-        const keepaliveInterval = setInterval(() => {
-          if (!isClosed) {
-            try {
-              controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify({ keepalive: true })}\n\n`)
-              );
-            } catch (e) {
-              clearInterval(keepaliveInterval);
-            }
-          } else {
-            clearInterval(keepaliveInterval);
-          }
-        }, 15000);
+        let fullTaskContent = '';
 
         try {
-          for await (const event of stream) {
+          // STAGE 1: Generate task quickly with GPT-4
+          controller.enqueue(
+            new TextEncoder().encode(`data: ${JSON.stringify({ status: 'generating_task' })}\n\n`)
+          );
+
+          const taskStream = await client.chat.completions.create({
+            model: 'gpt-4',
+            messages: [{
+              role: 'user',
+              content: taskPrompt
+            }],
+            temperature: 0.7,
+            max_tokens: 1500,
+            stream: true,
+          });
+
+          // Stream task content
+          for await (const chunk of taskStream) {
             if (isClosed) break;
 
-            // Text delta events
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              fullTaskContent += content;
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ delta: content, stage: 'task' })}\n\n`)
+              );
+            }
+          }
+
+          // Send task complete marker
+          controller.enqueue(
+            new TextEncoder().encode(`data: ${JSON.stringify({ task_complete: true })}\n\n`)
+          );
+
+          // STAGE 2: Generate solution with o4-mini (slower, high reasoning)
+          controller.enqueue(
+            new TextEncoder().encode(`data: ${JSON.stringify({ status: 'generating_solution' })}\n\n`)
+          );
+
+          const solutionPrompt = `You are an expert ${studySystem || 'IB'} ${subject} teacher. A student has been given this practice problem:
+
+${fullTaskContent}
+
+TASK:
+Generate the SOLUTION and ANSWER for this problem with TWO sections:
+
+1. SOLUTION section - Step-by-step worked solution showing the methodology
+2. ANSWER section - The final answer(s) only
+
+REQUIREMENTS:
+- Provide a clear, step-by-step solution that teaches the methodology
+- Explain each step thoroughly
+- Show all work and reasoning
+- For mathematics, physics, or chemistry: include proper LaTeX formatting
+
+OUTPUT FORMAT - CRITICAL:
+You MUST structure your output EXACTLY like this:
+
+# SOLUTION
+[Write the step-by-step solution with clear explanations]
+
+# ANSWER
+[Write only the final answer(s) here]
+
+${formattingRules}
+
+Generate the solution now. Be thorough and educational.`;
+
+          const solutionStream = await client.responses.create({
+            model: 'o4-mini',
+            stream: true,
+            instructions: 'You are a helpful tutor. Return clean Markdown content directly. Do NOT wrap your response in markdown code fences (no ```markdown). Output the raw markdown content only.',
+            input: solutionPrompt,
+            reasoning: {
+              effort: 'high',
+            },
+            max_output_tokens: 10000,
+          });
+
+          // Send periodic keepalives during solution generation
+          const keepaliveInterval = setInterval(() => {
+            if (!isClosed) {
+              try {
+                controller.enqueue(
+                  new TextEncoder().encode(`data: ${JSON.stringify({ keepalive: true })}\n\n`)
+                );
+              } catch (e) {
+                clearInterval(keepaliveInterval);
+              }
+            } else {
+              clearInterval(keepaliveInterval);
+            }
+          }, 15000);
+
+          // Stream solution content
+          for await (const event of solutionStream) {
+            if (isClosed) break;
+
             if (event.type === 'response.output_text.delta') {
               const chunk = event.delta ?? '';
               if (chunk.length > 0) {
                 controller.enqueue(
-                  new TextEncoder().encode(`data: ${JSON.stringify({ delta: chunk })}\n\n`)
+                  new TextEncoder().encode(`data: ${JSON.stringify({ delta: chunk, stage: 'solution' })}\n\n`)
                 );
               }
             }
 
-            // Completed event - send final marker & close
             if (event.type === 'response.completed') {
               controller.enqueue(
                 new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
@@ -147,7 +196,6 @@ Generate the problem now.`;
               }
             }
 
-            // Error event from OpenAI stream
             if (event.type === 'error') {
               controller.enqueue(
                 new TextEncoder().encode(`data: ${JSON.stringify({ error: event.error })}\n\n`)
@@ -159,6 +207,8 @@ Generate the problem now.`;
             }
           }
 
+          clearInterval(keepaliveInterval);
+
           // Close if not already closed
           if (!isClosed) {
             controller.enqueue(
@@ -167,13 +217,14 @@ Generate the problem now.`;
             controller.close();
             isClosed = true;
           }
-          clearInterval(keepaliveInterval);
         } catch (error) {
           console.error('Streaming error:', error);
-          clearInterval(keepaliveInterval);
           if (!isClosed) {
             try {
-              controller.error(error);
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ error: String(error) })}\n\n`)
+              );
+              controller.close();
             } catch (e) {
               // Controller already closed, ignore
             }
