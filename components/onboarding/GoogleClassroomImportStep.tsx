@@ -127,9 +127,22 @@ export default function GoogleClassroomImportStep({
   const hasCategories = Object.keys(subjectGroups).length > 0;
 
   // Helper functions for manual subject management
-  const getRandomColor = () => {
+  const getRandomColor = (existingSubjects: SubjectInput[]) => {
     const colors = ['#3B82F6', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#EF4444'];
-    return colors[Math.floor(Math.random() * colors.length)];
+
+    // Get colors that are already used
+    const usedColors = new Set(existingSubjects.map(s => s.color).filter(Boolean));
+
+    // Find available colors
+    const availableColors = colors.filter(c => !usedColors.has(c));
+
+    // If all colors are used, return a random one (allow duplicates)
+    if (availableColors.length === 0) {
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    // Return a random available color
+    return availableColors[Math.floor(Math.random() * availableColors.length)];
   };
 
   const addManualSubject = () => {
@@ -142,7 +155,7 @@ export default function GoogleClassroomImportStep({
       category: selectedCategory || currentSubject.category,
       current_grade: currentSubject.current_grade,
       target_grade: currentSubject.target_grade,
-      color: getRandomColor(),
+      color: getRandomColor(manualSubjects),
     };
 
     setManualSubjects([...manualSubjects, newSubject]);
