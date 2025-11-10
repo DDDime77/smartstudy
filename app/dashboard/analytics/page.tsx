@@ -33,10 +33,8 @@ export default function AnalyticsPage() {
   ];
 
   const performanceMetrics = [
-    { metric: 'Focus Score', value: 85, trend: '+5%', color: 'from-blue-400 to-cyan-400' },
     { metric: 'Task Completion', value: 92, trend: '+12%', color: 'from-green-400 to-emerald-400' },
     { metric: 'Study Consistency', value: 78, trend: '-3%', color: 'from-purple-400 to-pink-400' },
-    { metric: 'Knowledge Retention', value: 88, trend: '+8%', color: 'from-orange-400 to-yellow-400' },
   ];
 
   const achievements = [
@@ -89,7 +87,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <GlassCard hover glow>
             <div className="p-6">
               <div className="flex items-center justify-between mb-3">
@@ -111,20 +109,6 @@ export default function AnalyticsPage() {
           <GlassCard hover glow>
             <div className="p-6">
               <div className="flex items-center justify-between mb-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-                  <Target className="w-5 h-5 text-purple-400" />
-                </div>
-                <Badge variant="gradient">On Track</Badge>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">18/20</div>
-              <p className="text-white/60 text-sm">Goals Achieved</p>
-              <p className="text-xs text-green-400 mt-1">90% completion rate</p>
-            </div>
-          </GlassCard>
-
-          <GlassCard hover glow>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-3">
                 <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
                   <Zap className="w-5 h-5 text-green-400" />
                 </div>
@@ -133,20 +117,6 @@ export default function AnalyticsPage() {
               <div className="text-3xl font-bold text-white mb-1">7 days</div>
               <p className="text-white/60 text-sm">Current Streak</p>
               <p className="text-xs text-green-400 mt-1">Personal best!</p>
-            </div>
-          </GlassCard>
-
-          <GlassCard hover glow>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500/20 to-yellow-500/20">
-                  <Brain className="w-5 h-5 text-orange-400" />
-                </div>
-                <Badge variant="gradient">High</Badge>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">4.2/5</div>
-              <p className="text-white/60 text-sm">Avg Focus Score</p>
-              <p className="text-xs text-green-400 mt-1">+0.3 improvement</p>
             </div>
           </GlassCard>
         </div>
@@ -187,7 +157,7 @@ export default function AnalyticsPage() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/10">
                 <div className="text-center">
                   <p className="text-white/60 text-xs mb-1">Daily Average</p>
                   <p className="text-white font-bold text-lg">3.5h</p>
@@ -195,10 +165,6 @@ export default function AnalyticsPage() {
                 <div className="text-center">
                   <p className="text-white/60 text-xs mb-1">Best Day</p>
                   <p className="text-white font-bold text-lg">Saturday</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-white/60 text-xs mb-1">Goal Progress</p>
-                  <p className="text-white font-bold text-lg">85%</p>
                 </div>
               </div>
             </div>
