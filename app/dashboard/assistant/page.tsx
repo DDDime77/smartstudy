@@ -423,15 +423,44 @@ export default function StudyAssistantPage() {
                       </ReactMarkdown>
                     </div>
                     {msg.toolCalls && msg.toolCalls.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
-                        <div className="flex items-center gap-2 text-purple-300 text-sm mb-2">
-                          <Wrench className="w-4 h-4" />
-                          <span className="font-medium">Tool Calls</span>
-                        </div>
+                      <div className="mt-3 space-y-2">
                         {msg.toolCalls.map((tool, tidx) => (
-                          <div key={tidx} className="bg-black/20 rounded p-2 mb-2 text-xs">
-                            <div className="text-purple-300 font-mono">{tool.name}</div>
-                            <div className="text-white/60 mt-1">{JSON.stringify(tool.args, null, 2)}</div>
+                          <div key={tidx} className="text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/60 select-none">*</span>
+                              <div className="flex-1">
+                                <span className="font-medium text-white/60">
+                                  Called mcp tool <span className="font-mono">{tool.name}</span>
+                                </span>
+
+                                {/* Task Details */}
+                                <div className="mt-1.5 ml-2 space-y-0.5">
+                                  <p className="leading-relaxed text-white/50">
+                                    {tool.args.subject && tool.args.topic && (
+                                      <>
+                                        <span className="font-medium">{tool.args.subject}</span>
+                                        {' - '}
+                                        <span>{tool.args.topic}</span>
+                                      </>
+                                    )}
+                                  </p>
+                                  <p className="text-xs leading-relaxed text-white/40">
+                                    {tool.args.due_date && (
+                                      <>Scheduled: {new Date(tool.args.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                                    )}
+                                    {tool.args.time_of_day && (
+                                      <>, {tool.args.time_of_day}</>
+                                    )}
+                                    {tool.args.estimated_minutes && (
+                                      <> · {tool.args.estimated_minutes} minutes</>
+                                    )}
+                                    {tool.args.difficulty && (
+                                      <> · {tool.args.difficulty}</>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>

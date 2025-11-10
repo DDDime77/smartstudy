@@ -63,8 +63,14 @@ async def create_practice_task(
                 predicted_time_seconds = prediction['predicted_time_seconds']
                 lnirt_model_version = prediction['lnirt_model_version']
             except Exception as e2:
-                print(f"LNIRT prediction also failed: {e2}")
-                pass
+                # Both prediction models failed - use default fallback values
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"LNIRT prediction also failed: {e2}", exc_info=True)
+                print(f"⚠️  Both prediction models failed - using default values")
+                predicted_correct = 0.5  # 50% default correctness
+                predicted_time_seconds = 60.0  # 60 seconds default time
+                lnirt_model_version = "fallback_default"
 
     new_task = PracticeTask(
         user_id=current_user.id,
@@ -218,9 +224,11 @@ async def update_practice_task(
             else:
                 print(f"Embedding model: {result['message']}")
         except Exception as e:
-            # Log error but don't fail the request
-            print(f"Auto-training failed: {e}")
-            pass
+            # Log error but don't fail the request - training is background operation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Auto-training failed: {e}", exc_info=True)
+            print(f"⚠️  Auto-training failed (non-critical): {e}")
 
     return task
 

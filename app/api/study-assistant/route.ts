@@ -442,7 +442,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               tool_call_id: tc.id
             }));
 
-            const followUpResponse = await openai.chat.completions.create({
+            const followUpStream = await openai.chat.completions.create({
               model: 'gpt-4-turbo',
               messages: [
                 { role: 'system', content: systemPrompt },
@@ -452,12 +452,16 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               ],
               temperature: 0.7,
               max_tokens: 300,
+              stream: true,
             });
 
-            const followUpText = followUpResponse.choices[0].message.content;
-            if (followUpText) {
-              controller.enqueue(encoder.encode('\n\n'));
-              controller.enqueue(encoder.encode(followUpText));
+            // Stream the follow-up response
+            controller.enqueue(encoder.encode('\n\n'));
+            for await (const chunk of followUpStream) {
+              const content = chunk.choices[0]?.delta?.content || '';
+              if (content) {
+                controller.enqueue(encoder.encode(content));
+              }
             }
 
             controller.close();

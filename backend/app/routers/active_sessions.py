@@ -187,6 +187,19 @@ async def update_active_session(
         if not update_fields:
             raise HTTPException(status_code=400, detail="No fields to update")
 
+        # Security: Validate field names against whitelist to prevent SQL injection
+        ALLOWED_FIELDS = {
+            "elapsed_seconds = :elapsed_seconds",
+            "is_running = :is_running",
+            "tasks_completed = :tasks_completed",
+            "time_spent_minutes = :time_spent_minutes",
+            "current_task = :current_task",
+            "pending_task_params = :pending_task_params"
+        }
+        for field in update_fields:
+            if field not in ALLOWED_FIELDS:
+                raise HTTPException(status_code=400, detail=f"Invalid field: {field}")
+
         query = f"""
             UPDATE active_study_sessions
             SET {', '.join(update_fields)}
