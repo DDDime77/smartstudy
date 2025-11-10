@@ -21,6 +21,7 @@ export default function StudyTimerPage() {
   const [selectedTechnique, setSelectedTechnique] = useState('pomodoro');
   const [sessionGoal, setSessionGoal] = useState(60); // Goal in minutes
   const [timeRemaining, setTimeRemaining] = useState(25 * 60); // Countdown timer in seconds
+  const [initialTimeRemaining, setInitialTimeRemaining] = useState(25 * 60); // Store initial duration for progress calculation
   const [elapsedSeconds, setElapsedSeconds] = useState(0); // Actual elapsed time
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState(0);
@@ -148,7 +149,9 @@ export default function StudyTimerPage() {
           // Set timer and session goal based on assignment
           if (assignment.estimatedMinutes) {
             setSessionGoal(assignment.estimatedMinutes);
-            setTimeRemaining(assignment.estimatedMinutes * 60); // Convert to seconds
+            const timerSeconds = assignment.estimatedMinutes * 60;
+            setTimeRemaining(timerSeconds);
+            setInitialTimeRemaining(timerSeconds); // Store for progress calculation
           }
 
           // Auto-generate first task
@@ -576,7 +579,9 @@ export default function StudyTimerPage() {
     setIsRunning(false);
     const technique = techniques.find(t => t.id === selectedTechnique);
     if (technique) {
-      setTimeRemaining(technique.focusTime * 60);
+      const timerSeconds = technique.focusTime * 60;
+      setTimeRemaining(timerSeconds);
+      setInitialTimeRemaining(timerSeconds);
     }
     setElapsedSeconds(0);
     setInterruptions(0);
@@ -602,7 +607,9 @@ export default function StudyTimerPage() {
     }
     const technique = techniques.find(t => t.id === selectedTechnique);
     if (technique && !isRunning) {
-      setTimeRemaining(technique.focusTime * 60);
+      const timerSeconds = technique.focusTime * 60;
+      setTimeRemaining(timerSeconds);
+      setInitialTimeRemaining(timerSeconds); // Store for progress calculation
     }
   }, [selectedTechnique, isRunning]);
 
@@ -825,7 +832,9 @@ export default function StudyTimerPage() {
     // Reset state
     const technique = techniques.find(t => t.id === selectedTechnique);
     if (technique) {
-      setTimeRemaining(technique.focusTime * 60);
+      const timerSeconds = technique.focusTime * 60;
+      setTimeRemaining(timerSeconds);
+      setInitialTimeRemaining(timerSeconds);
     }
     setElapsedSeconds(0);
     setInterruptions(0);
@@ -862,7 +871,9 @@ export default function StudyTimerPage() {
         // Reset timer for next session
         const nextTechnique = techniques.find(t => t.id === selectedTechnique);
         if (nextTechnique) {
-          setTimeRemaining(nextTechnique.focusTime * 60);
+          const timerSeconds = nextTechnique.focusTime * 60;
+          setTimeRemaining(timerSeconds);
+          setInitialTimeRemaining(timerSeconds);
         }
       } catch (error) {
         handleApiError(error, 'Failed to complete session');
@@ -891,7 +902,7 @@ export default function StudyTimerPage() {
     }
   };
 
-  const progress = timeRemaining === 0 ? 1 : 1 - (timeRemaining / (techniques.find(t => t.id === selectedTechnique)?.focusTime! * 60));
+  const progress = timeRemaining === 0 ? 1 : 1 - (timeRemaining / initialTimeRemaining);
   const maxHours = Math.max(...weeklyStats.map(s => s.hours), 1);
   const totalWeekHours = weeklyStats.reduce((sum, stat) => sum + stat.hours, 0);
 

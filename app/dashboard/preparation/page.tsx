@@ -11,8 +11,9 @@ import { ExamsService, ExamInput, ExamResponse, UpdateExam } from '@/lib/api/exa
 import { SubjectsService } from '@/lib/api/subjects';
 import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/onboarding';
 import { AssignmentsService, AIAssignment } from '@/lib/api/assignments';
+import { ScheduleService, BusySlot } from '@/lib/api/schedule';
 import { handleApiError } from '@/lib/api/client';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target, X } from 'lucide-react';
 
 // Universal paper types for all education systems
 const PAPER_TYPES = [
@@ -48,8 +49,10 @@ export default function ExamsPage() {
   const [assignments, setAssignments] = useState<AIAssignment[]>([]);
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showDaySchedule, setShowDaySchedule] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamResponse | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<AIAssignment | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -112,11 +115,12 @@ export default function ExamsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [examsData, assignmentsData, subjectsData, profileData] = await Promise.all([
+      const [examsData, assignmentsData, subjectsData, profileData, busySlotsData] = await Promise.all([
         ExamsService.getAll(),
         AssignmentsService.getAll(),
         SubjectsService.getAll(),
         OnboardingService.getProfile(),
+        ScheduleService.getBusySlots(),
       ]);
 
       // Debug: Log all exam dates
@@ -136,6 +140,7 @@ export default function ExamsPage() {
       setAssignments(assignmentsData);
       setSubjects(subjectsData);
       setProfile(profileData);
+      setBusySlots(busySlotsData);
     } catch (error) {
       handleApiError(error, 'Failed to load data');
     } finally {
@@ -237,11 +242,17 @@ export default function ExamsPage() {
 
   const handleDayClick = (day: DayCell) => {
     setSelectedDate(day.date);
+    setShowDaySchedule(true);
+  };
+
+  const handleAddExamClick = () => {
+    const today = new Date();
+    setSelectedDate(today);
     setEditingExam(null);
     // Use local date to avoid timezone issues
-    const year = day.date.getFullYear();
-    const month = String(day.date.getMonth() + 1).padStart(2, '0');
-    const dayNum = String(day.date.getDate()).padStart(2, '0');
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(today.getDate()).padStart(2, '0');
     const isoDate = `${year}-${month}-${dayNum}`;
     setFormData({
       subject_id: '',
@@ -362,27 +373,7 @@ export default function ExamsPage() {
               Manage your preparation schedule and study effectively
             </p>
           </div>
-          <Button variant="primary" onClick={() => {
-            const today = new Date();
-            setSelectedDate(today);
-            setEditingExam(null);
-            // Use local date to avoid timezone issues
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const isoDate = `${year}-${month}-${day}`;
-            setFormData({
-              subject_id: '',
-              exam_date: isoDate,
-              start_time: '',
-              finish_time: '',
-              exam_type: '',
-              units: ['', '', '', '', ''],
-            });
-            setDateInput(convertToDisplayDate(isoDate));
-            setDateError('');
-            setDialogOpen(true);
-          }}>
+          <Button variant="primary" onClick={handleAddExamClick}>
             <Plus className="w-4 h-4 mr-2" />
             Add Exam
           </Button>
@@ -897,6 +888,160 @@ export default function ExamsPage() {
                     onClick={() => setShowAssignmentModal(false)}
                     className="flex-1"
                   >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        )}
+
+        {/* Day Schedule View Modal */}
+        {showDaySchedule && selectedDate && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <GlassCard className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-6 flex flex-col h-full">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <GradientText>
+                      <h2 className="text-3xl font-bold mb-2">
+                        Schedule for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                      </h2>
+                    </GradientText>
+                    <p className="text-white/60">View your daily schedule with busy hours and study sessions</p>
+                  </div>
+                  <button
+                    onClick={() => setShowDaySchedule(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Day Schedule Timeline */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="space-y-2">
+                    {Array.from({ length: 24 }, (_, hour) => {
+                      const hourStr = String(hour).padStart(2, '0');
+                      const dayOfWeek = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1; // Convert Sunday=0 to Sunday=6
+
+                      // Get busy slots for this hour and day
+                      const busySlotsForHour = busySlots.filter(slot => {
+                        if (!slot.recurring) {
+                          // For non-recurring slots, check specific_date
+                          if (!slot.specific_date) return false;
+                          const slotDate = new Date(slot.specific_date);
+                          if (slotDate.toDateString() !== selectedDate.toDateString()) return false;
+                        } else {
+                          // For recurring slots, check day_of_week
+                          if (slot.day_of_week !== dayOfWeek) return false;
+                        }
+
+                        // Check if slot overlaps with this hour
+                        const slotStartHour = parseInt(slot.start_time.split(':')[0]);
+                        const slotEndHour = parseInt(slot.end_time.split(':')[0]);
+                        return hour >= slotStartHour && hour < slotEndHour;
+                      });
+
+                      // Get exams for this hour
+                      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                      const examsForHour = exams.filter(exam => {
+                        if (exam.exam_date !== dateStr) return false;
+                        if (!exam.start_time) return false;
+                        const examStartHour = parseInt(exam.start_time.split(':')[0]);
+                        return hour === examStartHour;
+                      });
+
+                      const hasBusySlot = busySlotsForHour.length > 0;
+                      const hasExam = examsForHour.length > 0;
+
+                      return (
+                        <div
+                          key={hour}
+                          className={`flex items-start gap-4 p-3 rounded-lg border transition-all ${
+                            hasBusySlot
+                              ? 'bg-gray-500/20 border-gray-500/30'
+                              : hasExam
+                              ? 'bg-red-500/20 border-red-500/30'
+                              : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          {/* Time Label */}
+                          <div className="w-20 flex-shrink-0">
+                            <p className="text-white font-mono font-bold">{hourStr}:00</p>
+                            <p className="text-white/40 text-xs">to {hourStr}:59</p>
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 space-y-2">
+                            {/* Busy Slots */}
+                            {busySlotsForHour.map((slot, idx) => (
+                              <div key={`busy-${idx}`} className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-gray-400" />
+                                <div>
+                                  <p className="text-white font-medium">
+                                    {slot.activity_type || 'Busy'}: {slot.start_time.substring(0, 5)} - {slot.end_time.substring(0, 5)}
+                                  </p>
+                                  {slot.description && (
+                                    <p className="text-white/60 text-sm">{slot.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Exams */}
+                            {examsForHour.map((exam) => {
+                              const subject = subjects.find(s => s.id === exam.subject_id);
+                              return (
+                                <div key={exam.id} className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                                  <div className="flex-1">
+                                    <p className="text-white font-medium">
+                                      {subject?.name} - {exam.exam_type}
+                                    </p>
+                                    <p className="text-white/60 text-sm">
+                                      {exam.start_time?.substring(0, 5)} - {exam.finish_time?.substring(0, 5)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleEditExam(exam)}
+                                    className="text-white/60 hover:text-white transition-colors"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+
+                            {/* Available/Placeholder for Study Tasks */}
+                            {!hasBusySlot && !hasExam && (
+                              <p className="text-white/40 text-sm italic">Available for study session</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/10">
+                  <div className="flex gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-gray-400" />
+                      <span className="text-white/60">Busy Hours</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-400" />
+                      <span className="text-white/60">Exams</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-white/20" />
+                      <span className="text-white/60">Available</span>
+                    </div>
+                  </div>
+                  <Button variant="secondary" onClick={() => setShowDaySchedule(false)}>
                     Close
                   </Button>
                 </div>

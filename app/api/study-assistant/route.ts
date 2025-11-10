@@ -311,11 +311,11 @@ Be conversational, helpful, and reference their specific data when relevant.`;
               },
               topic: {
                 type: 'string',
-                description: 'The specific topic to study (e.g., "Calculus", "Newton\'s Laws", "Exam Preparation")'
+                description: 'The specific topic to study (e.g., "Calculus", "Newton\'s Laws", "Circular Motion"). If preparing for an exam, use the exam\'s topic, not "Exam Preparation".'
               },
               exam_name: {
                 type: 'string',
-                description: 'Optional: Name of the exam this assignment is preparing for'
+                description: 'Optional: Name/title of the exam this assignment is preparing for (e.g., "Physics Paper 2"). When provided, the system will look up the exam\'s topic automatically.'
               },
               difficulty: {
                 type: 'string',
@@ -637,6 +637,21 @@ async function createSingleAssignment(studentId: string, params: {
         const estimatedMinutes = params.estimated_minutes || 45;
         const requiredTasksCount = params.required_tasks_count || 5;
 
+        // Determine the topic - if exam_name is provided, look up the exam's topic
+        let topicToUse = params.topic;
+        if (params.exam_name) {
+          // Try to find the exam in the database to get its topic
+          const examResult = await db.query(
+            'SELECT topic FROM exams WHERE user_id = $1 AND (title ILIKE $2 OR title ILIKE $3) LIMIT 1',
+            [studentId, `%${params.exam_name}%`, `${params.exam_name}%`]
+          );
+
+          if (examResult.rows.length > 0 && examResult.rows[0].topic) {
+            topicToUse = examResult.rows[0].topic;
+            controller.enqueue(encoder.encode(`✓ Using exam topic: ${topicToUse}\n`));
+          }
+        }
+
         // Create title based on whether it's exam prep or general study
         const title = params.exam_name
           ? `Prepare for ${params.exam_name}`
@@ -654,7 +669,7 @@ async function createSingleAssignment(studentId: string, params: {
             matchingSubject.id,
             title,
             matchingSubject.name,
-            params.topic,
+            topicToUse,
             difficulty,
             dateStr,
             scheduledTime,
