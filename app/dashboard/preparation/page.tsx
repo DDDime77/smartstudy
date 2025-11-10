@@ -684,6 +684,217 @@ export default function ExamsPage() {
             </div>
           </GlassCard>
 
+          {/* Study Tasks Section - Grouped by Difficulty */}
+          <GlassCard>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20">
+                  <ListTodo className="w-5 h-5 text-blue-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Study Tasks</h3>
+              </div>
+
+              {assignments.filter(a => a.status === 'pending' || a.status === 'in_progress').length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl opacity-20 mb-4">📝</div>
+                  <p className="text-white/60">No study tasks scheduled</p>
+                  <p className="text-white/40 text-sm mt-2">Generate a study plan for your upcoming exams</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Hard Tasks */}
+                  {assignments.filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'hard').length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <h4 className="text-sm font-semibold text-red-400 uppercase tracking-wide">Hard Tasks</h4>
+                        <div className="text-xs text-white/40">
+                          ({assignments.filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'hard').length})
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {assignments
+                          .filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'hard')
+                          .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+                          .slice(0, 5)
+                          .map(assignment => {
+                            const subject = subjects.find(s => s.name === assignment.subject_name);
+                            const assignmentDate = new Date(assignment.scheduled_date);
+                            const daysUntil = Math.ceil((assignmentDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+                            return (
+                              <div
+                                key={assignment.id}
+                                className="p-3 rounded-lg bg-white/5 border border-red-500/30 hover:bg-white/10 transition-all group"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h5 className="font-medium text-white text-sm">{assignment.subject_name}</h5>
+                                      <Badge variant="gradient" className="text-xs">
+                                        {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `${daysUntil}d`}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-white/60 text-xs mb-2">{assignment.topic}</p>
+                                    <div className="flex items-center gap-3 text-xs text-white/40">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {assignment.estimated_minutes}min
+                                      </span>
+                                      <span>{assignment.required_tasks_count} tasks</span>
+                                      {assignment.scheduled_time && (
+                                        <span>{assignment.scheduled_time.slice(0, 5)}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="gradient"
+                                    onClick={() => {
+                                      // Navigate to study timer with this assignment
+                                      window.location.href = `/dashboard/study-timer?assignment_id=${assignment.id}`;
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs py-1 px-3"
+                                  >
+                                    Start Session
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Medium Tasks */}
+                  {assignments.filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'medium').length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <h4 className="text-sm font-semibold text-amber-400 uppercase tracking-wide">Medium Tasks</h4>
+                        <div className="text-xs text-white/40">
+                          ({assignments.filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'medium').length})
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {assignments
+                          .filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'medium')
+                          .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+                          .slice(0, 5)
+                          .map(assignment => {
+                            const subject = subjects.find(s => s.name === assignment.subject_name);
+                            const assignmentDate = new Date(assignment.scheduled_date);
+                            const daysUntil = Math.ceil((assignmentDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+                            return (
+                              <div
+                                key={assignment.id}
+                                className="p-3 rounded-lg bg-white/5 border border-amber-500/30 hover:bg-white/10 transition-all group"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h5 className="font-medium text-white text-sm">{assignment.subject_name}</h5>
+                                      <Badge variant="gradient" className="text-xs">
+                                        {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `${daysUntil}d`}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-white/60 text-xs mb-2">{assignment.topic}</p>
+                                    <div className="flex items-center gap-3 text-xs text-white/40">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {assignment.estimated_minutes}min
+                                      </span>
+                                      <span>{assignment.required_tasks_count} tasks</span>
+                                      {assignment.scheduled_time && (
+                                        <span>{assignment.scheduled_time.slice(0, 5)}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="gradient"
+                                    onClick={() => {
+                                      // Navigate to study timer with this assignment
+                                      window.location.href = `/dashboard/study-timer?assignment_id=${assignment.id}`;
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs py-1 px-3"
+                                  >
+                                    Start Session
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Easy Tasks */}
+                  {assignments.filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'easy').length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <h4 className="text-sm font-semibold text-green-400 uppercase tracking-wide">Easy Tasks</h4>
+                        <div className="text-xs text-white/40">
+                          ({assignments.filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'easy').length})
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {assignments
+                          .filter(a => (a.status === 'pending' || a.status === 'in_progress') && a.difficulty === 'easy')
+                          .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+                          .slice(0, 5)
+                          .map(assignment => {
+                            const subject = subjects.find(s => s.name === assignment.subject_name);
+                            const assignmentDate = new Date(assignment.scheduled_date);
+                            const daysUntil = Math.ceil((assignmentDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+                            return (
+                              <div
+                                key={assignment.id}
+                                className="p-3 rounded-lg bg-white/5 border border-green-500/30 hover:bg-white/10 transition-all group"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h5 className="font-medium text-white text-sm">{assignment.subject_name}</h5>
+                                      <Badge variant="gradient" className="text-xs">
+                                        {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `${daysUntil}d`}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-white/60 text-xs mb-2">{assignment.topic}</p>
+                                    <div className="flex items-center gap-3 text-xs text-white/40">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {assignment.estimated_minutes}min
+                                      </span>
+                                      <span>{assignment.required_tasks_count} tasks</span>
+                                      {assignment.scheduled_time && (
+                                        <span>{assignment.scheduled_time.slice(0, 5)}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="gradient"
+                                    onClick={() => {
+                                      // Navigate to study timer with this assignment
+                                      window.location.href = `/dashboard/study-timer?assignment_id=${assignment.id}`;
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs py-1 px-3"
+                                  >
+                                    Start Session
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </GlassCard>
+
           {/* Upcoming Exams */}
           <GlassCard>
             <div className="p-6">
