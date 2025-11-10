@@ -275,6 +275,12 @@ You have access to two functions:
 Use create_assignment when the student asks for help with a specific subject or exam (e.g., "prepare for math exam", "study calculus").
 Use generate_study_plan when they want a comprehensive schedule.
 
+IMPORTANT: When creating assignments for exam preparation:
+- Look at the exam's units field in the context (e.g., "Circular Motion, Gravitation")
+- Use those specific topics as the topic parameter
+- DO NOT use generic placeholders like "Unit 1, Unit 2" or "Exam Preparation"
+- Example: If exam has units ["Circular Motion", "Gravitation"], use topic: "Circular Motion, Gravitation"
+
 Be conversational, helpful, and reference their specific data when relevant.`;
 
     // Define functions for study plan generation and individual assignments
@@ -311,7 +317,7 @@ Be conversational, helpful, and reference their specific data when relevant.`;
               },
               topic: {
                 type: 'string',
-                description: 'The specific topic to study (e.g., "Calculus", "Newton\'s Laws", "Circular Motion"). If preparing for an exam, use the exam\'s topic, not "Exam Preparation".'
+                description: 'The specific topic to study. For exam preparation, extract the actual topics from the exam\'s units field in the context (e.g., if exam has units ["Circular Motion", "Gravitation"], use "Circular Motion, Gravitation"). DO NOT use generic terms like "Unit 1, Unit 2" or "Exam Preparation".'
               },
               exam_name: {
                 type: 'string',

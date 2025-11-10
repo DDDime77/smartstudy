@@ -22,6 +22,7 @@ export interface StudentContext {
     subject: string;
     title: string;
     exam_date: Date;
+    units: string[];
     weight: number;
     days_until: number;
   }>;
@@ -204,6 +205,7 @@ export class StudyAssistantContextService {
           COALESCE(s.name, 'Unknown Subject') as subject,
           COALESCE(e.exam_type, 'Exam') as title,
           e.exam_date,
+          e.units,
           50 as weight,
           EXTRACT(DAY FROM (e.exam_date - NOW())) as days_until
         FROM exams e
@@ -217,7 +219,8 @@ export class StudyAssistantContextService {
       return result.rows.map(row => ({
         ...row,
         exam_date: new Date(row.exam_date),
-        days_until: parseFloat(row.days_until)
+        days_until: parseFloat(row.days_until),
+        units: row.units || []
       }));
     } catch (error) {
       console.warn('Exams table not found or error fetching exams:', error);
@@ -422,11 +425,15 @@ export class StudyAssistantContextService {
 - Goals on track: ${context.summary.goals_on_track} | Behind: ${context.summary.goals_behind}
 
 ## Upcoming Exams (Priority Ranked)
-${context.predictions.examPriorities.slice(0, 5).map(e =>
-  `- ${e.title} (Priority: ${e.priority_score}/100, ${context.exams.find(ex => ex.id === e.exam_id)?.days_until.toFixed(0)} days away)
+${context.predictions.examPriorities.slice(0, 5).map(e => {
+  const exam = context.exams.find(ex => ex.id === e.exam_id);
+  const unitsText = exam?.units && exam.units.length > 0 ? exam.units.join(', ') : 'No specific topics';
+  return `- ${e.title} (Priority: ${e.priority_score}/100, ${exam?.days_until.toFixed(0)} days away)
+    * Topics/Units: ${unitsText}
     * Predicted prep needed: ${e.predicted_prep_hours}h
     * Expected performance: ${e.predicted_performance}% (${e.outlook})
-`).join('\n')}
+`;
+}).join('\n')}
 
 ## Pending Assignments (Top 5)
 ${context.predictions.assignmentPriorities.slice(0, 5).map(a =>
