@@ -310,15 +310,18 @@ You have access to tools for managing study assignments:
 
 CRITICAL WORKFLOW: When deleting or modifying tasks:
 1. **ALWAYS call list_assignments FIRST** to see current tasks and get their UUIDs
-2. Use the UUIDs from list_assignments to delete specific tasks
-3. Then create new tasks as needed
+2. **READ THE TOOL RESULTS CAREFULLY** - if list_assignments returns assignments, they exist!
+3. Use the exact UUIDs from the tool results to delete tasks
+4. Then create new tasks as needed
 
 Example: User says "delete physics tasks and create quantum physics ones"
-1. Call list_assignments(subject="Physics") to see all physics tasks and get their UUIDs
-2. Call delete_assignment for each UUID returned
-3. Call create_assignment multiple times to create new quantum physics sessions
+1. Call list_assignments(subject="Physics")
+2. Tool returns: "📋 Found 11 assignment(s): • [ID: abc-123...] Physics - Topic..."
+3. **IMPORTANT**: This means 11 assignments exist! Don't say "no tasks found" or "issue retrieving"
+4. Call delete_assignment(assignment_id="abc-123...") for EACH UUID shown
+5. Call create_assignment to create new quantum physics sessions
 
-IMPORTANT: You can and SHOULD call multiple tools in a single response if needed.
+NEVER ignore or dismiss tool results. If a tool returns data, USE that data!
 
 CRITICAL INTELLIGENCE GUIDELINES:
 
@@ -600,12 +603,19 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               tool_call_id: tc.id
             }));
 
+            // Add instruction to follow-up for better tool result interpretation
+            const followUpInstructions = {
+              role: 'system' as const,
+              content: 'Based on the tool results above, now complete the user\'s request. If list_assignments returned tasks, DELETE them using their exact UUIDs. Then create new assignments if requested. Call the necessary tools NOW - don\'t just describe what you\'ll do.'
+            };
+
             const followUpStream = await openai.chat.completions.create({
               model: 'gpt-4-turbo',
               messages: [
                 ...messages,
                 { role: 'assistant', content: fullContent, tool_calls: toolCalls },
-                ...toolResults
+                ...toolResults,
+                followUpInstructions
               ],
               tools: tools as any, // Enable tools for follow-up response!
               tool_choice: 'auto',
