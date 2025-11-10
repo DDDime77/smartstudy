@@ -35,6 +35,7 @@ export default function SubjectsPage() {
     current_grade: '',
     target_grade: '',
     color: '',
+    priority_coefficient: undefined,
   });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addForm, setAddForm] = useState<SubjectInput>({
@@ -91,6 +92,7 @@ export default function SubjectsPage() {
       current_grade: subject.current_grade || '',
       target_grade: subject.target_grade || '',
       color: subject.color || '',
+      priority_coefficient: subject.priority_coefficient ?? undefined,
     });
   };
 
@@ -351,9 +353,32 @@ export default function SubjectsPage() {
                           <Target className="w-4 h-4" />
                           Priority
                         </span>
-                        <span className="text-white font-bold text-sm">
-                          {subject.priority_coefficient.toFixed(2)}×
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.5"
+                            max="3.0"
+                            value={subject.priority_coefficient.toFixed(2)}
+                            onChange={async (e) => {
+                              e.stopPropagation();
+                              const value = parseFloat(e.target.value);
+                              if (value >= 0.5 && value <= 3.0) {
+                                try {
+                                  await SubjectsService.update(subject.id, {
+                                    priority_coefficient: value
+                                  });
+                                  await loadSubjects();
+                                } catch (error) {
+                                  handleApiError(error, 'Failed to update priority coefficient');
+                                }
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-16 px-2 py-1 bg-white/5 border border-white/10 rounded text-white font-bold text-sm text-center focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+                          />
+                          <span className="text-white font-bold text-sm">×</span>
+                        </div>
                       </div>
                       <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
                         <div
@@ -575,6 +600,40 @@ export default function SubjectsPage() {
                   </div>
 
                   <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-white/80 text-sm">
+                        Priority Coefficient (0.5 - 3.0)
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditForm({ ...editForm, priority_coefficient: undefined })}
+                        className="text-xs"
+                      >
+                        Auto Calculate
+                      </Button>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      max="3.0"
+                      value={editForm.priority_coefficient ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                        setEditForm({ ...editForm, priority_coefficient: value });
+                      }}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+                      placeholder="Auto-calculated from grades"
+                    />
+                    <p className="text-white/40 text-xs mt-1">
+                      {editForm.priority_coefficient === undefined || editForm.priority_coefficient === null
+                        ? 'Will be automatically calculated based on current and target grades'
+                        : `Manual override: ${editForm.priority_coefficient.toFixed(2)}×`}
+                    </p>
+                  </div>
+
+                  <div>
                     <label className="block text-white/80 text-sm mb-2">Color</label>
                     <div className="grid grid-cols-9 gap-2">
                       {SUBJECT_COLORS.map((color) => (
@@ -636,36 +695,81 @@ export default function SubjectsPage() {
                   </div>
                 ) : subjectStats && (
                   <div className="space-y-6">
-                    {/* Grade Progress */}
-                    {(subjectStats.current_grade || subjectStats.target_grade) && (
-                      <div className="p-4 rounded-lg bg-gradient-to-br from-white/5 to-white/10">
-                        <h3 className="text-white/80 text-sm mb-3">Grade Progress</h3>
-                        <div className="flex items-center gap-4">
-                          {subjectStats.current_grade && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-white/60">Current:</span>
-                              <Badge variant="glow" className="text-lg px-3">
-                                {subjectStats.current_grade}
-                              </Badge>
-                            </div>
-                          )}
-                          {subjectStats.current_grade && subjectStats.target_grade && (
-                            <Target className="w-4 h-4 text-white/40" />
-                          )}
-                          {subjectStats.target_grade && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-white/60">Target:</span>
-                              <span
-                                className="text-lg px-3 py-1 rounded-full text-white"
-                                style={{ backgroundColor: subjectStats.subject_color || '#6366f1' }}
-                              >
-                                {subjectStats.target_grade}
-                              </span>
-                            </div>
-                          )}
+                    {/* Grade Progress & Priority */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Grade Progress */}
+                      {(subjectStats.current_grade || subjectStats.target_grade) && (
+                        <div className="p-4 rounded-lg bg-gradient-to-br from-white/5 to-white/10">
+                          <h3 className="text-white/80 text-sm mb-3">Grade Progress</h3>
+                          <div className="flex items-center gap-4">
+                            {subjectStats.current_grade && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-white/60">Current:</span>
+                                <Badge variant="glow" className="text-lg px-3">
+                                  {subjectStats.current_grade}
+                                </Badge>
+                              </div>
+                            )}
+                            {subjectStats.current_grade && subjectStats.target_grade && (
+                              <Target className="w-4 h-4 text-white/40" />
+                            )}
+                            {subjectStats.target_grade && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-white/60">Target:</span>
+                                <span
+                                  className="text-lg px-3 py-1 rounded-full text-white"
+                                  style={{ backgroundColor: subjectStats.subject_color || '#6366f1' }}
+                                >
+                                  {subjectStats.target_grade}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {/* Priority Coefficient */}
+                      {selectedSubject.priority_coefficient !== null && selectedSubject.priority_coefficient !== undefined && (
+                        <div className="p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10">
+                          <h3 className="text-white/80 text-sm mb-3 flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            Priority Coefficient
+                          </h3>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-white font-bold text-2xl">
+                                  {selectedSubject.priority_coefficient.toFixed(2)}×
+                                </span>
+                                <Badge variant={
+                                  selectedSubject.priority_coefficient >= 2.5 ? 'destructive' :
+                                  selectedSubject.priority_coefficient >= 1.5 ? 'default' :
+                                  'secondary'
+                                }>
+                                  {selectedSubject.priority_coefficient >= 2.5
+                                    ? 'High'
+                                    : selectedSubject.priority_coefficient >= 1.5
+                                    ? 'Medium'
+                                    : 'Standard'}
+                                </Badge>
+                              </div>
+                              <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    selectedSubject.priority_coefficient >= 2.5
+                                      ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                                      : selectedSubject.priority_coefficient >= 1.5
+                                      ? 'bg-gradient-to-r from-yellow-500 to-amber-500'
+                                      : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                                  }`}
+                                  style={{ width: `${Math.min((selectedSubject.priority_coefficient / 3.0) * 100, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Study Hours */}
                     <div className="grid grid-cols-3 gap-4">
