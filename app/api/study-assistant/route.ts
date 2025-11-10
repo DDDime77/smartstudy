@@ -268,12 +268,16 @@ export async function GET(req: NextRequest) {
 Student Context:
 ${contextText}
 
-You have access to a function to generate personalized study plan assignments.
-Use it when the student asks for a study plan, schedule, or wants you to create assignments.
+You have access to two functions:
+1. generate_study_plan - Create a full week of study assignments across all subjects
+2. create_assignment - Create a single targeted assignment for a specific subject/topic/exam
+
+Use create_assignment when the student asks for help with a specific subject or exam (e.g., "prepare for math exam", "study calculus").
+Use generate_study_plan when they want a comprehensive schedule.
 
 Be conversational, helpful, and reference their specific data when relevant.`;
 
-    // Define function for study plan generation
+    // Define functions for study plan generation and individual assignments
     const tools = [
       {
         type: 'function',
@@ -290,6 +294,44 @@ Be conversational, helpful, and reference their specific data when relevant.`;
               }
             },
             required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'create_assignment',
+          description: 'Create a single study assignment for a specific subject, topic, or exam preparation. Use this when the student asks for help with a specific subject or to prepare for a specific exam.',
+          parameters: {
+            type: 'object',
+            properties: {
+              subject: {
+                type: 'string',
+                description: 'The subject name (e.g., "Mathematics", "Physics")'
+              },
+              topic: {
+                type: 'string',
+                description: 'The specific topic to study (e.g., "Calculus", "Newton\'s Laws", "Exam Preparation")'
+              },
+              exam_name: {
+                type: 'string',
+                description: 'Optional: Name of the exam this assignment is preparing for'
+              },
+              difficulty: {
+                type: 'string',
+                enum: ['easy', 'medium', 'hard'],
+                description: 'Difficulty level of the assignment'
+              },
+              estimated_minutes: {
+                type: 'number',
+                description: 'Estimated time to complete in minutes (default: 45)'
+              },
+              required_tasks_count: {
+                type: 'number',
+                description: 'Number of practice tasks to complete (default: 5)'
+              }
+            },
+            required: ['subject', 'topic']
           }
         }
       }
@@ -316,6 +358,10 @@ Be conversational, helpful, and reference their specific data when relevant.`;
       if (toolCall.function.name === 'generate_study_plan') {
         // Execute the function
         return await generateStudyPlan(studentId);
+      } else if (toolCall.function.name === 'create_assignment') {
+        // Parse the arguments and create a single assignment
+        const args = JSON.parse(toolCall.function.arguments);
+        return await createSingleAssignment(studentId, args);
       }
     }
 
@@ -478,6 +524,163 @@ async function generateStudyPlan(studentId: string) {
       } catch (error) {
         console.error('Study plan generation error:', error);
         controller.enqueue(encoder.encode('\n❌ Error creating study plan. Please try again.\n'));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+    },
+  });
+}
+
+/**
+ * Create a single assignment for a specific subject/topic/exam
+ */
+async function createSingleAssignment(studentId: string, params: {
+  subject: string;
+  topic: string;
+  exam_name?: string;
+  difficulty?: string;
+  estimated_minutes?: number;
+  required_tasks_count?: number;
+}) {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        const { db } = await import('@/lib/db');
+
+        controller.enqueue(encoder.encode(`📝 Creating assignment for ${params.subject}...\n\n`));
+
+        // Get user's subjects to find matching subject
+        const subjectsResult = await db.query(
+          'SELECT * FROM subjects WHERE user_id = $1',
+          [studentId]
+        );
+        const subjects = subjectsResult.rows;
+
+        // Find matching subject (case-insensitive)
+        const matchingSubject = subjects.find((s: any) =>
+          s.name.toLowerCase().includes(params.subject.toLowerCase()) ||
+          params.subject.toLowerCase().includes(s.name.toLowerCase())
+        );
+
+        if (!matchingSubject) {
+          controller.enqueue(encoder.encode(`⚠️ Could not find subject matching "${params.subject}". Available subjects: ${subjects.map((s: any) => s.name).join(', ')}\n`));
+          controller.close();
+          return;
+        }
+
+        controller.enqueue(encoder.encode(`✓ Found subject: ${matchingSubject.name}\n`));
+
+        // Get user's profile for availability
+        const profileResult = await db.query(
+          'SELECT * FROM user_profiles WHERE user_id = $1',
+          [studentId]
+        );
+        const profile = profileResult.rows[0];
+        let availability = profile?.preferred_study_times || [];
+
+        // Default schedule if none set
+        if (!availability || availability.length === 0) {
+          availability = [
+            { day: 1, slots: [{ start: '16:00', end: '18:00' }] }, // Monday
+            { day: 2, slots: [{ start: '16:00', end: '18:00' }] }, // Tuesday
+            { day: 3, slots: [{ start: '16:00', end: '18:00' }] }, // Wednesday
+            { day: 4, slots: [{ start: '16:00', end: '18:00' }] }, // Thursday
+            { day: 5, slots: [{ start: '16:00', end: '18:00' }] }, // Friday
+          ];
+        }
+
+        // Find next available slot
+        const today = new Date();
+        let scheduledDate: Date | null = null;
+        let scheduledTime: string | null = null;
+
+        for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+          const targetDate = new Date(today);
+          targetDate.setDate(today.getDate() + dayOffset);
+          const dayOfWeek = targetDate.getDay();
+
+          const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+
+          if (dayAvailability && dayAvailability.slots && dayAvailability.slots.length > 0) {
+            // Check if there's already an assignment at this time
+            const dateStr = targetDate.toISOString().split('T')[0];
+            const slot = dayAvailability.slots[0];
+
+            const existingResult = await db.query(
+              'SELECT COUNT(*) as count FROM ai_assignments WHERE user_id = $1 AND scheduled_date = $2 AND scheduled_time = $3',
+              [studentId, dateStr, slot.start]
+            );
+
+            if (existingResult.rows[0].count === '0') {
+              scheduledDate = targetDate;
+              scheduledTime = slot.start;
+              break;
+            }
+          }
+        }
+
+        if (!scheduledDate || !scheduledTime) {
+          controller.enqueue(encoder.encode('⚠️ Could not find an available time slot in the next 2 weeks.\n'));
+          controller.close();
+          return;
+        }
+
+        const dateStr = scheduledDate.toISOString().split('T')[0];
+        const difficulty = params.difficulty || 'medium';
+        const estimatedMinutes = params.estimated_minutes || 45;
+        const requiredTasksCount = params.required_tasks_count || 5;
+
+        // Create title based on whether it's exam prep or general study
+        const title = params.exam_name
+          ? `Prepare for ${params.exam_name}`
+          : `Study Session: ${matchingSubject.name}`;
+
+        // Create the assignment
+        const result = await db.query(
+          `INSERT INTO ai_assignments (
+            user_id, subject_id, title, subject_name, topic, difficulty,
+            scheduled_date, scheduled_time, estimated_minutes, required_tasks_count
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING *`,
+          [
+            studentId,
+            matchingSubject.id,
+            title,
+            matchingSubject.name,
+            params.topic,
+            difficulty,
+            dateStr,
+            scheduledTime,
+            estimatedMinutes,
+            requiredTasksCount
+          ]
+        );
+
+        const assignment = result.rows[0];
+        const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][scheduledDate.getDay()];
+
+        controller.enqueue(encoder.encode(`\n✨ Created assignment: ${title}\n`));
+        controller.enqueue(encoder.encode(`📚 Subject: ${matchingSubject.name}\n`));
+        controller.enqueue(encoder.encode(`📖 Topic: ${params.topic}\n`));
+        controller.enqueue(encoder.encode(`📅 Scheduled: ${dayName}, ${scheduledDate.getDate()}/${scheduledDate.getMonth()+1}/${scheduledDate.getFullYear()} at ${scheduledTime}\n`));
+        controller.enqueue(encoder.encode(`⏱️ Estimated time: ${estimatedMinutes} minutes\n`));
+        controller.enqueue(encoder.encode(`🎯 Tasks to complete: ${requiredTasksCount}\n`));
+        controller.enqueue(encoder.encode(`💪 Difficulty: ${difficulty}\n`));
+        controller.enqueue(encoder.encode('\n✅ Assignment created successfully!\n'));
+        controller.enqueue(encoder.encode('📌 Check the Preparation calendar to see your new assignment.\n'));
+        controller.enqueue(encoder.encode('💡 Click on the assignment to start your study session!\n'));
+
+        controller.close();
+      } catch (error) {
+        console.error('Single assignment creation error:', error);
+        controller.enqueue(encoder.encode('\n❌ Error creating assignment. Please try again.\n'));
         controller.close();
       }
     },

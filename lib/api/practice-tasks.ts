@@ -16,6 +16,10 @@ export interface PracticeTask {
   completed_at?: string;
   is_correct?: boolean;
   study_session_id?: string;
+  // LNIRT ML predictions
+  predicted_correct?: number;
+  predicted_time_seconds?: number;
+  lnirt_model_version?: string;
   created_at: string;
   updated_at: string;
 }
