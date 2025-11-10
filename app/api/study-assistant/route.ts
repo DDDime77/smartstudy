@@ -280,7 +280,12 @@ Current Date: ${currentDateFormatted} (${currentDate})
 Student Context:
 ${contextText}
 
-You have access to tools for creating study assignments. You can call tools multiple times in a single response if needed.
+You have access to tools for managing study assignments:
+- **create_assignment**: Create new study tasks (can call multiple times)
+- **delete_assignment**: Delete tasks by ID when user asks to remove/cancel them
+- **generate_study_plan**: Create a week-long study plan
+
+You can call tools multiple times in a single response if needed.
 
 CRITICAL INTELLIGENCE GUIDELINES:
 
@@ -383,6 +388,23 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             required: ['subject', 'topic']
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'delete_assignment',
+          description: 'Delete a study assignment by its ID. Use this when the user asks to remove, delete, or cancel a specific task or assignment.',
+          parameters: {
+            type: 'object',
+            properties: {
+              assignment_id: {
+                type: 'number',
+                description: 'The ID of the assignment to delete'
+              }
+            },
+            required: ['assignment_id']
+          }
+        }
       }
     ];
 
@@ -409,8 +431,34 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
           let fullContent = '';
           const toolCalls: any[] = [];
           const toolCallsMap = new Map<number, any>();
+          let lastProcessedIndex = -1;
 
-          // Stream the initial response and collect tool calls
+          // Helper function to execute a completed tool call
+          const executeToolCall = async (toolCall: any) => {
+            console.log('Executing tool:', toolCall.function.name, toolCall.function.arguments);
+
+            // Send tool call start marker
+            controller.enqueue(encoder.encode('\n__TOOL_CALL_START__\n'));
+
+            // Send tool data for frontend
+            controller.enqueue(encoder.encode(`__TOOL_DATA__:${JSON.stringify({ name: toolCall.function.name, args: JSON.parse(toolCall.function.arguments) })}\n`));
+
+            // Execute the tool
+            if (toolCall.function.name === 'generate_study_plan') {
+              await generateStudyPlanInline(studentId, controller, encoder);
+            } else if (toolCall.function.name === 'create_assignment') {
+              const args = JSON.parse(toolCall.function.arguments);
+              await createSingleAssignmentInline(studentId, args, controller, encoder);
+            } else if (toolCall.function.name === 'delete_assignment') {
+              const args = JSON.parse(toolCall.function.arguments);
+              await deleteAssignmentInline(studentId, args, controller, encoder);
+            }
+
+            // Send tool call end marker
+            controller.enqueue(encoder.encode('\n__TOOL_CALL_END__\n'));
+          };
+
+          // Stream the initial response and execute tools live
           for await (const chunk of initialStream) {
             const delta = chunk.choices[0]?.delta;
 
@@ -420,11 +468,20 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               controller.enqueue(encoder.encode(delta.content));
             }
 
-            // Accumulate tool call deltas
+            // Process tool call deltas
             if (delta?.tool_calls) {
               for (const toolCallDelta of delta.tool_calls) {
                 const index = toolCallDelta.index;
 
+                // If we're starting a new tool call, execute the previous one
+                if (index > lastProcessedIndex + 1 && toolCallsMap.has(lastProcessedIndex + 1)) {
+                  const completedToolCall = toolCallsMap.get(lastProcessedIndex + 1);
+                  toolCalls.push(completedToolCall);
+                  await executeToolCall(completedToolCall);
+                  lastProcessedIndex++;
+                }
+
+                // Accumulate current tool call
                 if (!toolCallsMap.has(index)) {
                   toolCallsMap.set(index, {
                     id: toolCallDelta.id || '',
@@ -444,32 +501,14 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             }
           }
 
-          // Convert map to array
-          toolCalls.push(...Array.from(toolCallsMap.values()));
-
-          // Execute tool calls if any
-          if (toolCalls.length > 0) {
-            console.log('Function calls detected:', toolCalls.length);
-            controller.enqueue(encoder.encode('\n\n'));
-
-            // Execute each tool call
-            for (const toolCall of toolCalls) {
-              console.log('Executing tool:', toolCall.function.name, toolCall.function.arguments);
-
-              // Send tool call start marker with newline
-              controller.enqueue(encoder.encode('\n__TOOL_CALL_START__\n'));
-
-              // Execute the tool
-              if (toolCall.function.name === 'generate_study_plan') {
-                await generateStudyPlanInline(studentId, controller, encoder);
-              } else if (toolCall.function.name === 'create_assignment') {
-                const args = JSON.parse(toolCall.function.arguments);
-                await createSingleAssignmentInline(studentId, args, controller, encoder);
-              }
-
-              // Send tool call end marker with newline
-              controller.enqueue(encoder.encode('\n__TOOL_CALL_END__\n'));
+          // Execute any remaining tool calls after stream completes
+          for (let i = lastProcessedIndex + 1; i < toolCallsMap.size; i++) {
+            if (toolCallsMap.has(i)) {
+              const completedToolCall = toolCallsMap.get(i);
+              toolCalls.push(completedToolCall);
+              await executeToolCall(completedToolCall);
             }
+          }
 
             // Generate follow-up response from AI after tool execution
             const toolResults = toolCalls.map((tc: any) => ({
@@ -1030,6 +1069,46 @@ async function createSingleAssignmentInline(
   controller.enqueue(encoder.encode(
     'Created: ' + matchingSubject.name + ' - ' + params.topic + ' on ' + dayName + ' ' + scheduledDate.getDate() + '/' + (scheduledDate.getMonth()+1) + ' at ' + scheduledTime + '\n'
   ));
+}
+
+/**
+ * Delete an assignment by ID
+ */
+async function deleteAssignmentInline(
+  studentId: string,
+  params: any,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+) {
+  const { db } = await import('@/lib/db');
+
+  try {
+    // First, get the assignment details before deleting
+    const assignmentResult = await db.query(
+      'SELECT * FROM ai_assignments WHERE id = $1 AND user_id = $2',
+      [params.assignment_id, studentId]
+    );
+
+    if (assignmentResult.rows.length === 0) {
+      controller.enqueue(encoder.encode('⚠️ Assignment not found or does not belong to you\n'));
+      return;
+    }
+
+    const assignment = assignmentResult.rows[0];
+
+    // Delete the assignment
+    await db.query(
+      'DELETE FROM ai_assignments WHERE id = $1 AND user_id = $2',
+      [params.assignment_id, studentId]
+    );
+
+    controller.enqueue(encoder.encode(
+      `Deleted: ${assignment.subject_name} - ${assignment.topic} (scheduled for ${assignment.scheduled_date})\n`
+    ));
+  } catch (error) {
+    console.error('Error deleting assignment:', error);
+    controller.enqueue(encoder.encode('❌ Error deleting assignment\n'));
+  }
 }
 
 /**
