@@ -20,8 +20,7 @@ def login(email, password):
     """Login and get access token"""
     response = requests.post(
         f"{BASE_URL}/auth/login",
-        data={"username": email, "password": password},
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
+        json={"email": email, "password": password}
     )
 
     if response.status_code == 200:

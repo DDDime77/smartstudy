@@ -343,11 +343,15 @@ class EmbeddingModelService:
         # RULE 1: If recent performance is significantly better, boost predictions
         if recent_success_rate > 0.8 and success_improvement > 0.1:
             # User is doing very well recently - boost significantly
-            boost_factor = 1.2 + (success_improvement * 0.5)
+            boost_factor = 1.4 + (success_improvement * 0.8)
             adjusted_prob = min(0.95, base_prob * boost_factor)
         elif success_improvement > 0.05:
             # User is improving - boost moderately
-            boost_factor = 1.1 + (success_improvement * 0.3)
+            boost_factor = 1.3 + (success_improvement * 0.5)
+            adjusted_prob = min(0.95, base_prob * boost_factor)
+        elif recent_success_rate > 0.7:
+            # User is doing well - boost slightly
+            boost_factor = 1.15
             adjusted_prob = min(0.95, base_prob * boost_factor)
 
         # RULE 2: If recent performance is significantly worse, reduce predictions
@@ -368,9 +372,12 @@ class EmbeddingModelService:
 
         # RULE 4: If predictions are unreasonably low/high, constrain them
         if len(relevant_tasks) >= 10:
-            if adjusted_prob < 0.15 and overall_success_rate > 0.5:
+            if adjusted_prob < 0.30 and overall_success_rate > 0.5:
                 # Model predicts too low when user is actually doing okay
-                adjusted_prob = max(0.4, overall_success_rate * 0.8)
+                adjusted_prob = max(0.5, overall_success_rate * 0.9)
+            elif adjusted_prob < 0.40 and overall_success_rate > 0.6:
+                # Model predicts moderately low when user is doing well
+                adjusted_prob = max(0.55, overall_success_rate * 0.85)
             elif adjusted_prob > 0.85 and overall_success_rate < 0.3:
                 # Model predicts too high when user is actually struggling
                 adjusted_prob = min(0.5, overall_success_rate * 1.2)
@@ -402,6 +409,10 @@ class EmbeddingModelService:
         adjusted_prob, adjusted_time = self._apply_adaptive_adjustment(
             base_prob, base_time, history, topic, difficulty
         )
+
+        # Log if adjustment made significant change (for debugging)
+        if abs(adjusted_prob - base_prob) > 0.1:
+            print(f"[Adaptive Adjustment] {topic} {difficulty}: {base_prob:.1%} → {adjusted_prob:.1%}")
 
         return adjusted_prob, adjusted_time
 
