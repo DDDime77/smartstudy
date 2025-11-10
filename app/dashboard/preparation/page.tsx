@@ -770,7 +770,7 @@ export default function ExamsPage() {
 
         {/* Assignment Session Modal */}
         {showAssignmentModal && selectedAssignment && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowAssignmentModal(false)}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6" onClick={() => setShowAssignmentModal(false)}>
             <GlassCard onClick={(e: React.MouseEvent) => e.stopPropagation()} className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
