@@ -248,7 +248,7 @@ async function generateTaskAssignments(context: any) {
 }
 
 /**
- * Chat with assistant (streaming)
+ * Chat with assistant (streaming with function calling)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -257,14 +257,6 @@ export async function GET(req: NextRequest) {
 
     if (!studentId || !message) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
-    }
-
-    // Check if user is requesting a study plan
-    const isStudyPlanRequest = /generate.*study plan|create.*study plan|make.*study plan|study plan/i.test(message);
-
-    if (isStudyPlanRequest) {
-      // Generate and save study plan assignments
-      return await generateStudyPlan(studentId);
     }
 
     // Build context
@@ -276,9 +268,58 @@ export async function GET(req: NextRequest) {
 Student Context:
 ${contextText}
 
+You have access to a function to generate personalized study plan assignments.
+Use it when the student asks for a study plan, schedule, or wants you to create assignments.
+
 Be conversational, helpful, and reference their specific data when relevant.`;
 
-    // Stream response
+    // Define function for study plan generation
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'generate_study_plan',
+          description: 'Generate a personalized study plan with assignments for the next 7 days based on the student\'s subjects, schedule, and upcoming exams',
+          parameters: {
+            type: 'object',
+            properties: {
+              days: {
+                type: 'number',
+                description: 'Number of days to plan for (default: 7)',
+                default: 7
+              }
+            },
+            required: []
+          }
+        }
+      }
+    ];
+
+    // First API call to get function calling decision
+    const initialResponse = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      tools: tools as any,
+      tool_choice: 'auto',
+      temperature: 0.7,
+    });
+
+    const responseMessage = initialResponse.choices[0].message;
+
+    // Check if AI wants to call the function
+    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+      const toolCall = responseMessage.tool_calls[0];
+
+      if (toolCall.function.name === 'generate_study_plan') {
+        // Execute the function
+        return await generateStudyPlan(studentId);
+      }
+    }
+
+    // If no function call, stream normal response
     const stream = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
