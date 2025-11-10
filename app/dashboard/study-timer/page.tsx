@@ -146,7 +146,7 @@ export default function StudyTimerPage() {
           setInlineTopic(assignment.topic || '');
           setInlineDifficulty(assignment.difficulty || 'medium');
 
-          // Set timer and session goal based on assignment
+          // Set timer, elapsed time, and session goal based on assignment
           if (assignment.estimatedMinutes) {
             setSessionGoal(assignment.estimatedMinutes);
             const totalSeconds = assignment.estimatedMinutes * 60;
@@ -155,13 +155,20 @@ export default function StudyTimerPage() {
 
             setTimeRemaining(remainingSeconds); // Set remaining time, not total time
             setInitialTimeRemaining(totalSeconds); // Store total for progress calculation
+            setElapsedSeconds(alreadySpentSeconds); // Set elapsed time for progress display
           }
 
-          // Auto-generate first task
+          // Auto-generate first task with actual topic (look up from exam if generic)
           if (assignment.subject && assignment.topic) {
+            // If topic is generic like "exam preparation", try to get actual topic
+            const topicToUse = assignment.topic.toLowerCase().includes('exam preparation') ||
+                               assignment.topic.toLowerCase().includes('exam prep')
+              ? (assignment.examTopic || assignment.topic) // Use examTopic if available, fallback to stored topic
+              : assignment.topic;
+
             startTaskGeneration({
               subject: assignment.subject,
-              topic: assignment.topic,
+              topic: topicToUse,
               difficulty: assignment.difficulty,
               studySystem: 'IB',
               grade: inlineGrade || '9',

@@ -864,11 +864,34 @@ export default function ExamsPage() {
                       onClick={() => {
                         // Store assignment info and redirect to study timer
                         if (typeof window !== 'undefined') {
+                          // Try to get actual exam topic if this is exam preparation
+                          let topicToUse = selectedAssignment.topic;
+
+                          if (selectedAssignment.topic.toLowerCase().includes('exam preparation') ||
+                              selectedAssignment.topic.toLowerCase().includes('exam prep')) {
+                            // Parse title to extract exam name (e.g., "Prepare for Physics Paper 2" -> "Physics Paper 2")
+                            const match = selectedAssignment.title.match(/Prepare for (.+)/i);
+                            if (match) {
+                              const examName = match[1];
+                              // Find matching exam in the current date's exams
+                              const matchingExam = exams.find(exam =>
+                                exam.exam_type?.toLowerCase().includes(examName.toLowerCase()) ||
+                                examName.toLowerCase().includes(exam.exam_type?.toLowerCase() || '')
+                              );
+
+                              if (matchingExam && matchingExam.units) {
+                                // Use the first unit as the topic, or join multiple units
+                                const examTopics = matchingExam.units.filter(u => u && u.trim());
+                                topicToUse = examTopics.length > 0 ? examTopics.join(', ') : selectedAssignment.topic;
+                              }
+                            }
+                          }
+
                           sessionStorage.setItem('assignmentSession', JSON.stringify({
                             assignmentId: selectedAssignment.id,
                             subject: selectedAssignment.subject_name,
                             subjectId: selectedAssignment.subject_id,
-                            topic: selectedAssignment.topic,
+                            topic: topicToUse,
                             difficulty: selectedAssignment.difficulty,
                             estimatedMinutes: selectedAssignment.estimated_minutes,
                             requiredTasks: selectedAssignment.required_tasks_count,
