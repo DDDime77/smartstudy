@@ -53,7 +53,7 @@ async def get_assignments(
             SELECT * FROM ai_assignments
             WHERE user_id = %s
         """
-        params = [current_user['id']]
+        params = [str(current_user.id)]
 
         if start_date and end_date:
             query += " AND scheduled_date BETWEEN %s AND %s"
@@ -99,7 +99,7 @@ async def get_assignment(
         cursor = db.cursor()
         cursor.execute(
             "SELECT * FROM ai_assignments WHERE id = %s AND user_id = %s",
-            (assignment_id, current_user['id'])
+            (assignment_id, str(current_user.id))
         )
         row = cursor.fetchone()
 
@@ -148,7 +148,7 @@ async def create_assignment(
             RETURNING *
             """,
             (
-                current_user['id'],
+                str(current_user.id),
                 assignment.subject_id,
                 assignment.title,
                 assignment.subject_name,
@@ -208,7 +208,7 @@ async def update_assignment(
         if assignment.status == 'completed':
             updates.append("completed_at = NOW()")
 
-        values.extend([assignment_id, current_user['id']])
+        values.extend([assignment_id, str(current_user.id)])
 
         query = f"""
             UPDATE ai_assignments
@@ -264,7 +264,7 @@ async def update_progress(
         cursor = db.cursor()
         cursor.execute(
             "SELECT * FROM ai_assignments WHERE id = %s AND user_id = %s",
-            (assignment_id, current_user['id'])
+            (assignment_id, str(current_user.id))
         )
         row = cursor.fetchone()
 
@@ -307,7 +307,7 @@ async def update_progress(
                 new_status,
                 new_status,
                 assignment_id,
-                current_user['id']
+                str(current_user.id)
             )
         )
         row = cursor.fetchone()
@@ -348,7 +348,7 @@ async def delete_assignment(
         cursor = db.cursor()
         cursor.execute(
             "DELETE FROM ai_assignments WHERE id = %s AND user_id = %s RETURNING id",
-            (assignment_id, current_user['id'])
+            (assignment_id, str(current_user.id))
         )
         row = cursor.fetchone()
 
