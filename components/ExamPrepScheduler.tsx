@@ -181,6 +181,7 @@ export default function ExamPrepScheduler({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          student_id: exam.user_id,
           exam_id: exam.id,
           subject_id: exam.subject_id,
           subject_name: subject?.name,

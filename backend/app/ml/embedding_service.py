@@ -371,56 +371,41 @@ class EmbeddingModelService:
 
             return adjusted_prob, adjusted_time
 
-        # DEBUG LOGGING
-        print(f"\n[Adaptive] {topic} {difficulty}:")
-        print(f"  Base ML: {base_prob:.1%}, {base_time:.0f}s")
-        print(f"  Recent (last {recent_n}): {recent_success_rate:.1%} success, {recent_avg_time:.0f}s avg")
-        print(f"  Overall ({len(relevant_tasks)} tasks): {overall_success_rate:.1%} success")
-        print(f"  Improvement: {success_improvement:+.1%}")
-
         # RULE 1: If recent performance is significantly better, boost predictions
         if recent_success_rate > 0.8 and success_improvement > 0.1:
             # User is doing very well recently - boost significantly
             boost_factor = 1.4 + (success_improvement * 0.8)
             adjusted_prob = min(0.95, base_prob * boost_factor)
-            print(f"  → BOOST SIGNIFICANTLY: {boost_factor:.2f}x")
         elif success_improvement > 0.05:
             # User is improving - boost moderately
             boost_factor = 1.3 + (success_improvement * 0.5)
             adjusted_prob = min(0.95, base_prob * boost_factor)
-            print(f"  → BOOST MODERATELY: {boost_factor:.2f}x")
         elif recent_success_rate > 0.8:
             # Absolute high performance - boost even without improvement
             adjusted_prob = min(0.95, max(0.80, base_prob * 1.2))
-            print(f"  → ABSOLUTE HIGH PERFORMANCE: {adjusted_prob:.1%}")
         elif recent_success_rate > 0.7:
             # User is doing well - boost slightly
             boost_factor = 1.15
             adjusted_prob = min(0.95, base_prob * boost_factor)
-            print(f"  → BOOST SLIGHTLY: {boost_factor:.2f}x")
 
         # RULE 2: If recent performance is significantly worse, reduce predictions
         elif recent_success_rate < 0.3 and success_improvement < -0.1:
             # User is struggling recently - reduce significantly
             reduction_factor = 0.8 + (success_improvement * 0.5)
             adjusted_prob = max(0.05, base_prob * reduction_factor)
-            print(f"  → REDUCE SIGNIFICANTLY: {reduction_factor:.2f}x")
         elif success_improvement < -0.05:
             # User is declining - reduce moderately
             reduction_factor = 0.9 + (success_improvement * 0.3)
             adjusted_prob = max(0.05, base_prob * reduction_factor)
-            print(f"  → REDUCE MODERATELY: {reduction_factor:.2f}x")
 
         # RULE 2B: Absolute performance check (not just improvement)
         # This catches cases where recent performance is poor but not declining (e.g., consistently failing)
         elif recent_success_rate < 0.2:
             # Recent performance is very poor - set low prediction
             adjusted_prob = 0.15
-            print(f"  → ABSOLUTE POOR PERFORMANCE: set to 15%")
         elif recent_success_rate < 0.4:
             # Recent performance is below average - reduce prediction
             adjusted_prob = max(0.25, base_prob * 0.7)
-            print(f"  → ABSOLUTE BELOW AVERAGE: {adjusted_prob:.1%}")
 
         # RULE 3: Adjust time based on recent speed (MORE SENSITIVE)
         if time_improvement > 10:  # Getting faster by 10+ seconds
@@ -431,8 +416,6 @@ class EmbeddingModelService:
             # User is getting slower - increase time prediction
             time_factor = 1.1 + (min(abs(time_improvement), 60) / 300)  # Up to 10% increase
             adjusted_time = min(300, base_time * time_factor)
-
-        print(f"  Final: {adjusted_prob:.1%}, {adjusted_time:.0f}s\n")
 
         # RULE 4: If predictions are unreasonably low/high, constrain them
         if len(relevant_tasks) >= 10:

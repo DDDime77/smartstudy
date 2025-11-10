@@ -5,7 +5,6 @@
 
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
-import { cookies } from 'next/headers';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,6 +13,7 @@ const openai = new OpenAI({
 export async function POST(req: NextRequest) {
   try {
     const {
+      student_id,
       exam_id,
       subject_id,
       subject_name,
@@ -24,23 +24,14 @@ export async function POST(req: NextRequest) {
       busy_slots,
     } = await req.json();
 
-    // Get student ID from session
-    const cookieStore = await cookies();
-    const sessionData = cookieStore.get('session');
-    if (!sessionData) {
-      return new Response(JSON.stringify({ error: 'No session found' }), {
-        status: 401,
-      });
-    }
-
-    const session = JSON.parse(sessionData.value);
-    const studentId = session.userId;
-
-    if (!studentId || !exam_id || !subject_name) {
-      return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
+    // Validate required parameters
+    if (!student_id || !exam_id || !subject_name) {
+      return new Response(JSON.stringify({ error: 'Missing required parameters: student_id, exam_id, or subject_name' }), {
         status: 400,
       });
     }
+
+    const studentId = student_id;
 
     // Format units list for AI
     const unitsText = units && units.length > 0
