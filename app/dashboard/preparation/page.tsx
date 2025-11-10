@@ -1443,6 +1443,7 @@ export default function ExamsPage() {
           <ExamPrepScheduler
             exam={selectedExamForScheduler}
             subject={subjects.find(s => s.id === selectedExamForScheduler.subject_id)}
+            profile={profile}
             busySlots={busySlots}
             onClose={() => {
               setShowScheduler(false);
