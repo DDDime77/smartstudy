@@ -98,7 +98,14 @@ export default function StudyAssistantPage() {
   }, []);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll if user is near the bottom (within 100px)
+    const chatContainer = chatEndRef.current?.parentElement;
+    if (chatContainer) {
+      const isNearBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 100;
+      if (isNearBottom) {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
   }, [chatMessages, streamingSegments]);
 
   const loadStudentAndData = async () => {
@@ -208,9 +215,9 @@ export default function StudyAssistantPage() {
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
 
-          // Check for complete lines (for tool markers)
+          // Check for complete lines (for tool markers only)
           const lines = buffer.split('\n');
-          const incompleteLine = lines.pop() || '';
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
           for (const line of lines) {
             const trimmedLine = line.trim();
@@ -273,21 +280,18 @@ export default function StudyAssistantPage() {
             }
           }
 
-          // Stream the incomplete line character-by-character (true streaming!)
+          // Stream regular text immediately (even incomplete lines!)
           if (!isProcessingTools) {
-            currentText += incompleteLine;
-            // Update UI immediately with each chunk - show segments + current streaming text
-            const currentStreamingSegments = currentText
-              ? [...segments, { type: 'text' as const, content: currentText }]
+            // Add the incomplete buffer to current text for streaming display
+            const streamingText = currentText + buffer;
+            const currentStreamingSegments = streamingText
+              ? [...segments, { type: 'text' as const, content: streamingText }]
               : segments;
             setStreamingSegments(currentStreamingSegments);
           }
-
-          // Keep the incomplete line in buffer for next iteration
-          buffer = incompleteLine;
         }
 
-        // Process any remaining buffer
+        // Add remaining buffer to final text
         if (buffer && !isProcessingTools) {
           currentText += buffer;
         }
