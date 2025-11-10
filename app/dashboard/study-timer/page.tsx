@@ -646,6 +646,19 @@ export default function StudyTimerPage() {
       }
     }
 
+    // Delete active session from server so it doesn't reload on page refresh
+    try {
+      const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+      await ActiveSessionsService.delete();
+      console.log('✅ Active session deleted from server');
+    } catch (error) {
+      console.error('Failed to delete active session:', error);
+    }
+
+    // Clear assignment session state
+    setAssignmentSession(null);
+    hasAssignmentSessionRef.current = false;
+
     // Reset timer
     setIsRunning(false);
     const technique = techniques.find(t => t.id === selectedTechnique);

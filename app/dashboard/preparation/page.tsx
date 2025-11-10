@@ -1000,8 +1000,17 @@ export default function ExamsPage() {
                         return hour === examStartHour;
                       });
 
+                      // Get assignments for this hour
+                      const assignmentsForHour = assignments.filter(assignment => {
+                        if (assignment.scheduled_date !== dateStr) return false;
+                        if (!assignment.scheduled_time) return false;
+                        const assignmentStartHour = parseInt(assignment.scheduled_time.split(':')[0]);
+                        return hour === assignmentStartHour;
+                      });
+
                       const hasBusySlot = busySlotsForHour.length > 0;
                       const hasExam = examsForHour.length > 0;
+                      const hasAssignment = assignmentsForHour.length > 0;
 
                       return (
                         <div
@@ -1011,6 +1020,8 @@ export default function ExamsPage() {
                               ? 'bg-gray-500/20 border-gray-500/30'
                               : hasExam
                               ? 'bg-red-500/20 border-red-500/30'
+                              : hasAssignment
+                              ? 'bg-blue-500/20 border-blue-500/30'
                               : 'bg-white/5 border-white/10 hover:bg-white/10'
                           }`}
                         >
@@ -1061,8 +1072,36 @@ export default function ExamsPage() {
                               );
                             })}
 
+                            {/* Study Assignments */}
+                            {assignmentsForHour.map((assignment) => {
+                              const statusColor = assignment.status === 'completed' ? 'green' : assignment.status === 'in_progress' ? 'yellow' : 'blue';
+                              const statusDot = assignment.status === 'completed' ? 'bg-green-400' : assignment.status === 'in_progress' ? 'bg-yellow-400' : 'bg-blue-400';
+                              return (
+                                <div key={assignment.id} className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${statusDot}`} />
+                                  <div className="flex-1">
+                                    <p className="text-white font-medium">
+                                      {assignment.subject_name} - {assignment.topic}
+                                    </p>
+                                    <p className="text-white/60 text-sm">
+                                      {assignment.scheduled_time?.substring(0, 5)} • {assignment.estimated_minutes}min • {assignment.tasks_completed}/{assignment.required_tasks_count} tasks
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedAssignment(assignment);
+                                      setShowAssignmentModal(true);
+                                    }}
+                                    className="text-white/60 hover:text-white transition-colors"
+                                  >
+                                    <BookOpen className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+
                             {/* Available/Placeholder for Study Tasks */}
-                            {!hasBusySlot && !hasExam && (
+                            {!hasBusySlot && !hasExam && !hasAssignment && (
                               <p className="text-white/40 text-sm italic">Available for study session</p>
                             )}
                           </div>
@@ -1074,7 +1113,7 @@ export default function ExamsPage() {
 
                 {/* Footer */}
                 <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/10 flex-shrink-0">
-                  <div className="flex gap-4 text-sm">
+                  <div className="flex gap-4 text-sm flex-wrap">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-gray-400" />
                       <span className="text-white/60">Busy Hours</span>
@@ -1082,6 +1121,10 @@ export default function ExamsPage() {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-red-400" />
                       <span className="text-white/60">Exams</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-400" />
+                      <span className="text-white/60">Study Sessions</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-white/20" />
