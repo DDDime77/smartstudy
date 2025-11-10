@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.routers import auth, onboarding, subjects, schedule, exams, tasks, sessions, google_classroom, practice_tasks, assignments, lnirt, active_sessions
@@ -13,6 +15,19 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="AI-powered study planner backend API"
 )
+
+# Add global validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"🔴 [FastAPI] ====== Validation Error ======")
+    print(f"🔴 [FastAPI] Request URL: {request.url}")
+    print(f"🔴 [FastAPI] Request method: {request.method}")
+    print(f"🔴 [FastAPI] Validation errors: {exc.errors()}")
+    print(f"🔴 [FastAPI] Request body: {await request.body()}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors(), "body": exc.body},
+    )
 
 # Configure CORS
 app.add_middleware(

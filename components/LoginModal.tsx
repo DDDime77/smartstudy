@@ -119,13 +119,20 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
     try {
+      console.log('🟠 [Login Modal] Calling onboarding service...');
       await OnboardingService.completeOnboarding(data);
+      console.log('✅ [Login Modal] Onboarding completed successfully!');
       // Success! Redirect to dashboard
       setShowOnboarding(false);
       onClose();
       router.push('/dashboard');
     } catch (err: any) {
+      console.error('🔴 [Login Modal] Onboarding failed:', err);
+      console.error('🔴 [Login Modal] Error status:', err.status);
+      console.error('🔴 [Login Modal] Error detail:', err.detail);
       setError(err.detail || 'Failed to complete onboarding');
+      // Re-throw to propagate to OnboardingModal
+      throw err;
     }
   };
 

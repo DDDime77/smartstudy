@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
                    'name' in item && item.name ? item.name :
                    `Subject ${index + 1}`;
 
-      const subject = {
+      const subject: any = {
         name,
         level: item.level || null,
         category: item.category || null,
@@ -54,7 +54,12 @@ export async function POST(request: NextRequest) {
         target_grade: item.target_grade,
       };
 
-      console.log(`✅ [Import API] Mapped subject ${index + 1}: ${name}`);
+      // Preserve color for manual subjects
+      if ('color' in item && item.color) {
+        subject.color = item.color;
+      }
+
+      console.log(`✅ [Import API] Mapped subject ${index + 1}: ${name}`, subject);
       return subject;
     });
 

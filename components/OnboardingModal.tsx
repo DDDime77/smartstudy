@@ -95,9 +95,26 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         throw new Error('Please complete all steps');
       }
 
+      console.log('🔵 [Onboarding Modal] ====== Completing onboarding ======');
+      console.log('🔵 [Onboarding Modal] Onboarding data:', {
+        timezone: onboardingData.timezone,
+        education_system: onboardingData.education_system,
+        education_program: onboardingData.education_program,
+        grade_level: onboardingData.grade_level,
+        import_method: onboardingData.import_method,
+        subjects_count: onboardingData.subjects?.length || 0,
+        subjects: onboardingData.subjects,
+        availability_count: onboardingData.availability?.length || 0,
+        availability: onboardingData.availability,
+        study_goal: onboardingData.study_goal
+      });
+
       await onComplete(onboardingData as OnboardingData);
       onClose();
     } catch (err: any) {
+      console.error('🔴 [Onboarding Modal] Error completing onboarding:', err);
+      console.error('🔴 [Onboarding Modal] Error detail:', err.detail);
+      console.error('🔴 [Onboarding Modal] Error status:', err.status);
       setError(err.detail || err.message || 'An error occurred');
     } finally {
       setIsLoading(false);
