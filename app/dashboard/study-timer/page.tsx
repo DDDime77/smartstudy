@@ -59,6 +59,7 @@ export default function StudyTimerPage() {
   // Assignment session tracking
   const [assignmentSession, setAssignmentSession] = useState<any>(null);
   const [assignmentTasksCompleted, setAssignmentTasksCompleted] = useState(0);
+  const hasAssignmentSessionRef = useRef(false);
 
   // Next task difficulty selector
   const [nextTaskDifficulty, setNextTaskDifficulty] = useState('medium');
@@ -128,17 +129,16 @@ export default function StudyTimerPage() {
 
   // Fetch data on mount
   useEffect(() => {
-    fetchSubjects();
-    fetchRecentSessions();
-    fetchWeeklyStats();
-    fetchUserGrade();
-
-    // Check for assignment session first (client-side only)
+    // Check for assignment session FIRST (client-side only)
+    let hasAssignment = false;
     if (typeof window !== 'undefined') {
       const assignmentData = sessionStorage.getItem('assignmentSession');
       if (assignmentData) {
         try {
           const assignment = JSON.parse(assignmentData);
+          hasAssignment = true;
+          hasAssignmentSessionRef.current = true;
+
           setAssignmentSession(assignment);
           setAssignmentTasksCompleted(assignment.currentTasks || 0);
           setSelectedSubject(assignment.subjectId || '');
@@ -189,6 +189,12 @@ export default function StudyTimerPage() {
         }
       }
     }
+
+    // Fetch data AFTER checking assignment to avoid race conditions
+    fetchSubjects();
+    fetchRecentSessions();
+    fetchWeeklyStats();
+    fetchUserGrade();
   }, []);
 
   // Load chat history when modal opens or task changes
@@ -590,15 +596,15 @@ export default function StudyTimerPage() {
 
   // Update time remaining when technique changes
   useEffect(() => {
-    // Don't override timer if we're in an assignment session
-    if (assignmentSession) {
+    // Don't override timer if we're in an assignment session (check ref for immediate sync)
+    if (hasAssignmentSessionRef.current) {
       return;
     }
     const technique = techniques.find(t => t.id === selectedTechnique);
     if (technique && !isRunning) {
       setTimeRemaining(technique.focusTime * 60);
     }
-  }, [selectedTechnique, assignmentSession, isRunning]);
+  }, [selectedTechnique, isRunning]);
 
   // Timer countdown and elapsed time tracking
   useEffect(() => {
@@ -692,7 +698,8 @@ export default function StudyTimerPage() {
     try {
       const data = await SubjectsService.getAll();
       setSubjects(data);
-      if (data.length > 0 && !selectedSubject) {
+      // Only set default subject if not loading from assignment session
+      if (data.length > 0 && !selectedSubject && !hasAssignmentSessionRef.current) {
         setSelectedSubject(data[0].id);
       }
     } catch (error) {
