@@ -22,7 +22,10 @@ export interface StudentContext {
     subject: string;
     title: string;
     exam_date: Date;
+    exam_type: string;
     units: string[];
+    start_time: string | null;
+    finish_time: string | null;
     weight: number;
     days_until: number;
   }>;
@@ -204,8 +207,11 @@ export class StudyAssistantContextService {
           e.id,
           COALESCE(s.name, 'Unknown Subject') as subject,
           COALESCE(e.exam_type, 'Exam') as title,
+          COALESCE(e.exam_type, 'Exam') as exam_type,
           e.exam_date,
           e.units,
+          e.start_time,
+          e.finish_time,
           50 as weight,
           EXTRACT(DAY FROM (e.exam_date - NOW())) as days_until
         FROM exams e
@@ -220,7 +226,9 @@ export class StudyAssistantContextService {
         ...row,
         exam_date: new Date(row.exam_date),
         days_until: parseFloat(row.days_until),
-        units: row.units || []
+        units: row.units || [],
+        start_time: row.start_time,
+        finish_time: row.finish_time
       }));
     } catch (error) {
       console.warn('Exams table not found or error fetching exams:', error);
@@ -460,16 +468,27 @@ export class StudyAssistantContextService {
 - Pending assignments: ${context.summary.pending_assignments_count}
 - Goals on track: ${context.summary.goals_on_track} | Behind: ${context.summary.goals_behind}
 
-## Upcoming Exams (Priority Ranked)
-${context.predictions.examPriorities.slice(0, 5).map(e => {
-  const exam = context.exams.find(ex => ex.id === e.exam_id);
-  const unitsText = exam?.units && exam.units.length > 0 ? exam.units.join(', ') : 'No specific topics';
-  return `- ${e.title} (Priority: ${e.priority_score}/100, ${exam?.days_until.toFixed(0)} days away)
+## Complete Exam Schedule (All Upcoming Exams)
+${context.exams.length > 0 ? context.exams.map(exam => {
+  const unitsText = exam.units && exam.units.length > 0 ? exam.units.join(', ') : 'No specific topics';
+  const examDate = new Date(exam.exam_date);
+  const dateStr = examDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const timeStr = exam.start_time && exam.finish_time
+    ? `${exam.start_time} - ${exam.finish_time}`
+    : exam.start_time
+    ? `Starts at ${exam.start_time}`
+    : 'Time TBD';
+  const priority = context.predictions.examPriorities.find(e => e.exam_id === exam.id);
+
+  return `- **${exam.subject} - ${exam.exam_type}**
+    * Date: ${dateStr} (${exam.days_until.toFixed(0)} days away)
+    * Time: ${timeStr}
     * Topics/Units: ${unitsText}
-    * Predicted prep needed: ${e.predicted_prep_hours}h
-    * Expected performance: ${e.predicted_performance}% (${e.outlook})
+    ${priority ? `* ML Priority Score: ${priority.priority_score}/100
+    * Predicted prep needed: ${priority.predicted_prep_hours}h
+    * Expected performance: ${priority.predicted_performance}% (${priority.outlook})` : ''}
 `;
-}).join('\n')}
+}).join('\n') : 'No upcoming exams scheduled.'}
 
 ## Pending Assignments (Top 5)
 ${context.predictions.assignmentPriorities.slice(0, 5).map(a => {
