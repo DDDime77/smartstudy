@@ -71,15 +71,18 @@ export async function GET(request: NextRequest) {
     })));
 
     console.log('🔵 [OAuth Callback] Preparing redirect...');
-    const url = new URL(request.url);
-    const baseUrl = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
-      ? `http://${url.host}`
+    // Always use production URL unless explicitly in development with localhost
+    const baseUrl = process.env.NODE_ENV === 'development' &&
+                    (process.env.NEXT_PUBLIC_API_URL?.includes('localhost') ||
+                     process.env.NEXT_PUBLIC_API_URL?.includes('127.0.0.1'))
+      ? 'http://localhost:4000'
       : 'https://sshours.cfd';
 
     const redirectUrl = new URL('/?classroom=success', baseUrl);
     console.log('🔵 [OAuth Callback] Redirect URL:', redirectUrl.toString());
     console.log('🔵 [OAuth Callback] Base URL:', baseUrl);
     console.log('🔵 [OAuth Callback] Environment:', process.env.NODE_ENV);
+    console.log('🔵 [OAuth Callback] API URL:', process.env.NEXT_PUBLIC_API_URL);
 
     const response = NextResponse.redirect(redirectUrl);
 
@@ -105,9 +108,11 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in OAuth callback:', error);
-    const url = new URL(request.url);
-    const baseUrl = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
-      ? `http://${url.host}`
+    // Always use production URL unless explicitly in development with localhost
+    const baseUrl = process.env.NODE_ENV === 'development' &&
+                    (process.env.NEXT_PUBLIC_API_URL?.includes('localhost') ||
+                     process.env.NEXT_PUBLIC_API_URL?.includes('127.0.0.1'))
+      ? 'http://localhost:4000'
       : 'https://sshours.cfd';
     return NextResponse.redirect(
       new URL('/?error=' + encodeURIComponent('Failed to complete OAuth flow'), baseUrl)
