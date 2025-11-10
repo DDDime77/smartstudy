@@ -100,8 +100,12 @@ Generate the problem now.`;
     // Stream the response in real-time using Responses API events
     const readableStream = new ReadableStream({
       async start(controller) {
+        let isClosed = false;
+
         try {
           for await (const event of stream) {
+            if (isClosed) break;
+
             // Text delta events
             if (event.type === 'response.output_text.delta') {
               const chunk = event.delta ?? '';
@@ -117,7 +121,10 @@ Generate the problem now.`;
               controller.enqueue(
                 new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
               );
-              controller.close();
+              if (!isClosed) {
+                controller.close();
+                isClosed = true;
+              }
             }
 
             // Error event from OpenAI stream
@@ -125,12 +132,30 @@ Generate the problem now.`;
               controller.enqueue(
                 new TextEncoder().encode(`data: ${JSON.stringify({ error: event.error })}\n\n`)
               );
-              controller.close();
+              if (!isClosed) {
+                controller.close();
+                isClosed = true;
+              }
             }
+          }
+
+          // Close if not already closed
+          if (!isClosed) {
+            controller.enqueue(
+              new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`)
+            );
+            controller.close();
+            isClosed = true;
           }
         } catch (error) {
           console.error('Streaming error:', error);
-          controller.error(error);
+          if (!isClosed) {
+            try {
+              controller.error(error);
+            } catch (e) {
+              // Controller already closed, ignore
+            }
+          }
         }
       },
     });
