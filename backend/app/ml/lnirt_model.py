@@ -120,38 +120,106 @@ class TopicLNIRTModel:
         # EM-like algorithm: alternate between optimizing user and difficulty parameters
         for iteration in range(5):  # EM iterations (reduced for efficiency)
             # Step 1: Update difficulty parameters (holding user parameters fixed)
+            # WITH REGULARIZATION AND MINIMUM SAMPLE REQUIREMENTS
             for diff_level in [1, 2, 3]:
                 diff_data = data[data['difficulty'] == diff_level]
-                if len(diff_data) > 0:
-                    # Get initial parameters
-                    initial_params = [
-                        self.difficulty_params[diff_level]['a'],
-                        self.difficulty_params[diff_level]['b'],
-                        self.difficulty_params[diff_level]['beta']
-                    ]
+                n_samples = len(diff_data)
 
-                    # Optimize difficulty parameters
+                # CRITICAL: Require minimum samples before updating difficulty parameters
+                # With < 10 samples, optimization hits extreme bounds
+                if n_samples < 10:
+                    if verbose and iteration == 0:
+                        print(f"  Difficulty {diff_level}: Skipping (only {n_samples} samples, need 10+)")
+                    continue
+
+                if n_samples > 0:
+                    # Get previous parameters for regularization
+                    prev_a = self.difficulty_params[diff_level]['a']
+                    prev_b = self.difficulty_params[diff_level]['b']
+                    prev_beta = self.difficulty_params[diff_level]['beta']
+
+                    initial_params = [prev_a, prev_b, prev_beta]
+
+                    # Define REGULARIZED likelihood for difficulty parameters
+                    def regularized_difficulty_likelihood(params, data, prev_params, n_samples):
+                        # Base likelihood
+                        base_likelihood = self._joint_log_likelihood(params, data, None, 'difficulty')
+
+                        # Regularization: pull towards previous parameters
+                        # Stronger regularization with fewer samples
+                        a, b, beta = params
+                        prev_a, prev_b, prev_beta = prev_params
+
+                        # Sample-adaptive regularization strength
+                        # More samples = weaker regularization (trust new data more)
+                        reg_strength = 5.0 * np.exp(-n_samples / 50.0)
+
+                        # L2 regularization penalty
+                        reg_penalty = reg_strength * (
+                            (a - prev_a) ** 2 +
+                            (b - prev_b) ** 2 +
+                            (beta - prev_beta) ** 2
+                        )
+
+                        return base_likelihood + reg_penalty
+
+                    # Optimize difficulty parameters WITH REGULARIZATION
                     result = minimize(
-                        self._joint_log_likelihood,
+                        regularized_difficulty_likelihood,
                         initial_params,
-                        args=(diff_data, None, 'difficulty'),
+                        args=(diff_data, initial_params, n_samples),
                         method='L-BFGS-B',
-                        bounds=[(0.5, 3.0), (-3.0, 3.0), (2.0, 6.0)],  # Reasonable bounds
-                        options={'maxiter': 50}  # Limit iterations
+                        bounds=[(0.5, 3.0), (-2.0, 2.0), (2.0, 6.0)],  # Tighter b bounds to prevent extremes
+                        options={'maxiter': 50}
                     )
 
                     if result.success:
-                        self.difficulty_params[diff_level]['a'] = float(result.x[0])
-                        self.difficulty_params[diff_level]['b'] = float(result.x[1])
-                        self.difficulty_params[diff_level]['beta'] = float(result.x[2])
+                        # Apply EMA smoothing to difficulty parameters too
+                        # More samples = higher alpha (trust new more)
+                        if n_samples < 20:
+                            alpha = 0.3  # Conservative
+                        elif n_samples < 50:
+                            alpha = 0.5  # Moderate
+                        else:
+                            alpha = 0.7  # Trust new parameters
+
+                        # EMA smoothing
+                        new_a = alpha * float(result.x[0]) + (1 - alpha) * prev_a
+                        new_b = alpha * float(result.x[1]) + (1 - alpha) * prev_b
+                        new_beta = alpha * float(result.x[2]) + (1 - alpha) * prev_beta
+
+                        self.difficulty_params[diff_level]['a'] = new_a
+                        self.difficulty_params[diff_level]['b'] = new_b
+                        self.difficulty_params[diff_level]['beta'] = new_beta
+
+                        if verbose:
+                            print(f"  Difficulty {diff_level}: n={n_samples}, α={alpha:.1f}")
+                            print(f"    b: {prev_b:.2f} → {float(result.x[1]):.2f} → {new_b:.2f} (smoothed)")
+                    elif verbose:
+                        print(f"  Difficulty {diff_level}: Optimization failed, keeping previous parameters")
 
             # Step 2: Update user parameters INDIVIDUALLY (much faster than joint optimization)
+            # WITH REGULARIZATION AND TAU POSITIVITY
             for user_id in user_ids:
                 user_data = data[data['user_id'] == user_id]
-                if len(user_data) > 0:
-                    # Define single-user likelihood
-                    def single_user_likelihood(params):
+                n_user_samples = len(user_data)
+
+                if n_user_samples > 0:
+                    # Get previous parameters for regularization
+                    prev_theta = self.user_params[user_id]['theta']
+                    prev_tau = self.user_params[user_id]['tau']
+
+                    # Ensure tau is positive before optimization
+                    if prev_tau <= 0:
+                        prev_tau = 0.1
+                        self.user_params[user_id]['tau'] = 0.1
+
+                    # Define regularized single-user likelihood
+                    def regularized_user_likelihood(params, prev_params, n_samples):
                         theta, tau = params
+                        prev_theta, prev_tau = prev_params
+
+                        # Base likelihood
                         log_like = 0.0
                         for _, row in user_data.iterrows():
                             difficulty = int(row['difficulty'])
@@ -171,25 +239,44 @@ class TopicLNIRTModel:
                             log_rt = np.log(response_time + 0.1)
                             log_like += self._log_rt_likelihood(log_rt, tau, beta, self.sigma)
 
-                        return -log_like
+                        # Regularization: pull towards previous parameters
+                        reg_strength = 2.0 * np.exp(-n_samples / 20.0)
+                        reg_penalty = reg_strength * (
+                            (theta - prev_theta) ** 2 +
+                            (tau - prev_tau) ** 2
+                        )
 
-                    # Optimize this user's parameters
-                    initial_params = [
-                        self.user_params[user_id]['theta'],
-                        self.user_params[user_id]['tau']
-                    ]
+                        return -log_like + reg_penalty
+
+                    # Optimize this user's parameters WITH REGULARIZATION
+                    initial_params = [prev_theta, prev_tau]
 
                     result = minimize(
-                        single_user_likelihood,
+                        regularized_user_likelihood,
                         initial_params,
+                        args=([prev_theta, prev_tau], n_user_samples),
                         method='L-BFGS-B',
-                        bounds=[(-3.0, 3.0), (-3.0, 3.0)],
+                        bounds=[(-3.0, 3.0), (0.01, 3.0)],  # CRITICAL: tau must be positive
                         options={'maxiter': 50}
                     )
 
                     if result.success:
-                        self.user_params[user_id]['theta'] = float(result.x[0])
-                        self.user_params[user_id]['tau'] = float(result.x[1])
+                        # Apply EMA smoothing
+                        if n_user_samples < 10:
+                            alpha = 0.3
+                        elif n_user_samples < 20:
+                            alpha = 0.5
+                        else:
+                            alpha = 0.7
+
+                        new_theta = alpha * float(result.x[0]) + (1 - alpha) * prev_theta
+                        new_tau = alpha * float(result.x[1]) + (1 - alpha) * prev_tau
+
+                        # Final safety: ensure tau is positive
+                        new_tau = max(0.01, new_tau)
+
+                        self.user_params[user_id]['theta'] = new_theta
+                        self.user_params[user_id]['tau'] = new_tau
 
             if verbose and iteration % 2 == 0:
                 print(f"  Iteration {iteration + 1}/5...")
@@ -362,7 +449,15 @@ class TopicLNIRTModel:
             # Calculate regularization strength based on sample size
             # More samples = we trust new data more, less regularization
             # Fewer samples = we trust previous parameters more, more regularization
-            base_reg_strength = 2.0  # Base regularization coefficient
+
+            # EXTRA STRONG regularization for very small samples to prevent volatility
+            if n_samples < 5:
+                base_reg_strength = 5.0  # Much stronger for < 5 samples
+            elif n_samples < 10:
+                base_reg_strength = 3.0  # Strong for < 10 samples
+            else:
+                base_reg_strength = 2.0  # Base regularization coefficient
+
             sample_factor = np.exp(-n_samples / 100.0)  # Decay with more samples
             reg_strength = base_reg_strength * sample_factor
 
@@ -371,7 +466,7 @@ class TopicLNIRTModel:
             tau_deviation = (tau - prev_tau) ** 2
             regularization_penalty = reg_strength * (theta_deviation + tau_deviation)
 
-            if verbose and n_samples < 50:
+            if verbose and n_samples < 10:
                 print(f"    Regularization strength: {reg_strength:.3f} (sample factor: {sample_factor:.3f})")
                 print(f"    Pulling towards prev θ={prev_theta:.3f}, τ={prev_tau:.3f}")
 
