@@ -212,8 +212,12 @@ class LNIRTService:
         topic: str
     ) -> Dict:
         """
-        Automatically trigger user-specific training when task is completed
+        Automatically trigger training when task is completed
         This is called after a user marks a task as correct/incorrect
+
+        Process:
+        1. Train general model with ALL new training data (minimum threshold = 1)
+        2. Train user-specific personalized parameters
 
         Args:
             user_id: User UUID
@@ -222,7 +226,23 @@ class LNIRTService:
         Returns:
             Dict with training results
         """
-        return self.train_user_specific(user_id, topic, verbose=False)
+        results = {}
+
+        # 1. Train general model first (updates difficulty parameters for all users)
+        try:
+            general_result = self.train_general(topic, verbose=False)
+            results['general_training'] = general_result
+        except Exception as e:
+            results['general_training'] = {"status": "error", "message": str(e)}
+
+        # 2. Train user-specific parameters (personalization)
+        try:
+            user_result = self.train_user_specific(user_id, topic, verbose=False)
+            results['user_training'] = user_result
+        except Exception as e:
+            results['user_training'] = {"status": "error", "message": str(e)}
+
+        return results
 
     # ==================== DATABASE INTEGRATION ====================
 
