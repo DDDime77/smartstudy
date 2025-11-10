@@ -138,9 +138,63 @@ export default function StudyAssistantPage() {
         throw new Error(`Failed to load assistant data: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('✅ Assistant data loaded:', data);
-      setAssistantData(data);
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let recommendation = '';
+      let buffer = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+
+          // Check if we've hit the structured data marker
+          if (buffer.includes('__STRUCTURED_DATA__')) {
+            const parts = buffer.split('__STRUCTURED_DATA__');
+            recommendation = parts[0].trim();
+            const structuredDataJson = parts[1].trim();
+
+            // Parse structured data
+            try {
+              const structuredData = JSON.parse(structuredDataJson);
+              setAssistantData({
+                recommendation,
+                ...structuredData
+              });
+            } catch (e) {
+              console.error('Failed to parse structured data:', e);
+            }
+            break;
+          }
+
+          // Update recommendation as it streams
+          recommendation = buffer;
+          setAssistantData(prev => ({
+            ...prev,
+            recommendation: buffer,
+            taskAssignments: prev?.taskAssignments || [],
+            context: prev?.context || {
+              summary: {
+                total_study_hours_this_week: 0,
+                total_study_hours_this_month: 0,
+                overall_success_rate: 0,
+                upcoming_exams_count: 0,
+                pending_assignments_count: 0,
+                goals_on_track: 0,
+                goals_behind: 0
+              },
+              topPriorities: { exams: [], assignments: [] },
+              nextSession: { duration: 0, subject: '', topics: [], reasoning: '' }
+            }
+          }));
+        }
+      }
+
+      console.log('✅ Assistant data loaded');
     } catch (error) {
       console.error('❌ Error loading assistant:', error);
       // Set a minimal default data structure so the page doesn't crash

@@ -140,30 +140,61 @@ ${contextText}
       });
     }
 
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
+    // Call OpenAI with streaming enabled
+    const stream = await openai.chat.completions.create({
       model: 'gpt-4-turbo',
       messages,
       temperature: 0.7,
       max_tokens: 800,
+      stream: true, // Enable streaming
     });
 
-    const recommendation = response.choices[0].message.content;
+    // Create streaming response
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          let fullRecommendation = '';
 
-    // Also generate specific task assignments
-    const taskAssignments = await generateTaskAssignments(context);
+          // Stream the recommendation
+          for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              fullRecommendation += content;
+              controller.enqueue(encoder.encode(content));
+            }
+          }
 
-    return NextResponse.json({
-      recommendation,
-      taskAssignments,
-      context: {
-        summary: context.summary,
-        topPriorities: {
-          exams: context.predictions.examPriorities.slice(0, 3),
-          assignments: context.predictions.assignmentPriorities.slice(0, 3)
-        },
-        nextSession: context.predictions.nextSessionSuggestion
+          // After streaming completes, send structured data
+          const taskAssignments = await generateTaskAssignments(context);
+
+          // Send structured data marker and JSON
+          controller.enqueue(encoder.encode('\n\n__STRUCTURED_DATA__\n'));
+          controller.enqueue(encoder.encode(JSON.stringify({
+            taskAssignments,
+            context: {
+              summary: context.summary,
+              topPriorities: {
+                exams: context.predictions.examPriorities.slice(0, 3),
+                assignments: context.predictions.assignmentPriorities.slice(0, 3)
+              },
+              nextSession: context.predictions.nextSessionSuggestion
+            }
+          })));
+
+          controller.close();
+        } catch (error) {
+          console.error('Streaming error:', error);
+          controller.error(error);
+        }
       }
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      },
     });
 
   } catch (error) {
