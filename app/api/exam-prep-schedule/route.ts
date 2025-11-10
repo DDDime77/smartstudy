@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
     const today = new Date();
     const currentDate = today.toISOString().split('T')[0];
 
+    // Calculate difficulty distribution: 1/3 easy, 1/3 medium, 1/3 hard
+    const totalSessions = calculation.recommendedSessions;
+    const easySessions = Math.floor(totalSessions / 3);
+    const mediumSessions = Math.floor(totalSessions / 3);
+    const hardSessions = totalSessions - easySessions - mediumSessions;
+
     // AI system prompt for exam prep scheduling
     const systemPrompt = `You are an AI Study Scheduler helping a student prepare for an upcoming exam.
 
@@ -77,24 +83,40 @@ ${unitsText}
 Schedule Analysis:
 - Total Available Hours: ${Math.round(calculation.totalAvailableHours)}h
 - Estimated Hours Needed: ${Math.round(calculation.estimatedHoursNeeded)}h
-- Recommended Sessions: ${calculation.recommendedSessions}
+- Recommended Sessions: ${totalSessions}
 - Average Session Duration: ${Math.round(calculation.hoursPerSession * 60)} minutes
 
 Student's Busy Schedule (avoid these times):
 ${busyScheduleText}
 
 YOUR TASK:
-Create ${calculation.recommendedSessions} study sessions spread intelligently across the next ${calculation.daysUntil} days to prepare for this exam.
+Create ${totalSessions} study sessions spread intelligently across the next ${calculation.daysUntil} days to prepare for this exam.
+
+CRITICAL DIFFICULTY DISTRIBUTION REQUIREMENT:
+You MUST create EXACTLY:
+- ${easySessions} sessions with difficulty="easy" (foundational review, basic concepts)
+- ${mediumSessions} sessions with difficulty="medium" (core practice, application)
+- ${hardSessions} sessions with difficulty="hard" (advanced problems, exam-level practice)
 
 REQUIREMENTS:
-1. **Topic Distribution**: Break down the ${units.length} unit(s) into specific study sessions
+1. **Difficulty Progression**:
+   - Start with EASY sessions (${easySessions} sessions) for foundational topics
+   - Then MEDIUM sessions (${mediumSessions} sessions) for core practice
+   - End with HARD sessions (${hardSessions} sessions) for advanced practice and exam prep
+   - You MUST specify difficulty explicitly in EVERY create_assignment call
+   - Final session (1-2 days before exam) should be "hard" difficulty
+
+2. **Topic Distribution**: Break down the ${units.length} unit(s) into specific study sessions
    - Use the ACTUAL unit names provided (e.g., "${units[0]}")
    - DO NOT use generic terms like "Unit 1" or "Exam Preparation"
    - Create focused sessions on specific topics/concepts within each unit
+   - Easy: "Introduction to [Topic]", "Basic [Concept]"
+   - Medium: "Applying [Topic]", "Practice Problems: [Concept]"
+   - Hard: "Advanced [Topic]", "Exam-Level Questions", "Final Review"
 
-2. **Time Distribution**: Space sessions evenly leading up to the exam
+3. **Time Distribution**: Space sessions evenly leading up to the exam
    - Days until exam: ${calculation.daysUntil}
-   - Create ${calculation.recommendedSessions} sessions
+   - Create ${totalSessions} sessions
    - Suggested distribution: ${
      calculation.daysUntil <= 7
        ? 'every 1-2 days (intensive prep)'
@@ -103,30 +125,33 @@ REQUIREMENTS:
        : 'every 3-5 days (extended prep)'
    }
 
-3. **Session Structure**:
+4. **Session Structure**:
    - Each session: ~${Math.round(calculation.hoursPerSession * 60)} minutes
-   - Difficulty: Start with 'medium', end with 'hard' for final review
-   - Required tasks: 5-8 tasks per session
+   - Easy sessions: 5 tasks, shorter duration (30-45 min)
+   - Medium sessions: 6-7 tasks, moderate duration (45-60 min)
+   - Hard sessions: 8-10 tasks, longer duration (60-90 min)
 
-4. **Scheduling Logic**:
+5. **Scheduling Logic**:
    - Avoid the busy schedule times listed above
    - Use time_of_day: 'morning'/'afternoon'/'evening' appropriately
    - Space sessions out - don't cluster them
    - Final session should be 1-2 days before exam
 
-5. **Call create_assignment multiple times** (${calculation.recommendedSessions} times total)
+6. **Call create_assignment multiple times** (${totalSessions} times total)
    - Each call creates ONE session
+   - MUST include difficulty parameter in EVERY call
    - Vary the topics across units
-   - Progress from foundational concepts to advanced practice
+   - Progress from easy → medium → hard
 
-EXAMPLE (if units were ["Kinematics", "Dynamics"]):
-- Session 1: topic="Kinematics - Position and Velocity", due_date="${currentDate}", time_of_day="afternoon"
-- Session 2: topic="Kinematics - Acceleration and Graphs", due_date="<+2 days>", time_of_day="morning"
-- Session 3: topic="Dynamics - Newton's Laws", due_date="<+4 days>", time_of_day="evening"
-- Session 4: topic="Dynamics - Forces and Motion", due_date="<+6 days>", time_of_day="afternoon"
-- Session 5: topic="Exam Review - Practice Problems", due_date="<exam_date - 1>", time_of_day="morning"
+EXAMPLE (if units were ["Kinematics", "Dynamics"], 6 sessions: 2 easy, 2 medium, 2 hard):
+- Session 1: topic="Kinematics - Basic Concepts", difficulty="easy", due_date="${currentDate}", time_of_day="afternoon", required_tasks_count=5
+- Session 2: topic="Dynamics - Introduction to Forces", difficulty="easy", due_date="<+2 days>", time_of_day="morning", required_tasks_count=5
+- Session 3: topic="Kinematics - Practice Problems", difficulty="medium", due_date="<+4 days>", time_of_day="evening", required_tasks_count=7
+- Session 4: topic="Dynamics - Applications", difficulty="medium", due_date="<+6 days>", time_of_day="afternoon", required_tasks_count=6
+- Session 5: topic="Advanced Kinematics & Dynamics", difficulty="hard", due_date="<+8 days>", time_of_day="morning", required_tasks_count=8
+- Session 6: topic="Final Exam Review", difficulty="hard", due_date="<exam_date - 1>", time_of_day="afternoon", required_tasks_count=10
 
-Now generate the study plan by calling create_assignment for each session. Be specific with topics and dates.`;
+Now generate the study plan by calling create_assignment for each session. Be specific with topics, dates, AND difficulty levels.`;
 
     // Import createSingleAssignmentInline from study-assistant
     const { createSingleAssignmentInline } = await import('../study-assistant/utils');
