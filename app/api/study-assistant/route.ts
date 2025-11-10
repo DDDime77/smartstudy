@@ -303,14 +303,22 @@ Student Context:
 ${contextText}
 
 You have access to tools for managing study assignments:
+- **list_assignments**: List all pending tasks (use this FIRST to see current tasks and get their UUIDs)
 - **create_assignment**: Create new study tasks (can call multiple times)
-- **delete_assignment**: Delete tasks by ID when user asks to remove/cancel them (use the [ID: X] from the Pending Assignments list)
+- **delete_assignment**: Delete tasks by UUID (get UUIDs from list_assignments)
 - **generate_study_plan**: Create a week-long study plan
 
-IMPORTANT: You can and SHOULD call multiple tools in a single response if needed. For example:
-- If user says "delete physics tasks and create new quantum physics ones", you should:
-  1. Call delete_assignment multiple times for each physics task (check Pending Assignments list for IDs and subjects)
-  2. Then call create_assignment multiple times to create the new quantum physics sessions
+CRITICAL WORKFLOW: When deleting or modifying tasks:
+1. **ALWAYS call list_assignments FIRST** to see current tasks and get their UUIDs
+2. Use the UUIDs from list_assignments to delete specific tasks
+3. Then create new tasks as needed
+
+Example: User says "delete physics tasks and create quantum physics ones"
+1. Call list_assignments(subject="Physics") to see all physics tasks and get their UUIDs
+2. Call delete_assignment for each UUID returned
+3. Call create_assignment multiple times to create new quantum physics sessions
+
+IMPORTANT: You can and SHOULD call multiple tools in a single response if needed.
 
 CRITICAL INTELLIGENCE GUIDELINES:
 
@@ -423,11 +431,32 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             type: 'object',
             properties: {
               assignment_id: {
-                type: 'number',
-                description: 'The ID of the assignment to delete'
+                type: 'string',
+                description: 'The UUID of the assignment to delete (from list_assignments or context)'
               }
             },
             required: ['assignment_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'list_assignments',
+          description: 'List all pending study assignments. Use this to see what tasks are currently scheduled. You can filter by subject or date to find specific tasks.',
+          parameters: {
+            type: 'object',
+            properties: {
+              subject: {
+                type: 'string',
+                description: 'Optional: Filter assignments by subject name (e.g., "Physics", "Math")'
+              },
+              date: {
+                type: 'string',
+                description: 'Optional: Filter assignments by date in YYYY-MM-DD format'
+              }
+            },
+            required: []
           }
         }
       }
@@ -487,6 +516,9 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
             } else if (toolCall.function.name === 'delete_assignment') {
               const args = JSON.parse(toolCall.function.arguments);
               await deleteAssignmentInline(studentId, args, controller, encoder);
+            } else if (toolCall.function.name === 'list_assignments') {
+              const args = JSON.parse(toolCall.function.arguments);
+              await listAssignmentsInline(studentId, args, controller, encoder);
             }
 
             // Send tool call end marker
@@ -1138,6 +1170,79 @@ async function deleteAssignmentInline(
   } catch (error) {
     console.error('Error deleting assignment:', error);
     controller.enqueue(encoder.encode('❌ Error deleting assignment\n'));
+  }
+}
+
+/**
+ * List assignments with optional filters
+ */
+async function listAssignmentsInline(
+  studentId: string,
+  params: any,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+) {
+  const { db } = await import('@/lib/db');
+
+  try {
+    let query = `
+      SELECT
+        id,
+        subject_name,
+        topic,
+        title,
+        scheduled_date,
+        scheduled_time,
+        estimated_minutes,
+        difficulty,
+        status,
+        progress_percentage
+      FROM ai_assignments
+      WHERE user_id = $1
+        AND status IN ('pending', 'in_progress')
+    `;
+
+    const queryParams: any[] = [studentId];
+    let paramIndex = 2;
+
+    // Add subject filter if provided
+    if (params.subject) {
+      query += ` AND LOWER(subject_name) LIKE LOWER($${paramIndex})`;
+      queryParams.push(`%${params.subject}%`);
+      paramIndex++;
+    }
+
+    // Add date filter if provided
+    if (params.date) {
+      query += ` AND scheduled_date = $${paramIndex}`;
+      queryParams.push(params.date);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY scheduled_date ASC, scheduled_time ASC LIMIT 50`;
+
+    const result = await db.query(query, queryParams);
+
+    if (result.rows.length === 0) {
+      controller.enqueue(encoder.encode('📋 No pending assignments found.\n'));
+      return;
+    }
+
+    controller.enqueue(encoder.encode(`📋 Found ${result.rows.length} assignment(s):\n\n`));
+
+    for (const assignment of result.rows) {
+      const date = new Date(assignment.scheduled_date);
+      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+
+      controller.enqueue(encoder.encode(
+        `• [ID: ${assignment.id}] ${assignment.subject_name} - ${assignment.topic}\n` +
+        `  📅 ${dayName}, ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} at ${assignment.scheduled_time}\n` +
+        `  ⏱️  ${assignment.estimated_minutes} minutes | 💪 ${assignment.difficulty} | ${assignment.progress_percentage || 0}% complete\n\n`
+      ));
+    }
+  } catch (error) {
+    console.error('Error listing assignments:', error);
+    controller.enqueue(encoder.encode('❌ Error listing assignments\n'));
   }
 }
 

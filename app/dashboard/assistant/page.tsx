@@ -422,9 +422,20 @@ export default function StudyAssistantPage() {
     return 'text-red-400';
   };
 
-  // Removed loading overlay - show UI immediately and load data in background
+  // Show loading spinner during initial load
+  if (isLoading && !assistantData) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
+          <p className="text-white/60">Loading your study data...</p>
+        </div>
+      </div>
+    );
+  }
 
-  if (!assistantData) {
+  // Show error only if data failed to load (not during initial load)
+  if (!isLoading && !assistantData) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-center">

@@ -13,7 +13,8 @@ import { OnboardingService, ProfileResponse, SubjectResponse } from '@/lib/api/o
 import { AssignmentsService, AIAssignment } from '@/lib/api/assignments';
 import { ScheduleService, BusySlot } from '@/lib/api/schedule';
 import { handleApiError } from '@/lib/api/client';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target, X, ChevronDown, Folder, FolderOpen, ListTodo } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, BookOpen, AlertCircle, Award, CheckCircle, Target, X, ChevronDown, Folder, FolderOpen, ListTodo, Sparkles } from 'lucide-react';
+import ExamPrepScheduler from '@/components/ExamPrepScheduler';
 
 // Universal paper types for all education systems
 const PAPER_TYPES = [
@@ -67,6 +68,8 @@ export default function ExamsPage() {
   const [dateInput, setDateInput] = useState(''); // For dd/mm/yyyy input
   const [dateError, setDateError] = useState('');
   const [expandedExams, setExpandedExams] = useState<Set<string>>(new Set()); // Track expanded exam folders
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [selectedExamForScheduler, setSelectedExamForScheduler] = useState<ExamResponse | null>(null);
 
   // Format date input with auto-slash (dd/mm/yyyy)
   const formatDateInput = (value: string) => {
@@ -656,6 +659,18 @@ export default function ExamsPage() {
                           </Badge>
                         </div>
                         <p className="text-white/60 text-sm mb-1">{exam.exam_type}</p>
+                        {exam.units && exam.units.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setSelectedExamForScheduler(exam);
+                              setShowScheduler(true);
+                            }}
+                            className="mt-2 flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Generate Study Plan
+                          </button>
+                        )}
                         <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleEditExam(exam)}
@@ -1421,6 +1436,22 @@ export default function ExamsPage() {
               </div>
             </GlassCard>
           </div>
+        )}
+
+        {/* Exam Prep Scheduler Modal */}
+        {showScheduler && selectedExamForScheduler && (
+          <ExamPrepScheduler
+            exam={selectedExamForScheduler}
+            subject={subjects.find(s => s.id === selectedExamForScheduler.subject_id)}
+            busySlots={busySlots}
+            onClose={() => {
+              setShowScheduler(false);
+              setSelectedExamForScheduler(null);
+            }}
+            onComplete={() => {
+              loadData(); // Reload to show new assignments
+            }}
+          />
         )}
       </div>
     </div>
