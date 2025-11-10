@@ -25,6 +25,24 @@ class LNIRTService:
         self.db = db
         self.model_manager = TopicModelManager()
 
+    @staticmethod
+    def normalize_topic(topic: str) -> str:
+        """
+        Normalize topic name to title case for consistent database queries
+
+        Args:
+            topic: Topic name in any case
+
+        Returns:
+            Normalized topic name (title case)
+
+        Examples:
+            'calculus' -> 'Calculus'
+            'MICROECONOMICS' -> 'Microeconomics'
+            'exam preparation' -> 'Exam Preparation'
+        """
+        return topic.strip().title()
+
     # ==================== PREDICTION ====================
 
     def predict(
@@ -38,12 +56,15 @@ class LNIRTService:
 
         Args:
             user_id: User UUID
-            topic: Topic name (e.g., 'calculus', 'algebra')
+            topic: Topic name (e.g., 'calculus', 'algebra') - case insensitive
             difficulty: Difficulty level ('easy', 'medium', 'hard')
 
         Returns:
             (predicted_correct, predicted_time_seconds)
         """
+        # Normalize topic name (case-insensitive)
+        topic = self.normalize_topic(topic)
+
         # Map string difficulty to numeric
         difficulty_map = {'easy': 1, 'medium': 2, 'hard': 3}
         diff_numeric = difficulty_map.get(difficulty.lower(), 2)
@@ -84,12 +105,15 @@ class LNIRTService:
         Train general model for a topic using all available training data
 
         Args:
-            topic: Topic name
+            topic: Topic name - case insensitive
             verbose: Print training progress
 
         Returns:
             Dict with training statistics
         """
+        # Normalize topic name (case-insensitive)
+        topic = self.normalize_topic(topic)
+
         # Fetch training data from database
         query = text("""
             SELECT
@@ -150,12 +174,15 @@ class LNIRTService:
 
         Args:
             user_id: User UUID
-            topic: Topic name
+            topic: Topic name - case insensitive
             verbose: Print training progress
 
         Returns:
             Dict with training statistics
         """
+        # Normalize topic name (case-insensitive)
+        topic = self.normalize_topic(topic)
+
         user_id_str = str(user_id)
 
         # Fetch user-specific training data with predictions
@@ -221,11 +248,14 @@ class LNIRTService:
 
         Args:
             user_id: User UUID
-            topic: Topic name
+            topic: Topic name - case insensitive
 
         Returns:
             Dict with training results
         """
+        # Normalize topic name (case-insensitive)
+        topic = self.normalize_topic(topic)
+
         results = {}
 
         # 1. Train general model first (updates difficulty parameters for all users)
@@ -366,11 +396,14 @@ class LNIRTService:
         Get statistics about trained model for a topic
 
         Args:
-            topic: Topic name
+            topic: Topic name - case insensitive
 
         Returns:
             Dict with model statistics or None if not found
         """
+        # Normalize topic name (case-insensitive)
+        topic = self.normalize_topic(topic)
+
         query = text("""
             SELECT
                 model_version,
@@ -409,11 +442,14 @@ class LNIRTService:
 
         Args:
             user_id: User UUID
-            topic: Topic name
+            topic: Topic name - case insensitive
 
         Returns:
             Dict with theta and tau or None if not found
         """
+        # Normalize topic name (case-insensitive)
+        topic = self.normalize_topic(topic)
+
         model = self._get_or_create_model(topic)
         user_id_str = str(user_id)
 
