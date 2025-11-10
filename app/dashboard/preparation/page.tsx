@@ -715,9 +715,9 @@ export default function ExamsPage() {
                         >
                           <div className="flex items-center gap-3">
                             {isExpanded ? (
-                              <FolderOpen className="w-5 h-5 text-white/60" style={{ color: subject?.color }} />
+                              <FolderOpen className="w-5 h-5 text-white/60" style={{ color: subject?.color || undefined }} />
                             ) : (
-                              <Folder className="w-5 h-5 text-white/60" style={{ color: subject?.color }} />
+                              <Folder className="w-5 h-5 text-white/60" style={{ color: subject?.color || undefined }} />
                             )}
                             <div className="text-left">
                               <h4 className="font-medium text-white">{subject?.name} - {exam.exam_type}</h4>
