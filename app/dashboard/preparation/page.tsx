@@ -249,6 +249,51 @@ export default function ExamsPage() {
     setShowDaySchedule(true);
   };
 
+  // Helper function to get difficulty color and styling
+  const getDifficultyStyle = (assignments: AIAssignment[]) => {
+    if (assignments.length === 0) return null;
+
+    // Count assignments by difficulty
+    const difficultyCounts = {
+      easy: assignments.filter(a => a.difficulty === 'easy').length,
+      medium: assignments.filter(a => a.difficulty === 'medium').length,
+      hard: assignments.filter(a => a.difficulty === 'hard').length,
+    };
+
+    // Determine dominant difficulty (priority: hard > medium > easy)
+    let dominantDifficulty: 'easy' | 'medium' | 'hard' = 'easy';
+    if (difficultyCounts.hard > 0) {
+      dominantDifficulty = 'hard';
+    } else if (difficultyCounts.medium > 0) {
+      dominantDifficulty = 'medium';
+    }
+
+    // Color mapping: easy=green, medium=yellow/amber, hard=red/orange
+    const colorMap = {
+      easy: {
+        bg: 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.10))', // green
+        border: '#22c55e',
+        text: '#86efac',
+      },
+      medium: {
+        bg: 'linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(251, 191, 36, 0.10))', // amber/yellow
+        border: '#fbbf24',
+        text: '#fcd34d',
+      },
+      hard: {
+        bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.10))', // red/orange
+        border: '#ef4444',
+        text: '#fca5a5',
+      },
+    };
+
+    return {
+      style: colorMap[dominantDifficulty],
+      counts: difficultyCounts,
+      dominant: dominantDifficulty,
+    };
+  };
+
   const handleAddExamClick = () => {
     const today = new Date();
     setSelectedDate(today);
@@ -562,11 +607,8 @@ export default function ExamsPage() {
                   const examSubject = hasExams ? subjects.find(s => s.id === day.exams[0].subject_id) : null;
                   const examColor = examSubject?.color || '#6366f1';
 
-                  // For assignment days: use the first assignment's subject color for border
-                  const assignmentSubject = hasAssignments
-                    ? subjects.find(s => s.name === day.assignments[0].subject_name)
-                    : null;
-                  const assignmentColor = assignmentSubject?.color || '#3b82f6';
+                  // For assignment days: use difficulty-based coloring
+                  const difficultyInfo = getDifficultyStyle(day.assignments);
 
                   return (
                     <button
@@ -581,18 +623,22 @@ export default function ExamsPage() {
                         ${isToday ? 'ring-2 ring-blue-400' : ''}
                       `}
                       style={{
-                        // Full background color for exam days
+                        // Priority: Exam color > Difficulty color > Default
                         background: hasExams
                           ? `linear-gradient(135deg, ${examColor}40, ${examColor}20)`
-                          : day.isCurrentMonth
-                            ? 'rgba(255, 255, 255, 0.05)'
-                            : 'rgba(255, 255, 255, 0.02)',
-                        // Stroke/border for assignment days (only if no exam)
-                        border: !hasExams && hasAssignments
-                          ? `2px solid ${assignmentColor}`
-                          : day.isCurrentMonth
-                            ? '1px solid rgba(255, 255, 255, 0.1)'
-                            : '1px solid rgba(255, 255, 255, 0.05)',
+                          : difficultyInfo
+                            ? difficultyInfo.style.bg
+                            : day.isCurrentMonth
+                              ? 'rgba(255, 255, 255, 0.05)'
+                              : 'rgba(255, 255, 255, 0.02)',
+                        // Border: Exam gets subject border, assignments get difficulty border
+                        border: hasExams
+                          ? `2px solid ${examColor}`
+                          : difficultyInfo
+                            ? `2px solid ${difficultyInfo.style.border}`
+                            : day.isCurrentMonth
+                              ? '1px solid rgba(255, 255, 255, 0.1)'
+                              : '1px solid rgba(255, 255, 255, 0.05)',
                       }}
                     >
                       <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-400' : 'text-white'}`}>
@@ -606,9 +652,23 @@ export default function ExamsPage() {
                             {day.exams.length} exam{day.exams.length > 1 ? 's' : ''}
                           </div>
                         )}
-                        {hasAssignments && (
-                          <div className="text-xs text-white/80 font-medium">
-                            {day.assignments.length} task{day.assignments.length > 1 ? 's' : ''}
+                        {hasAssignments && difficultyInfo && (
+                          <div className="text-xs space-y-0.5">
+                            {difficultyInfo.counts.easy > 0 && (
+                              <div className="text-green-400 font-medium">
+                                {difficultyInfo.counts.easy} easy
+                              </div>
+                            )}
+                            {difficultyInfo.counts.medium > 0 && (
+                              <div className="text-amber-400 font-medium">
+                                {difficultyInfo.counts.medium} medium
+                              </div>
+                            )}
+                            {difficultyInfo.counts.hard > 0 && (
+                              <div className="text-red-400 font-medium">
+                                {difficultyInfo.counts.hard} hard
+                              </div>
+                            )}
                           </div>
                         )}
                         {!hasExams && !hasAssignments && day.isCurrentMonth && (
