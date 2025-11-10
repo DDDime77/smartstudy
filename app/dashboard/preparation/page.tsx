@@ -932,10 +932,10 @@ export default function ExamsPage() {
         {/* Day Schedule View Modal */}
         {showDaySchedule && selectedDate && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <GlassCard className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-6 flex flex-col h-full">
+            <GlassCard className="max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="p-6 flex flex-col flex-1 min-h-0">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-6 flex-shrink-0">
                   <div>
                     <GradientText>
                       <h2 className="text-3xl font-bold mb-2">
@@ -953,7 +953,7 @@ export default function ExamsPage() {
                 </div>
 
                 {/* Day Schedule Timeline */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                   <div className="space-y-2">
                     {Array.from({ length: 24 }, (_, hour) => {
                       const hourStr = String(hour).padStart(2, '0');
@@ -1059,7 +1059,7 @@ export default function ExamsPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/10">
+                <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/10 flex-shrink-0">
                   <div className="flex gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-gray-400" />
