@@ -13,8 +13,8 @@ import { OnboardingService } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
 import { TIMEZONES, detectBrowserTimezone } from '@/lib/timezones';
 import {
-  User, Shield, Bell, Palette, Clock, Globe, BookOpen, GraduationCap,
-  Target, ChevronRight, Save, AlertTriangle, Moon, Sun, Monitor,
+  User, Shield, Bell, Clock, Globe, BookOpen, GraduationCap,
+  Target, ChevronRight, Save, AlertTriangle,
   Volume2, Mail, Smartphone, Lock, Key, UserCheck, Trash2
 } from 'lucide-react';
 
@@ -23,14 +23,6 @@ export default function SettingsPage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('success');
-
-  // Preferences state (UI only, not persisted to backend)
-  const [preferences, setPreferences] = useState({
-    autoStartBreaks: false,
-    soundNotifications: true,
-    showAnimations: true,
-    compactView: false
-  });
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -104,7 +96,6 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'education', label: 'Education', icon: GraduationCap },
-    { id: 'preferences', label: 'Preferences', icon: Palette },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
   ];
@@ -410,108 +401,6 @@ export default function SettingsPage() {
                           <Save className="w-4 h-4 mr-2" />
                           Save Changes
                         </Button>
-                      </div>
-                    </div>
-                  </div>
-                </GlassCard>
-              </>
-            )}
-
-            {/* Preferences Tab */}
-            {activeTab === 'preferences' && (
-              <>
-                <GlassCard>
-                  <div className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-                        <Palette className="w-5 h-5 text-purple-400" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-white">App Preferences</h2>
-                    </div>
-
-                    <div className="space-y-6">
-                      {/* Study Timer Settings */}
-                      <div>
-                        <h3 className="text-white font-medium mb-3">Study Timer</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-                            <div className="flex-1">
-                              <span className="text-white/80">Auto-start breaks</span>
-                              <p className="text-white/40 text-xs mt-1">Automatically begin break timers when study sessions end</p>
-                            </div>
-                            <button
-                              onClick={() => setPreferences({...preferences, autoStartBreaks: !preferences.autoStartBreaks})}
-                              className={`w-12 h-6 rounded-full relative transition-colors ${
-                                preferences.autoStartBreaks ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
-                              }`}
-                            >
-                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                                preferences.autoStartBreaks ? 'translate-x-6' : 'translate-x-0.5'
-                              }`} />
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-                            <div className="flex-1">
-                              <span className="text-white/80">Sound notifications</span>
-                              <p className="text-white/40 text-xs mt-1">Play sound when timer completes</p>
-                            </div>
-                            <button
-                              onClick={() => setPreferences({...preferences, soundNotifications: !preferences.soundNotifications})}
-                              className={`w-12 h-6 rounded-full relative transition-colors ${
-                                preferences.soundNotifications ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
-                              }`}
-                            >
-                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                                preferences.soundNotifications ? 'translate-x-6' : 'translate-x-0.5'
-                              }`} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Display Settings */}
-                      <div>
-                        <h3 className="text-white font-medium mb-3">Display</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-                            <div className="flex-1">
-                              <span className="text-white/80">Show animations</span>
-                              <p className="text-white/40 text-xs mt-1">Enable smooth transitions and animations throughout the app</p>
-                            </div>
-                            <button
-                              onClick={() => setPreferences({...preferences, showAnimations: !preferences.showAnimations})}
-                              className={`w-12 h-6 rounded-full relative transition-colors ${
-                                preferences.showAnimations ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
-                              }`}
-                            >
-                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                                preferences.showAnimations ? 'translate-x-6' : 'translate-x-0.5'
-                              }`} />
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-                            <div className="flex-1">
-                              <span className="text-white/80">Compact view</span>
-                              <p className="text-white/40 text-xs mt-1">Reduce spacing for a more condensed interface</p>
-                            </div>
-                            <button
-                              onClick={() => setPreferences({...preferences, compactView: !preferences.compactView})}
-                              className={`w-12 h-6 rounded-full relative transition-colors ${
-                                preferences.compactView ? 'bg-gradient-to-r from-blue-400 to-purple-400' : 'bg-white/10'
-                              }`}
-                            >
-                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                                preferences.compactView ? 'translate-x-6' : 'translate-x-0.5'
-                              }`} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                        <p className="text-blue-200 text-sm">
-                          <span className="font-medium">Note:</span> These preferences are stored locally in your browser and will apply immediately.
-                        </p>
                       </div>
                     </div>
                   </div>
