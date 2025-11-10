@@ -69,15 +69,27 @@ interface AssistantResponse {
   };
 }
 
+// Content segment types for inline MCP calls
+interface ContentSegment {
+  type: 'text' | 'tool_call';
+  content?: string;
+  toolCall?: { name: string; args: any; status: 'calling' | 'complete' };
+}
+
+interface ChatMessage {
+  role: string;
+  segments: ContentSegment[];
+}
+
 export default function StudyAssistantPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [assistantData, setAssistantData] = useState<AssistantResponse | null>(null);
-  const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string; toolCalls?: any[] }>>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState('');
-  const [activeToolCalls, setActiveToolCalls] = useState<Array<{ name: string; args: any; status: 'calling' | 'complete' }>>([]);
+  const [streamingSegments, setStreamingSegments] = useState<ContentSegment[]>([]);
+  const [currentTextBuffer, setCurrentTextBuffer] = useState('');
   const [studentId, setStudentId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -87,7 +99,7 @@ export default function StudyAssistantPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, streamingMessage, activeToolCalls]);
+  }, [chatMessages, streamingSegments]);
 
   const loadStudentAndData = async () => {
     try {
@@ -166,10 +178,13 @@ export default function StudyAssistantPage() {
 
     const userMessage = chatInput.trim();
     setChatInput('');
-    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatMessages(prev => [...prev, {
+      role: 'user',
+      segments: [{ type: 'text', content: userMessage }]
+    }]);
     setIsChatLoading(true);
-    setStreamingMessage('');
-    setActiveToolCalls([]);
+    setStreamingSegments([]);
+    setCurrentTextBuffer('');
 
     try {
       const response = await fetch(
@@ -180,8 +195,8 @@ export default function StudyAssistantPage() {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let fullMessage = '';
-      let toolCalls: any[] = [];
+      let segments: ContentSegment[] = [];
+      let currentText = '';
       let isProcessingTools = false;
       let buffer = '';
 
@@ -193,26 +208,40 @@ export default function StudyAssistantPage() {
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
 
-          // Process line by line
+          // Process line by line for tool markers
           const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             const trimmedLine = line.trim();
 
-            // Check for tool call markers
+            // Check for tool call start
             if (trimmedLine === '__TOOL_CALL_START__') {
+              // Save any accumulated text as a segment
+              if (currentText) {
+                segments.push({ type: 'text', content: currentText });
+                currentText = '';
+              }
               isProcessingTools = true;
+              setStreamingSegments([...segments]);
               continue;
             }
 
+            // Check for tool call end
             if (trimmedLine === '__TOOL_CALL_END__') {
               isProcessingTools = false;
-              // Mark the last active tool call as complete
-              setActiveToolCalls(prev => {
-                if (prev.length === 0) return prev;
+              // Update last tool call status to 'complete'
+              setStreamingSegments(prev => {
                 const updated = [...prev];
-                updated[updated.length - 1] = { ...updated[updated.length - 1], status: 'complete' };
+                for (let i = updated.length - 1; i >= 0; i--) {
+                  if (updated[i].type === 'tool_call' && updated[i].toolCall) {
+                    updated[i] = {
+                      ...updated[i],
+                      toolCall: { ...updated[i].toolCall!, status: 'complete' }
+                    };
+                    break;
+                  }
+                }
                 return updated;
               });
               continue;
@@ -222,13 +251,16 @@ export default function StudyAssistantPage() {
             if (trimmedLine.startsWith('__TOOL_DATA__:')) {
               try {
                 const toolData = JSON.parse(trimmedLine.replace('__TOOL_DATA__:', ''));
-                toolCalls.push(toolData);
-                // Add to active tool calls with 'calling' status
-                setActiveToolCalls(prev => [...prev, {
-                  name: toolData.name,
-                  args: toolData.args,
-                  status: 'calling'
-                }]);
+                const toolSegment: ContentSegment = {
+                  type: 'tool_call',
+                  toolCall: {
+                    name: toolData.name,
+                    args: toolData.args,
+                    status: 'calling'
+                  }
+                };
+                segments.push(toolSegment);
+                setStreamingSegments([...segments]);
               } catch (e) {
                 console.error('Failed to parse tool data:', e);
               }
@@ -237,24 +269,32 @@ export default function StudyAssistantPage() {
 
             // Regular message content
             if (!isProcessingTools && line) {
-              fullMessage += line + '\n';
-              setStreamingMessage(fullMessage);
+              currentText += line + '\n';
+              // Update streaming display character-by-character
+              setCurrentTextBuffer(currentText);
+              setStreamingSegments([...segments, { type: 'text', content: currentText }]);
             }
           }
         }
 
         // Process any remaining buffer
         if (buffer && !isProcessingTools) {
-          fullMessage += buffer;
-          setStreamingMessage(fullMessage);
+          currentText += buffer;
+          setCurrentTextBuffer(currentText);
         }
 
-        setChatMessages(prev => [...prev, { role: 'assistant', content: fullMessage.trim(), toolCalls }]);
-        setStreamingMessage('');
-        setActiveToolCalls([]);
+        // Save final message with text segment
+        if (currentText) {
+          segments.push({ type: 'text', content: currentText });
+        }
+
+        setChatMessages(prev => [...prev, { role: 'assistant', segments }]);
+        setStreamingSegments([]);
+        setCurrentTextBuffer('');
 
         // Reload assistant data if tasks were created
-        if (toolCalls.length > 0 && studentId) {
+        const hasToolCalls = segments.some(seg => seg.type === 'tool_call');
+        if (hasToolCalls && studentId) {
           await loadAssistantData(studentId);
         }
       }
@@ -262,9 +302,9 @@ export default function StudyAssistantPage() {
       console.error('Chat error:', error);
       setChatMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
+        { role: 'assistant', segments: [{ type: 'text', content: 'Sorry, I encountered an error. Please try again.' }] }
       ]);
-      setActiveToolCalls([]);
+      setStreamingSegments([]);
     } finally {
       setIsChatLoading(false);
     }
@@ -399,138 +439,141 @@ export default function StudyAssistantPage() {
                         : 'bg-white/5 mr-12 border border-white/10'
                     }`}
                   >
-                    <div className="prose prose-invert max-w-none text-white/90 text-sm">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                          ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
-                          li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                          code: ({node, inline, ...props}: any) =>
-                            inline ? (
-                              <code className="bg-white/10 px-1.5 py-0.5 rounded text-purple-300" {...props} />
-                            ) : (
-                              <code className="block bg-black/30 p-3 rounded-lg my-2 overflow-x-auto" {...props} />
-                            ),
-                          strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
-                          h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2" {...props} />,
-                          h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2" {...props} />,
-                          h3: ({node, ...props}) => <h3 className="text-base font-bold mb-1" {...props} />,
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
-                    {msg.toolCalls && msg.toolCalls.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {msg.toolCalls.map((tool, tidx) => (
-                          <div key={tidx} className="text-sm">
+                    {msg.segments.map((segment, sidx) => (
+                      <div key={sidx}>
+                        {segment.type === 'text' && segment.content && (
+                          <div className="prose prose-invert max-w-none text-white/90 text-sm">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                                ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                                li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                                code: ({node, inline, ...props}: any) =>
+                                  inline ? (
+                                    <code className="bg-white/10 px-1.5 py-0.5 rounded text-purple-300" {...props} />
+                                  ) : (
+                                    <code className="block bg-black/30 p-3 rounded-lg my-2 overflow-x-auto" {...props} />
+                                  ),
+                                strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-base font-bold mb-1" {...props} />,
+                              }}
+                            >
+                              {segment.content}
+                            </ReactMarkdown>
+                          </div>
+                        )}
+                        {segment.type === 'tool_call' && segment.toolCall && (
+                          <div className="text-sm my-2">
                             <div className="flex items-start gap-2">
                               <span className="text-white/60 select-none">*</span>
                               <div className="flex-1">
                                 <span className="font-medium text-white/60">
-                                  Called mcp tool <span className="font-mono">{tool.name}</span>
+                                  Called mcp tool <span className="font-mono">{segment.toolCall.name}</span>
                                 </span>
 
                                 {/* Task Details */}
                                 <div className="mt-1.5 ml-2 space-y-0.5">
                                   <p className="leading-relaxed text-white/50">
-                                    {tool.args.subject && tool.args.topic && (
+                                    {segment.toolCall.args.subject && segment.toolCall.args.topic && (
                                       <>
-                                        <span className="font-medium">{tool.args.subject}</span>
+                                        <span className="font-medium">{segment.toolCall.args.subject}</span>
                                         {' - '}
-                                        <span>{tool.args.topic}</span>
+                                        <span>{segment.toolCall.args.topic}</span>
                                       </>
                                     )}
                                   </p>
                                   <p className="text-xs leading-relaxed text-white/40">
-                                    {tool.args.due_date && (
-                                      <>Scheduled: {new Date(tool.args.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                                    {segment.toolCall.args.due_date && (
+                                      <>Scheduled: {new Date(segment.toolCall.args.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
                                     )}
-                                    {tool.args.time_of_day && (
-                                      <>, {tool.args.time_of_day}</>
+                                    {segment.toolCall.args.time_of_day && (
+                                      <>, {segment.toolCall.args.time_of_day}</>
                                     )}
-                                    {tool.args.estimated_minutes && (
-                                      <> · {tool.args.estimated_minutes} minutes</>
+                                    {segment.toolCall.args.estimated_minutes && (
+                                      <> · {segment.toolCall.args.estimated_minutes} minutes</>
                                     )}
-                                    {tool.args.difficulty && (
-                                      <> · {tool.args.difficulty}</>
+                                    {segment.toolCall.args.difficulty && (
+                                      <> · {segment.toolCall.args.difficulty}</>
                                     )}
                                   </p>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        ))}
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 ))}
-                {streamingMessage && (
+                {streamingSegments.length > 0 && (
                   <div className="p-4 rounded-lg bg-white/5 mr-12 border border-white/10">
-                    <div className="prose prose-invert max-w-none text-white/90 text-sm">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                          ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
-                          li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                          code: ({node, inline, ...props}: any) =>
-                            inline ? (
-                              <code className="bg-white/10 px-1.5 py-0.5 rounded text-purple-300" {...props} />
-                            ) : (
-                              <code className="block bg-black/30 p-3 rounded-lg my-2" {...props} />
-                            ),
-                        }}
-                      >
-                        {streamingMessage}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                )}
-                {activeToolCalls.length > 0 && (
-                  <div className="mr-12 space-y-3">
-                    {activeToolCalls.map((toolCall, idx) => (
-                      <div key={idx} className="text-sm">
-                        {/* Tool Call Header - Simple bullet point style */}
-                        <div className="flex items-start gap-2 mb-1">
-                          <span className="text-white/60 select-none">*</span>
-                          <div className="flex-1">
-                            <span className={`font-medium ${toolCall.status === 'calling' ? 'text-white/50 animate-pulse' : 'text-white/60'}`}>
-                              {toolCall.status === 'calling' ? 'Calling' : 'Called'} mcp tool{' '}
-                              <span className="font-mono">{toolCall.name}</span>
-                            </span>
+                    {streamingSegments.map((segment, sidx) => (
+                      <div key={sidx}>
+                        {segment.type === 'text' && segment.content && (
+                          <div className="prose prose-invert max-w-none text-white/90 text-sm">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                                ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                                li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                                code: ({node, inline, ...props}: any) =>
+                                  inline ? (
+                                    <code className="bg-white/10 px-1.5 py-0.5 rounded text-purple-300" {...props} />
+                                  ) : (
+                                    <code className="block bg-black/30 p-3 rounded-lg my-2" {...props} />
+                                  ),
+                              }}
+                            >
+                              {segment.content}
+                            </ReactMarkdown>
+                          </div>
+                        )}
+                        {segment.type === 'tool_call' && segment.toolCall && (
+                          <div className="text-sm my-2">
+                            <div className="flex items-start gap-2">
+                              <span className="text-white/60 select-none">*</span>
+                              <div className="flex-1">
+                                <span className={`font-medium ${segment.toolCall.status === 'calling' ? 'text-white/50 animate-pulse' : 'text-white/60'}`}>
+                                  {segment.toolCall.status === 'calling' ? 'Calling' : 'Called'} mcp tool{' '}
+                                  <span className="font-mono">{segment.toolCall.name}</span>
+                                </span>
 
-                            {/* Task Details - Dropdown paragraph */}
-                            <div className={`mt-1.5 ml-2 space-y-0.5 ${toolCall.status === 'calling' ? 'animate-[pulse_2s_ease-in-out_infinite]' : ''}`}>
-                              <p className={`leading-relaxed ${toolCall.status === 'calling' ? 'text-white/40' : 'text-white/50'}`}>
-                                {toolCall.args.subject && toolCall.args.topic && (
-                                  <>
-                                    <span className="font-medium">{toolCall.args.subject}</span>
-                                    {' - '}
-                                    <span>{toolCall.args.topic}</span>
-                                  </>
-                                )}
-                              </p>
-                              <p className={`text-xs leading-relaxed ${toolCall.status === 'calling' ? 'text-white/30' : 'text-white/40'}`}>
-                                {toolCall.args.due_date && (
-                                  <>Scheduled: {new Date(toolCall.args.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
-                                )}
-                                {toolCall.args.time_of_day && (
-                                  <>, {toolCall.args.time_of_day}</>
-                                )}
-                                {toolCall.args.estimated_minutes && (
-                                  <> · {toolCall.args.estimated_minutes} minutes</>
-                                )}
-                                {toolCall.args.difficulty && (
-                                  <> · {toolCall.args.difficulty}</>
-                                )}
-                              </p>
+                                {/* Task Details - Dropdown paragraph */}
+                                <div className={`mt-1.5 ml-2 space-y-0.5 ${segment.toolCall.status === 'calling' ? 'animate-[pulse_2s_ease-in-out_infinite]' : ''}`}>
+                                  <p className={`leading-relaxed ${segment.toolCall.status === 'calling' ? 'text-white/40' : 'text-white/50'}`}>
+                                    {segment.toolCall.args.subject && segment.toolCall.args.topic && (
+                                      <>
+                                        <span className="font-medium">{segment.toolCall.args.subject}</span>
+                                        {' - '}
+                                        <span>{segment.toolCall.args.topic}</span>
+                                      </>
+                                    )}
+                                  </p>
+                                  <p className={`text-xs leading-relaxed ${segment.toolCall.status === 'calling' ? 'text-white/30' : 'text-white/40'}`}>
+                                    {segment.toolCall.args.due_date && (
+                                      <>Scheduled: {new Date(segment.toolCall.args.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                                    )}
+                                    {segment.toolCall.args.time_of_day && (
+                                      <>, {segment.toolCall.args.time_of_day}</>
+                                    )}
+                                    {segment.toolCall.args.estimated_minutes && (
+                                      <> · {segment.toolCall.args.estimated_minutes} minutes</>
+                                    )}
+                                    {segment.toolCall.args.difficulty && (
+                                      <> · {segment.toolCall.args.difficulty}</>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>
