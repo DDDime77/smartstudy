@@ -48,9 +48,10 @@ export async function GET(request: NextRequest) {
 
     const courses = coursesResponse.data.courses || [];
 
-    const baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://sshours.cfd'
-      : new URL(request.url).origin;
+    const url = new URL(request.url);
+    const baseUrl = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+      ? `http://${url.host}`
+      : 'https://sshours.cfd';
 
     const response = NextResponse.redirect(
       new URL('/?classroom=success', baseUrl)
@@ -74,9 +75,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in OAuth callback:', error);
-    const baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://sshours.cfd'
-      : new URL(request.url).origin;
+    const url = new URL(request.url);
+    const baseUrl = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+      ? `http://${url.host}`
+      : 'https://sshours.cfd';
     return NextResponse.redirect(
       new URL('/?error=' + encodeURIComponent('Failed to complete OAuth flow'), baseUrl)
     );
