@@ -56,6 +56,8 @@ export default function ExamsPage() {
   const [formData, setFormData] = useState<ExamInput>({
     subject_id: '',
     exam_date: '',
+    start_time: '',
+    finish_time: '',
     exam_type: '',
     units: ['', '', '', '', ''], // 5 unit inputs
   });
@@ -244,6 +246,8 @@ export default function ExamsPage() {
     setFormData({
       subject_id: '',
       exam_date: isoDate,
+      start_time: '',
+      finish_time: '',
       exam_type: '',
       units: ['', '', '', '', ''],
     });
@@ -260,6 +264,8 @@ export default function ExamsPage() {
     setFormData({
       subject_id: exam.subject_id,
       exam_date: exam.exam_date,
+      start_time: exam.start_time || '',
+      finish_time: exam.finish_time || '',
       exam_type: exam.exam_type,
       units: paddedUnits,
     });
@@ -368,6 +374,8 @@ export default function ExamsPage() {
             setFormData({
               subject_id: '',
               exam_date: isoDate,
+              start_time: '',
+              finish_time: '',
               exam_type: '',
               units: ['', '', '', '', ''],
             });
@@ -691,6 +699,28 @@ export default function ExamsPage() {
                     {dateError && (
                       <p className="text-red-400 text-xs mt-1">{dateError}</p>
                     )}
+                  </div>
+
+                  {/* Start Time */}
+                  <div>
+                    <label className="block text-white/80 text-sm mb-2">Start Time (HH:MM)</label>
+                    <input
+                      type="time"
+                      value={formData.start_time || ''}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+                    />
+                  </div>
+
+                  {/* Finish Time */}
+                  <div>
+                    <label className="block text-white/80 text-sm mb-2">Finish Time (HH:MM)</label>
+                    <input
+                      type="time"
+                      value={formData.finish_time || ''}
+                      onChange={(e) => setFormData({ ...formData, finish_time: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+                    />
                   </div>
 
                   {/* Units Input (5 fields, appearing as user fills) */}

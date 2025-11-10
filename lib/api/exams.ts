@@ -3,6 +3,8 @@ import { ApiClient } from './client';
 export interface ExamInput {
   subject_id: string;
   exam_date: string; // ISO date format YYYY-MM-DD
+  start_time?: string; // ISO time format HH:MM:SS
+  finish_time?: string; // ISO time format HH:MM:SS
   exam_type: string; // Paper type (Paper 1, Paper 2, IA, etc.)
   units?: string[]; // Units covered in exam (max 5)
 }
@@ -10,6 +12,8 @@ export interface ExamInput {
 export interface UpdateExam {
   subject_id?: string;
   exam_date?: string;
+  start_time?: string;
+  finish_time?: string;
   exam_type?: string;
   units?: string[];
 }
@@ -19,6 +23,8 @@ export interface ExamResponse {
   user_id: string;
   subject_id: string;
   exam_date: string;
+  start_time: string | null;
+  finish_time: string | null;
   exam_type: string;
   units: string[] | null;
 }
