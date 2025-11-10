@@ -29,9 +29,16 @@ async def complete_onboarding(
 
     print(f"🟢 [Onboarding Complete] ====== Starting onboarding completion ======")
     print(f"🟢 [Onboarding Complete] User: {current_user.email}")
+    print(f"🟢 [Onboarding Complete] Timezone: {onboarding_data.timezone}")
+    print(f"🟢 [Onboarding Complete] Education system: {onboarding_data.education_system}")
+    print(f"🟢 [Onboarding Complete] Education program: {onboarding_data.education_program}")
+    print(f"🟢 [Onboarding Complete] Grade level: {onboarding_data.grade_level}")
     print(f"🟢 [Onboarding Complete] Import method: {onboarding_data.import_method}")
     print(f"🟢 [Onboarding Complete] Number of subjects: {len(onboarding_data.subjects)}")
     print(f"🟢 [Onboarding Complete] Subjects data: {[s.dict() for s in onboarding_data.subjects]}")
+    print(f"🟢 [Onboarding Complete] Number of availability slots: {len(onboarding_data.availability)}")
+    print(f"🟢 [Onboarding Complete] Availability data: {[a.dict() for a in onboarding_data.availability]}")
+    print(f"🟢 [Onboarding Complete] Study goal: {onboarding_data.study_goal}")
 
     # Get current user
     user = current_user

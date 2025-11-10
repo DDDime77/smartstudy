@@ -24,6 +24,10 @@ export interface UserResponse {
   profile_completed: boolean;
 }
 
+export interface UpdateUserData {
+  full_name?: string;
+}
+
 export interface GoogleAuthData {
   token: string;
 }
@@ -47,6 +51,10 @@ export const AuthService = {
 
   async getCurrentUser(): Promise<UserResponse> {
     return ApiClient.get<UserResponse>('/auth/me');
+  },
+
+  async updateUser(data: UpdateUserData): Promise<UserResponse> {
+    return ApiClient.put<UserResponse>('/auth/me', data);
   },
 
   logout() {

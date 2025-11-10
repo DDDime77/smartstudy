@@ -5,6 +5,7 @@ from app.schemas.auth import (
     TokenData,
     GoogleAuthRequest,
     UserResponse,
+    UpdateUser,
 )
 from app.schemas.onboarding import (
     SubjectInput,
@@ -53,6 +54,7 @@ __all__ = [
     "TokenData",
     "GoogleAuthRequest",
     "UserResponse",
+    "UpdateUser",
     "SubjectInput",
     "OnboardingStep1",
     "OnboardingStep2",

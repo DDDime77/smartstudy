@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import settings
 from app.models import User
-from app.schemas import UserRegister, UserLogin, Token, GoogleAuthRequest, UserResponse
+from app.schemas import UserRegister, UserLogin, Token, GoogleAuthRequest, UserResponse, UpdateUser
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -163,5 +163,56 @@ async def get_current_user(authorization: str = Header(None, alias="Authorizatio
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+
+    return user
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_current_user(
+    user_data: UpdateUser,
+    authorization: str = Header(None, alias="Authorization"),
+    db: Session = Depends(get_db)
+):
+    """Update current logged-in user information"""
+    from app.core.security import decode_access_token
+
+    # Extract token from Authorization header
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header"
+        )
+
+    token = authorization.replace("Bearer ", "")
+
+    # Decode token
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+
+    # Get user from database
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Update only provided fields
+    if user_data.full_name is not None:
+        user.full_name = user_data.full_name
+
+    db.commit()
+    db.refresh(user)
 
     return user

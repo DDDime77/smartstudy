@@ -11,6 +11,7 @@ import NotificationToast from '@/components/ui/notification-toast';
 import { AuthService } from '@/lib/api/auth';
 import { OnboardingService } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
+import { TIMEZONES, detectBrowserTimezone } from '@/lib/timezones';
 import {
   User, Shield, Bell, Palette, Clock, Globe, BookOpen, GraduationCap,
   Target, ChevronRight, Save, AlertTriangle, Moon, Sun, Monitor,
@@ -36,7 +37,7 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     name: 'Loading...',
     email: 'Loading...',
-    timezone: 'UTC+00:00',
+    timezone: detectBrowserTimezone(),
     studyGoal: 20
   });
 
@@ -46,16 +47,16 @@ export default function SettingsPage() {
       try {
         // Fetch user basic info
         const user = await AuthService.getCurrentUser();
-        setProfileData({
-          name: user.full_name || 'Student',
-          email: user.email,
-          timezone: 'UTC+00:00',
-          studyGoal: 20
-        });
 
-        // Fetch user profile (education system, grade, etc.)
+        // Fetch user profile (education system, grade, timezone, etc.)
         try {
           const profile = await OnboardingService.getProfile();
+          setProfileData({
+            name: user.full_name || 'Student',
+            email: user.email,
+            timezone: profile.timezone || detectBrowserTimezone(),
+            studyGoal: profile.study_goal || 20
+          });
           setEducationData({
             educationSystem: profile.education_system || 'IB',
             educationProgram: profile.education_program || 'IBDP',
@@ -64,13 +65,20 @@ export default function SettingsPage() {
           });
         } catch (err) {
           console.log('Could not fetch profile data:', err);
+          // Use user data but keep defaults for profile
+          setProfileData({
+            name: user.full_name || 'Student',
+            email: user.email,
+            timezone: detectBrowserTimezone(),
+            studyGoal: 20
+          });
         }
       } catch (error) {
         handleApiError(error, 'Failed to load user data');
         setProfileData({
           name: 'Unknown User',
           email: 'Unknown',
-          timezone: 'UTC+00:00',
+          timezone: detectBrowserTimezone(),
           studyGoal: 20
         });
       }
@@ -95,20 +103,6 @@ export default function SettingsPage() {
     { id: 'security', label: 'Security', icon: Shield },
   ];
 
-  const timezones = [
-    { value: 'UTC-12:00', label: '(UTC-12:00) International Date Line West' },
-    { value: 'UTC-11:00', label: '(UTC-11:00) Hawaii' },
-    { value: 'UTC-10:00', label: '(UTC-10:00) Alaska' },
-    { value: 'UTC-08:00', label: '(UTC-08:00) Pacific Time' },
-    { value: 'UTC-07:00', label: '(UTC-07:00) Mountain Time' },
-    { value: 'UTC-06:00', label: '(UTC-06:00) Central Time' },
-    { value: 'UTC-05:00', label: '(UTC-05:00) Eastern Time' },
-    { value: 'UTC+00:00', label: '(UTC+00:00) London, Dublin' },
-    { value: 'UTC+01:00', label: '(UTC+01:00) Paris, Berlin' },
-    { value: 'UTC+08:00', label: '(UTC+08:00) Singapore, Hong Kong' },
-    { value: 'UTC+09:00', label: '(UTC+09:00) Tokyo, Seoul' },
-  ];
-
   const educationSystems = [
     { value: 'IB', label: 'International Baccalaureate (IB)' },
     { value: 'A-Level', label: 'A-Level' },
@@ -126,15 +120,32 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       // Save profile data based on active tab
-      if (activeTab === 'education') {
+      if (activeTab === 'profile') {
+        // Update user name
+        await AuthService.updateUser({
+          full_name: profileData.name
+        });
+        // Update profile (timezone and study goal)
+        await OnboardingService.updateProfile({
+          timezone: profileData.timezone,
+          study_goal: profileData.studyGoal
+        });
+        setToastMessage('Profile settings saved successfully!');
+      } else if (activeTab === 'education') {
         await OnboardingService.updateProfile({
           education_system: educationData.educationSystem,
           education_program: educationData.educationProgram,
           grade_level: educationData.grade
         });
+        setToastMessage('Education settings saved successfully!');
+      } else if (activeTab === 'preferences') {
+        // TODO: Implement preferences saving
+        setToastMessage('Preferences saved successfully!');
+      } else if (activeTab === 'notifications') {
+        // TODO: Implement notifications saving
+        setToastMessage('Notification settings saved successfully!');
       }
 
-      setToastMessage('Settings saved successfully!');
       setToastType('success');
       setShowToast(true);
     } catch (error) {
@@ -238,12 +249,15 @@ export default function SettingsPage() {
                           onChange={(e) => setProfileData({...profileData, timezone: e.target.value})}
                           className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-400"
                         >
-                          {timezones.map((tz) => (
+                          {TIMEZONES.map((tz) => (
                             <option key={tz.value} value={tz.value} className="bg-gray-900">
                               {tz.label}
                             </option>
                           ))}
                         </select>
+                        <p className="text-white/40 text-xs mt-1">
+                          Used for scheduling study sessions and exam reminders
+                        </p>
                       </div>
 
                       <div>

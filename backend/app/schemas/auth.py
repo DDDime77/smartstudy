@@ -27,6 +27,11 @@ class GoogleAuthRequest(BaseModel):
     token: str  # Google ID token
 
 
+class UpdateUser(BaseModel):
+    """Update user information"""
+    full_name: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: UUID
     email: str
