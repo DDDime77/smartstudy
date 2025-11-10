@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -305,7 +304,7 @@ export default function GoogleClassroomImportStep({
 
       <div className="flex gap-3">
         <Button
-          onClick={() => setStep('api_key')}
+          onClick={() => setStep('oauth')}
           variant="outline"
           className="flex-1 border-white/20 text-white hover:bg-white/10"
         >

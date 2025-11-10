@@ -9,6 +9,7 @@ import GradientText from '@/components/GradientText';
 import GridBackground from '@/components/GridBackground';
 import NotificationToast from '@/components/ui/notification-toast';
 import { AuthService } from '@/lib/api/auth';
+import { OnboardingService } from '@/lib/api/onboarding';
 import { handleApiError } from '@/lib/api/client';
 import {
   User, Shield, Bell, Palette, Clock, Globe, BookOpen, GraduationCap,
@@ -54,20 +55,13 @@ export default function SettingsPage() {
 
         // Fetch user profile (education system, grade, etc.)
         try {
-          const response = await fetch('/api/onboarding/profile', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+          const profile = await OnboardingService.getProfile();
+          setEducationData({
+            educationSystem: profile.education_system || 'IB',
+            educationProgram: profile.education_program || 'IBDP',
+            grade: profile.grade_level || 'Year 12',
+            school: 'International School'
           });
-          if (response.ok) {
-            const profile = await response.json();
-            setEducationData({
-              educationSystem: profile.education_system || 'IB',
-              educationProgram: profile.education_program || 'IBDP',
-              grade: profile.grade_level || 'Year 12',
-              school: 'International School'
-            });
-          }
         } catch (err) {
           console.log('Could not fetch profile data:', err);
         }
@@ -133,22 +127,11 @@ export default function SettingsPage() {
     try {
       // Save profile data based on active tab
       if (activeTab === 'education') {
-        const response = await fetch('/api/onboarding/profile', {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            education_system: educationData.educationSystem,
-            education_program: educationData.educationProgram,
-            grade_level: educationData.grade
-          })
+        await OnboardingService.updateProfile({
+          education_system: educationData.educationSystem,
+          education_program: educationData.educationProgram,
+          grade_level: educationData.grade
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to save education settings');
-        }
       }
 
       setToastMessage('Settings saved successfully!');

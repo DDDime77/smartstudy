@@ -68,6 +68,7 @@ export interface UpdateProfileData {
   timezone?: string;
   education_system?: string;
   education_program?: string;
+  grade_level?: string; // Grade or year level
   study_goal?: number; // Study goal in hours per week
 }
 
