@@ -862,8 +862,21 @@ export default function ExamsPage() {
                     <Button
                       variant="primary"
                       onClick={async () => {
-                        // Create active session on server instead of sessionStorage
+                        // Check if active session already exists, or create new one
                         try {
+                          const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+
+                          // Check if there's already an active session
+                          const existingSession = await ActiveSessionsService.get();
+
+                          if (existingSession && existingSession.assignment_id === selectedAssignment.id) {
+                            // Session already exists for this assignment - just redirect to resume it
+                            console.log('✅ Resuming existing session with', existingSession.elapsed_seconds, 'seconds elapsed');
+                            window.location.href = '/dashboard/study-timer';
+                            return;
+                          }
+
+                          // No existing session or different assignment - create new session
                           // Try to get actual exam topic if this is exam preparation
                           let topicToUse = selectedAssignment.topic;
 
@@ -888,7 +901,7 @@ export default function ExamsPage() {
                           }
 
                           // Create session on server
-                          const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
+                          console.log('✅ Creating new session for assignment', selectedAssignment.id);
                           await ActiveSessionsService.create({
                             session_type: 'assignment',
                             assignment_id: selectedAssignment.id,
