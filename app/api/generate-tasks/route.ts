@@ -102,6 +102,26 @@ Generate the problem now.`;
       async start(controller) {
         let isClosed = false;
 
+        // Send immediate keepalive to prevent proxy timeout
+        controller.enqueue(
+          new TextEncoder().encode(`data: ${JSON.stringify({ status: 'generating' })}\n\n`)
+        );
+
+        // Send periodic keepalives every 15 seconds
+        const keepaliveInterval = setInterval(() => {
+          if (!isClosed) {
+            try {
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify({ keepalive: true })}\n\n`)
+              );
+            } catch (e) {
+              clearInterval(keepaliveInterval);
+            }
+          } else {
+            clearInterval(keepaliveInterval);
+          }
+        }, 15000);
+
         try {
           for await (const event of stream) {
             if (isClosed) break;
@@ -147,8 +167,10 @@ Generate the problem now.`;
             controller.close();
             isClosed = true;
           }
+          clearInterval(keepaliveInterval);
         } catch (error) {
           console.error('Streaming error:', error);
+          clearInterval(keepaliveInterval);
           if (!isClosed) {
             try {
               controller.error(error);
