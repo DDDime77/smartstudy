@@ -1214,6 +1214,43 @@ export default function ExamsPage() {
 
                 {/* Day Schedule Timeline */}
                 <div className="flex-1 overflow-y-auto min-h-0">
+                  {/* Exams without specific times */}
+                  {(() => {
+                    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                    const examsWithoutTime = exams.filter(exam => exam.exam_date === dateStr && !exam.start_time);
+
+                    if (examsWithoutTime.length > 0) {
+                      return (
+                        <div className="mb-4 p-4 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                          <p className="text-white/80 text-sm font-medium mb-3">Exams scheduled (time not specified)</p>
+                          <div className="space-y-2">
+                            {examsWithoutTime.map(exam => {
+                              const subject = subjects.find(s => s.id === exam.subject_id);
+                              return (
+                                <div key={exam.id} className="flex items-center gap-2 p-2 rounded bg-white/5">
+                                  <div className="w-2 h-2 rounded-full bg-orange-400" />
+                                  <div className="flex-1">
+                                    <p className="text-white font-medium text-sm">
+                                      {subject?.name} - {exam.exam_type}
+                                    </p>
+                                    <p className="text-white/60 text-xs">No specific time set</p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleEditExam(exam)}
+                                    className="text-white/60 hover:text-white transition-colors"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   <div className="space-y-2">
                     {Array.from({ length: 24 }, (_, hour) => {
                       const hourStr = String(hour).padStart(2, '0');
