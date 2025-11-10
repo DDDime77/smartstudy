@@ -36,7 +36,12 @@ class TaskPredictionModel:
     Embedding-based sequence model for predicting task outcomes
     """
 
-    def __init__(self, model_dir: str = "backend/app/ml/models"):
+    def __init__(self, model_dir: str = None):
+        # Use absolute path to avoid duplicate backend/backend issue
+        if model_dir is None:
+            # Get the directory of this file and create models subdirectory
+            current_file = Path(__file__).resolve()
+            model_dir = current_file.parent / "models"
         self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
 

@@ -47,4 +47,7 @@ htmlcov/
 # ML Models
 *.pkl
 *.joblib
+*.keras
 models/trained/
+app/ml/models/*.keras
+app/ml/models/metadata.json
