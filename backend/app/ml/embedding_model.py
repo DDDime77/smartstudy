@@ -518,9 +518,9 @@ class TaskPredictionModel:
         # Denormalize time
         estimated_time = time_normalized * self.metadata['time_std'] + self.metadata['time_mean']
 
-        # Clip to reasonable bounds
-        correctness_prob = np.clip(correctness_prob, 0.01, 0.99)
-        estimated_time = np.clip(estimated_time, 5.0, 600.0)  # 5 seconds to 10 minutes
+        # Clip to reasonable bounds and convert to Python float (not NumPy float64)
+        correctness_prob = float(np.clip(correctness_prob, 0.01, 0.99))
+        estimated_time = float(np.clip(estimated_time, 5.0, 600.0))  # 5 seconds to 10 minutes
 
         return correctness_prob, estimated_time
 
