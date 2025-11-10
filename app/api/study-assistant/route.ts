@@ -281,6 +281,11 @@ IMPORTANT: When creating assignments for exam preparation:
 - DO NOT use generic placeholders like "Unit 1, Unit 2" or "Exam Preparation"
 - Example: If exam has units ["Circular Motion", "Gravitation"], use topic: "Circular Motion, Gravitation"
 
+IMPORTANT: When the student mentions a specific date:
+- Extract the date from their message (e.g., "November 20th" = "2024-11-20", "next Monday" = calculate date)
+- Pass it as the due_date parameter in YYYY-MM-DD format
+- Examples: "on November 20th" → due_date: "2024-11-20", "tomorrow" → due_date: tomorrow's date
+
 Be conversational, helpful, and reference their specific data when relevant.`;
 
     // Define functions for study plan generation and individual assignments
@@ -322,6 +327,10 @@ Be conversational, helpful, and reference their specific data when relevant.`;
               exam_name: {
                 type: 'string',
                 description: 'Optional: Name/title of the exam this assignment is preparing for (e.g., "Physics Paper 2"). When provided, the system will look up the exam\'s topic automatically.'
+              },
+              due_date: {
+                type: 'string',
+                description: 'Optional: Specific date for the assignment in YYYY-MM-DD format (e.g., "2024-11-20"). If not provided, the system will find the next available time slot.'
               },
               difficulty: {
                 type: 'string',
@@ -559,6 +568,7 @@ async function createSingleAssignment(studentId: string, params: {
   subject: string;
   topic: string;
   exam_name?: string;
+  due_date?: string;
   difficulty?: string;
   estimated_minutes?: number;
   required_tasks_count?: number;
@@ -611,40 +621,85 @@ async function createSingleAssignment(studentId: string, params: {
           ];
         }
 
-        // Find next available slot
+        // Determine scheduled date and time
         const today = new Date();
         let scheduledDate: Date | null = null;
         let scheduledTime: string | null = null;
 
-        for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
-          const targetDate = new Date(today);
-          targetDate.setDate(today.getDate() + dayOffset);
-          const dayOfWeek = targetDate.getDay();
+        // If user specified a due_date, use that
+        if (params.due_date) {
+          try {
+            scheduledDate = new Date(params.due_date);
+            const dayOfWeek = scheduledDate.getDay();
+            const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
 
-          const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+            // Use the first available time slot for that day, or default to 16:00
+            if (dayAvailability && dayAvailability.slots && dayAvailability.slots.length > 0) {
+              // Try each slot to find one that's not occupied
+              for (const slot of dayAvailability.slots) {
+                const dateStr = scheduledDate.toISOString().split('T')[0];
+                const existingResult = await db.query(
+                  'SELECT COUNT(*) as count FROM ai_assignments WHERE user_id = $1 AND scheduled_date = $2 AND scheduled_time = $3',
+                  [studentId, dateStr, slot.start]
+                );
 
-          if (dayAvailability && dayAvailability.slots && dayAvailability.slots.length > 0) {
-            // Check if there's already an assignment at this time
-            const dateStr = targetDate.toISOString().split('T')[0];
-            const slot = dayAvailability.slots[0];
+                if (existingResult.rows[0].count === '0') {
+                  scheduledTime = slot.start;
+                  break;
+                }
+              }
 
-            const existingResult = await db.query(
-              'SELECT COUNT(*) as count FROM ai_assignments WHERE user_id = $1 AND scheduled_date = $2 AND scheduled_time = $3',
-              [studentId, dateStr, slot.start]
-            );
-
-            if (existingResult.rows[0].count === '0') {
-              scheduledDate = targetDate;
-              scheduledTime = slot.start;
-              break;
+              // If all slots are occupied, just use the first one (allow multiple assignments)
+              if (!scheduledTime) {
+                scheduledTime = dayAvailability.slots[0].start;
+              }
+            } else {
+              // No availability configured for this day, use default 16:00
+              scheduledTime = '16:00';
             }
+
+            controller.enqueue(encoder.encode(`✓ Using requested date: ${params.due_date}\n`));
+          } catch (error) {
+            controller.enqueue(encoder.encode(`⚠️ Invalid date format: ${params.due_date}. Using next available slot.\n`));
           }
         }
 
+        // If no date specified or parsing failed, find next available slot
         if (!scheduledDate || !scheduledTime) {
-          controller.enqueue(encoder.encode('⚠️ Could not find an available time slot in the next 2 weeks.\n'));
-          controller.close();
-          return;
+          for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + dayOffset);
+            const dayOfWeek = targetDate.getDay();
+
+            const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+
+            if (dayAvailability && dayAvailability.slots && dayAvailability.slots.length > 0) {
+              // Try each slot to find an empty one
+              for (const slot of dayAvailability.slots) {
+                const dateStr = targetDate.toISOString().split('T')[0];
+
+                const existingResult = await db.query(
+                  'SELECT COUNT(*) as count FROM ai_assignments WHERE user_id = $1 AND scheduled_date = $2 AND scheduled_time = $3',
+                  [studentId, dateStr, slot.start]
+                );
+
+                if (existingResult.rows[0].count === '0') {
+                  scheduledDate = targetDate;
+                  scheduledTime = slot.start;
+                  break;
+                }
+              }
+
+              // If we found a slot, break out of the day loop
+              if (scheduledTime) break;
+            }
+          }
+
+          if (!scheduledDate || !scheduledTime) {
+            controller.enqueue(encoder.encode('⚠️ Could not find an available time slot in the next 2 weeks. All slots appear to be occupied. Consider adjusting your availability or removing old assignments.\n'));
+            controller.close();
+            return;
+          }
         }
 
         const dateStr = scheduledDate.toISOString().split('T')[0];
