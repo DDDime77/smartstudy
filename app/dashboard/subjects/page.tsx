@@ -112,6 +112,18 @@ export default function SubjectsPage() {
     }
   };
 
+  // Helper function to get a unique color for new subject
+  const getUniqueColor = () => {
+    const usedColors = new Set(subjects.map(s => s.color).filter(Boolean));
+    const availableColor = SUBJECT_COLORS.find(color => !usedColors.has(color));
+    return availableColor || SUBJECT_COLORS[0];
+  };
+
+  // Check if a color is already used by another subject
+  const isColorUsed = (color: string, excludeSubjectId?: string) => {
+    return subjects.some(s => s.color === color && s.id !== excludeSubjectId);
+  };
+
   const handleAddSubject = async () => {
     if (!addForm.name.trim()) return;
 
@@ -250,7 +262,17 @@ export default function SubjectsPage() {
             <Badge variant="glow" className="text-sm">
               {subjects.length} Subject{subjects.length !== 1 ? 's' : ''}
             </Badge>
-            <Button variant="primary" onClick={() => setShowAddDialog(true)}>
+            <Button variant="primary" onClick={() => {
+              setShowAddDialog(true);
+              setAddForm({
+                name: '',
+                level: '',
+                category: '',
+                current_grade: '',
+                target_grade: '',
+                color: getUniqueColor(),
+              });
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               Add Subject
             </Button>
@@ -266,7 +288,17 @@ export default function SubjectsPage() {
                 <h3 className="text-2xl font-bold">No subjects yet</h3>
               </GradientText>
               <p className="text-white/60">Get started by adding your first subject</p>
-              <Button onClick={() => setShowAddDialog(true)} size="lg">
+              <Button onClick={() => {
+                setShowAddDialog(true);
+                setAddForm({
+                  name: '',
+                  level: '',
+                  category: '',
+                  current_grade: '',
+                  target_grade: '',
+                  color: getUniqueColor(),
+                });
+              }} size="lg">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Subject
               </Button>
@@ -499,19 +531,32 @@ export default function SubjectsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-white/80 text-sm mb-2">Color</label>
+                    <label className="block text-white/80 text-sm mb-2">
+                      Color
+                      <span className="text-white/40 text-xs ml-2">(colors already in use are dimmed)</span>
+                    </label>
                     <div className="grid grid-cols-9 gap-2">
-                      {SUBJECT_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setAddForm({ ...addForm, color })}
-                          className={`w-10 h-10 rounded-lg transition-all hover:scale-110 ${
-                            addForm.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : ''
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                      {SUBJECT_COLORS.map((color) => {
+                        const colorUsed = isColorUsed(color);
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setAddForm({ ...addForm, color })}
+                            className={`w-10 h-10 rounded-lg transition-all hover:scale-110 relative ${
+                              addForm.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : ''
+                            } ${colorUsed ? 'opacity-30' : ''}`}
+                            style={{ backgroundColor: color }}
+                            title={colorUsed ? 'Color already in use' : 'Available color'}
+                          >
+                            {colorUsed && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-6 h-0.5 bg-white/80 rotate-45"></div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -634,19 +679,32 @@ export default function SubjectsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-white/80 text-sm mb-2">Color</label>
+                    <label className="block text-white/80 text-sm mb-2">
+                      Color
+                      <span className="text-white/40 text-xs ml-2">(colors already in use are dimmed)</span>
+                    </label>
                     <div className="grid grid-cols-9 gap-2">
-                      {SUBJECT_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setEditForm({ ...editForm, color })}
-                          className={`w-10 h-10 rounded-lg transition-all hover:scale-110 ${
-                            editForm.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : ''
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                      {SUBJECT_COLORS.map((color) => {
+                        const colorUsed = isColorUsed(color, editSubject?.id);
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, color })}
+                            className={`w-10 h-10 rounded-lg transition-all hover:scale-110 relative ${
+                              editForm.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110' : ''
+                            } ${colorUsed ? 'opacity-30' : ''}`}
+                            style={{ backgroundColor: color }}
+                            title={colorUsed ? 'Color already in use' : 'Available color'}
+                          >
+                            {colorUsed && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-6 h-0.5 bg-white/80 rotate-45"></div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
