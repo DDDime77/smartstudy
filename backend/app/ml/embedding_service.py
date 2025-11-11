@@ -427,14 +427,24 @@ class EmbeddingModelService:
             print(f"[Adaptive] SLOWER: time_factor={time_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
         elif prediction_error > 15:  # Actual time significantly faster than prediction
             # User consistently faster than ML predicts - adjust toward actual
-            blend_factor = min(prediction_error / base_time, 0.5)  # Max 50% adjustment
-            adjusted_time = max(10, base_time * (1 - blend_factor))
-            print(f"[Adaptive] PRED_FAST: blend_factor={blend_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
+            # Use blend approach: more weight to actual when deviation is extreme
+            if abs(prediction_error) / base_time > 1.0:  # Deviation > 100%
+                # Extreme deviation - use mostly actual time with small buffer
+                adjusted_time = max(10, recent_avg_time * 1.05)
+            else:
+                blend_factor = min(prediction_error / base_time, 0.5)  # Max 50% adjustment
+                adjusted_time = max(10, base_time * (1 - blend_factor))
+            print(f"[Adaptive] PRED_FAST: adjusted_time={adjusted_time:.1f}s")
         elif prediction_error < -15:  # Actual time significantly slower than prediction
             # User consistently slower than ML predicts - adjust toward actual
-            blend_factor = min(abs(prediction_error) / base_time, 0.5)  # Max 50% adjustment
-            adjusted_time = min(300, base_time * (1 + blend_factor))
-            print(f"[Adaptive] PRED_SLOW: blend_factor={blend_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
+            # Use blend approach: more weight to actual when deviation is extreme
+            if abs(prediction_error) / base_time > 1.0:  # Deviation > 100%
+                # Extreme deviation - use mostly actual time with small buffer
+                adjusted_time = min(300, recent_avg_time * 1.05)
+            else:
+                blend_factor = min(abs(prediction_error) / base_time, 0.5)  # Max 50% adjustment
+                adjusted_time = min(300, base_time * (1 + blend_factor))
+            print(f"[Adaptive] PRED_SLOW: adjusted_time={adjusted_time:.1f}s")
         else:
             print(f"[Adaptive] NO_CHANGE: adjusted_time={adjusted_time:.1f}s")
 

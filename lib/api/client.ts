@@ -20,16 +20,36 @@ export function handleApiError(error: unknown, context: string): void {
   if (isApiError(error)) {
     // Don't log 401 errors in development (expected when not authenticated)
     if (error.status === 401) {
-      console.warn(`${context}: User not authenticated`);
+      console.warn(`${context}: User not authenticated (401)`);
       return;
     }
     console.error(`${context}:`, {
       status: error.status,
+      statusText: getStatusText(error.status),
       detail: error.detail,
+    });
+  } else if (error instanceof Error) {
+    console.error(`${context}:`, {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
     });
   } else {
     console.error(`${context}:`, error);
   }
+}
+
+function getStatusText(status: number): string {
+  const statusTexts: Record<number, string> = {
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    500: 'Internal Server Error',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable',
+  };
+  return statusTexts[status] || 'Unknown Error';
 }
 
 export class ApiClient {
@@ -81,8 +101,21 @@ export class ApiClient {
     });
 
     if (!response.ok) {
+      let errorDetail = 'An error occurred';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorDetail = errorData.detail || errorData.message || JSON.stringify(errorData);
+        } else {
+          errorDetail = await response.text();
+        }
+      } catch (parseError) {
+        errorDetail = `HTTP ${response.status}: ${response.statusText}`;
+      }
+
       const error: ApiError = {
-        detail: await response.text().catch(() => 'An error occurred'),
+        detail: errorDetail,
         status: response.status,
       };
       throw error;
