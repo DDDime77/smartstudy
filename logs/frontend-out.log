@@ -8,3 +8,196 @@
 2025-11-11T03:11:15: 
 2025-11-11T03:11:15:  ✓ Starting...
 2025-11-11T03:11:16:  ✓ Ready in 215ms
+2025-11-11T05:43:26: 🤖 Calling OpenAI for time estimation...
+2025-11-11T05:43:28: ✅ AI estimation successful: 3 hours (75% of 4h budget, ~1.5h/day)
+2025-11-11T05:43:34: 📊 Task Distribution Calculation:
+2025-11-11T05:43:34:   Total Estimated Hours: 3.0h
+2025-11-11T05:43:34:   Hours per difficulty: 1.0h
+2025-11-11T05:43:34:   Easy sessions (45min avg): 1
+2025-11-11T05:43:34:   Medium sessions (60min avg): 1
+2025-11-11T05:43:34:   Hard sessions (75min avg): 1
+2025-11-11T05:43:34:   Total sessions: 3
+2025-11-11T05:43:34: 📅 Pre-calculated Equal Distribution:
+2025-11-11T05:43:34:   Day interval: 0.67 days
+2025-11-11T05:43:34:   Session 1: 2025-11-11
+2025-11-11T05:43:34:   Session 2: 2025-11-11
+2025-11-11T05:43:34:   Session 3: 2025-11-12
+2025-11-11T05:43:34: 🤖 Calling OpenAI with 3 sessions to generate
+2025-11-11T05:43:39: Executing tool: create_assignment {"subject": "Economics", "topic": "Intro: Basic Macroeconomic Concepts", "difficulty": "easy", "estimated_minutes": 40}
+2025-11-11T05:43:39: 📅 Session 1: Assigning date 2025-11-11 (morning)
+2025-11-11T05:43:39: Executing tool: create_assignment {"subject": "Economics", "topic": "Practice: Fiscal and Monetary Policy", "difficulty": "medium", "estimated_minutes": 60}
+2025-11-11T05:43:39: 📅 Session 2: Assigning date 2025-11-11 (afternoon)
+2025-11-11T05:43:39: Executing tool: create_assignment {"subject": "Economics", "topic": "Advanced: International Trade and Policy", "difficulty": "hard", "estimated_minutes": 80}
+2025-11-11T05:43:39: 📅 Session 3: Assigning date 2025-11-12 (evening)
+2025-11-11T05:55:11: 🔵 [OAuth Callback] ====== Starting OAuth callback ======
+2025-11-11T05:55:11: 🔵 [OAuth Callback] Request URL: https://localhost:4000/api/google-classroom/callback?state=gub4da&code=4%2F0Ab32j93-0Nd0rEoWoALxa_x6kn2z0VaJKP9F3X-w-cNmeONtkCpMFxSV2RZhEUAuV1mb-w&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.announcements.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.courses.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent
+2025-11-11T05:55:11: 🔵 [OAuth Callback] Has authorization code: true
+2025-11-11T05:55:11: 🔵 [OAuth Callback] Has error: false
+2025-11-11T05:55:11: 🔵 [OAuth Callback] Initializing OAuth2 client...
+2025-11-11T05:55:11: 🔵 [OAuth Callback] Exchanging authorization code for tokens...
+2025-11-11T05:55:11: ✅ [OAuth Callback] Tokens received successfully
+2025-11-11T05:55:11: 🔵 [OAuth Callback] Fetching user info...
+2025-11-11T05:55:12: ✅ [OAuth Callback] User info: { email: 'ashvoev77@gmail.com', name: 'asda sdsa' }
+2025-11-11T05:55:12: 🔵 [OAuth Callback] Fetching Google Classroom courses...
+2025-11-11T05:55:12: ✅ [OAuth Callback] Fetched 2 courses from Google Classroom
+2025-11-11T05:55:12: 📚 [OAuth Callback] Course details: [
+2025-11-11T05:55:12:   {
+2025-11-11T05:55:12:     id: '828283532543',
+2025-11-11T05:55:12:     name: 'Physics',
+2025-11-11T05:55:12:     section: undefined,
+2025-11-11T05:55:12:     description: undefined
+2025-11-11T05:55:12:   },
+2025-11-11T05:55:12:   {
+2025-11-11T05:55:12:     id: '823915770437',
+2025-11-11T05:55:12:     name: 'Math AA HL',
+2025-11-11T05:55:12:     section: undefined,
+2025-11-11T05:55:12:     description: undefined
+2025-11-11T05:55:12:   }
+2025-11-11T05:55:12: ]
+2025-11-11T05:55:12: 🔵 [OAuth Callback] Preparing redirect...
+2025-11-11T05:55:12: 🔵 [OAuth Callback] Redirect URL: https://sshours.cfd/?classroom=success
+2025-11-11T05:55:12: 🔵 [OAuth Callback] Base URL: https://sshours.cfd
+2025-11-11T05:55:12: 🔵 [OAuth Callback] Environment: production
+2025-11-11T05:55:12: 🔵 [OAuth Callback] API URL: https://sshours.cfd/api
+2025-11-11T05:55:12: 🔵 [OAuth Callback] Setting cookies...
+2025-11-11T05:55:12: ✅ [OAuth Callback] Set google_tokens cookie
+2025-11-11T05:55:12: ✅ [OAuth Callback] Set google_courses cookie with 2 courses
+2025-11-11T05:55:12: 🎉 [OAuth Callback] ====== OAuth callback complete, redirecting ======
+2025-11-11T05:56:12: 🔵 [OAuth Callback] ====== Starting OAuth callback ======
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Request URL: https://localhost:4000/api/google-classroom/callback?state=82q1fl&code=4%2F0Ab32j92u0__3eLOl_rwkMMi8PdtfqEYf-rsUHEGyPBJr89UL6CzL_9Q7-8bdBgRqcpkz0Q&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.announcements.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.courses.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Has authorization code: true
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Has error: false
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Initializing OAuth2 client...
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Exchanging authorization code for tokens...
+2025-11-11T05:56:12: ✅ [OAuth Callback] Tokens received successfully
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Fetching user info...
+2025-11-11T05:56:12: ✅ [OAuth Callback] User info: { email: 'lev.parfenov46@gmail.com', name: 'Лев Парфёнов' }
+2025-11-11T05:56:12: 🔵 [OAuth Callback] Fetching Google Classroom courses...
+2025-11-11T05:56:13: ✅ [OAuth Callback] Fetched 1 courses from Google Classroom
+2025-11-11T05:56:13: 📚 [OAuth Callback] Course details: [
+2025-11-11T05:56:13:   {
+2025-11-11T05:56:13:     id: '822752267864',
+2025-11-11T05:56:13:     name: 'Math',
+2025-11-11T05:56:13:     section: 'Math',
+2025-11-11T05:56:13:     description: undefined
+2025-11-11T05:56:13:   }
+2025-11-11T05:56:13: ]
+2025-11-11T05:56:13: 🔵 [OAuth Callback] Preparing redirect...
+2025-11-11T05:56:13: 🔵 [OAuth Callback] Redirect URL: https://sshours.cfd/?classroom=success
+2025-11-11T05:56:13: 🔵 [OAuth Callback] Base URL: https://sshours.cfd
+2025-11-11T05:56:13: 🔵 [OAuth Callback] Environment: production
+2025-11-11T05:56:13: 🔵 [OAuth Callback] API URL: https://sshours.cfd/api
+2025-11-11T05:56:13: 🔵 [OAuth Callback] Setting cookies...
+2025-11-11T05:56:13: ✅ [OAuth Callback] Set google_tokens cookie
+2025-11-11T05:56:13: ✅ [OAuth Callback] Set google_courses cookie with 1 courses
+2025-11-11T05:56:13: 🎉 [OAuth Callback] ====== OAuth callback complete, redirecting ======
+2025-11-11T05:56:14: 🟢 [Courses API] ====== Fetching courses from cookies ======
+2025-11-11T05:56:14: 🟢 [Courses API] Cookie exists: true
+2025-11-11T05:56:14: 🟢 [Courses API] Parsing courses from cookie...
+2025-11-11T05:56:14: 🟢 [Courses API] Found 1 courses in cookie
+2025-11-11T05:56:14: 🟢 [Courses API] Formatting courses and adding categories...
+2025-11-11T05:56:14: ✅ [Courses API] Returning 1 formatted courses
+2025-11-11T05:56:14: 📚 [Courses API] Course list: [ { name: 'Math', category: 'Mathematics' } ]
+2025-11-11T05:56:26: 🟢 [Import API] ====== Received import request ======
+2025-11-11T05:56:26: 🟢 [Import API] Number of items: 1
+2025-11-11T05:56:26: 🟢 [Import API] Items: [
+2025-11-11T05:56:26:   {
+2025-11-11T05:56:26:     course_id: '822752267864',
+2025-11-11T05:56:26:     course_name: 'Math',
+2025-11-11T05:56:26:     current_grade: '5',
+2025-11-11T05:56:26:     target_grade: '7',
+2025-11-11T05:56:26:     level: 'HL',
+2025-11-11T05:56:26:     category: 'Mathematics'
+2025-11-11T05:56:26:   }
+2025-11-11T05:56:26: ]
+2025-11-11T05:56:26: ✅ [Import API] Mapped subject 1: Math {
+2025-11-11T05:56:26:   name: 'Math',
+2025-11-11T05:56:26:   level: 'HL',
+2025-11-11T05:56:26:   category: 'Mathematics',
+2025-11-11T05:56:26:   current_grade: '5',
+2025-11-11T05:56:26:   target_grade: '7'
+2025-11-11T05:56:26: }
+2025-11-11T05:56:26: 🎉 [Import API] Successfully mapped 1 subjects
+2025-11-11T05:56:26: 📚 [Import API] Subject list: [
+2025-11-11T05:56:26:   {
+2025-11-11T05:56:26:     name: 'Math',
+2025-11-11T05:56:26:     level: 'HL',
+2025-11-11T05:56:26:     category: 'Mathematics',
+2025-11-11T05:56:26:     current_grade: '5',
+2025-11-11T05:56:26:     target_grade: '7'
+2025-11-11T05:56:26:   }
+2025-11-11T05:56:26: ]
+2025-11-11T05:57:13: 🔵 [OAuth Callback] ====== Starting OAuth callback ======
+2025-11-11T05:57:13: 🔵 [OAuth Callback] Request URL: https://localhost:4000/api/google-classroom/callback?state=vtz33&code=4%2F0Ab32j906pzyy9ypil2Xy6taoorWertEReU8h3yAgUQsZQ_L1QN48v7aAjsIYhnhWHH3erg&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.announcements.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.courses.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent
+2025-11-11T05:57:13: 🔵 [OAuth Callback] Has authorization code: true
+2025-11-11T05:57:13: 🔵 [OAuth Callback] Has error: false
+2025-11-11T05:57:13: 🔵 [OAuth Callback] Initializing OAuth2 client...
+2025-11-11T05:57:13: 🔵 [OAuth Callback] Exchanging authorization code for tokens...
+2025-11-11T05:57:13: ✅ [OAuth Callback] Tokens received successfully
+2025-11-11T05:57:13: 🔵 [OAuth Callback] Fetching user info...
+2025-11-11T05:57:14: ✅ [OAuth Callback] User info: { email: 'ashvoev77@gmail.com', name: 'asda sdsa' }
+2025-11-11T05:57:14: 🔵 [OAuth Callback] Fetching Google Classroom courses...
+2025-11-11T05:57:14: ✅ [OAuth Callback] Fetched 2 courses from Google Classroom
+2025-11-11T05:57:14: 📚 [OAuth Callback] Course details: [
+2025-11-11T05:57:14:   {
+2025-11-11T05:57:14:     id: '828283532543',
+2025-11-11T05:57:14:     name: 'Physics',
+2025-11-11T05:57:14:     section: undefined,
+2025-11-11T05:57:14:     description: undefined
+2025-11-11T05:57:14:   },
+2025-11-11T05:57:14:   {
+2025-11-11T05:57:14:     id: '823915770437',
+2025-11-11T05:57:14:     name: 'Math AA HL',
+2025-11-11T05:57:14:     section: undefined,
+2025-11-11T05:57:14:     description: undefined
+2025-11-11T05:57:14:   }
+2025-11-11T05:57:14: ]
+2025-11-11T05:57:14: 🔵 [OAuth Callback] Preparing redirect...
+2025-11-11T05:57:14: 🔵 [OAuth Callback] Redirect URL: https://sshours.cfd/?classroom=success
+2025-11-11T05:57:14: 🔵 [OAuth Callback] Base URL: https://sshours.cfd
+2025-11-11T05:57:14: 🔵 [OAuth Callback] Environment: production
+2025-11-11T05:57:14: 🔵 [OAuth Callback] API URL: https://sshours.cfd/api
+2025-11-11T05:57:14: 🔵 [OAuth Callback] Setting cookies...
+2025-11-11T05:57:14: ✅ [OAuth Callback] Set google_tokens cookie
+2025-11-11T05:57:14: ✅ [OAuth Callback] Set google_courses cookie with 2 courses
+2025-11-11T05:57:14: 🎉 [OAuth Callback] ====== OAuth callback complete, redirecting ======
+2025-11-11T05:57:39: 🔵 [OAuth Callback] ====== Starting OAuth callback ======
+2025-11-11T05:57:39: 🔵 [OAuth Callback] Request URL: https://localhost:4000/api/google-classroom/callback?state=vtz33&code=4%2F0Ab32j906pzyy9ypil2Xy6taoorWertEReU8h3yAgUQsZQ_L1QN48v7aAjsIYhnhWHH3erg&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.announcements.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.courses.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent
+2025-11-11T05:57:39: 🔵 [OAuth Callback] Has authorization code: true
+2025-11-11T05:57:39: 🔵 [OAuth Callback] Has error: false
+2025-11-11T05:57:39: 🔵 [OAuth Callback] Initializing OAuth2 client...
+2025-11-11T05:57:39: 🔵 [OAuth Callback] Exchanging authorization code for tokens...
+2025-11-11T05:58:43: 🔵 [OAuth Callback] ====== Starting OAuth callback ======
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Request URL: https://localhost:4000/api/google-classroom/callback?state=nc20d&code=4%2F0Ab32j93h7hzqcMWSCh-nUlnXCLOG6VSssFaBgM65KKlrUaMOieMYRsQF-LGAUWMy101ZIA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.announcements.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fclassroom.courses.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Has authorization code: true
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Has error: false
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Initializing OAuth2 client...
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Exchanging authorization code for tokens...
+2025-11-11T05:58:43: ✅ [OAuth Callback] Tokens received successfully
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Fetching user info...
+2025-11-11T05:58:43: ✅ [OAuth Callback] User info: { email: 'ashvoev77@gmail.com', name: 'asda sdsa' }
+2025-11-11T05:58:43: 🔵 [OAuth Callback] Fetching Google Classroom courses...
+2025-11-11T05:58:44: ✅ [OAuth Callback] Fetched 2 courses from Google Classroom
+2025-11-11T05:58:44: 📚 [OAuth Callback] Course details: [
+2025-11-11T05:58:44:   {
+2025-11-11T05:58:44:     id: '828283532543',
+2025-11-11T05:58:44:     name: 'Physics',
+2025-11-11T05:58:44:     section: undefined,
+2025-11-11T05:58:44:     description: undefined
+2025-11-11T05:58:44:   },
+2025-11-11T05:58:44:   {
+2025-11-11T05:58:44:     id: '823915770437',
+2025-11-11T05:58:44:     name: 'Math AA HL',
+2025-11-11T05:58:44:     section: undefined,
+2025-11-11T05:58:44:     description: undefined
+2025-11-11T05:58:44:   }
+2025-11-11T05:58:44: ]
+2025-11-11T05:58:44: 🔵 [OAuth Callback] Preparing redirect...
+2025-11-11T05:58:44: 🔵 [OAuth Callback] Redirect URL: https://sshours.cfd/?classroom=success
+2025-11-11T05:58:44: 🔵 [OAuth Callback] Base URL: https://sshours.cfd
+2025-11-11T05:58:44: 🔵 [OAuth Callback] Environment: production
+2025-11-11T05:58:44: 🔵 [OAuth Callback] API URL: https://sshours.cfd/api
+2025-11-11T05:58:44: 🔵 [OAuth Callback] Setting cookies...
+2025-11-11T05:58:44: ✅ [OAuth Callback] Set google_tokens cookie
+2025-11-11T05:58:44: ✅ [OAuth Callback] Set google_courses cookie with 2 courses
+2025-11-11T05:58:44: 🎉 [OAuth Callback] ====== OAuth callback complete, redirecting ======
