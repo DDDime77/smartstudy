@@ -39,9 +39,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const systemPrompt = `You are an expert educational advisor specializing in exam preparation time estimation.
+    const systemPrompt = `You are an expert educational advisor specializing in REALISTIC exam preparation time estimation.
 
-Your task is to estimate the TOTAL number of hours a student needs to prepare for an upcoming exam, based on the following factors:
+Your task is to estimate the TOTAL number of hours a student needs to prepare for an upcoming exam.
+
+CRITICAL CONSTRAINT: The student has ${availableHours || 'limited'} hours available until the exam. Your estimate MUST be achievable within this timeframe.
 
 STUDENT CONTEXT:
 - Education System: ${educationSystem}
@@ -51,60 +53,84 @@ STUDENT CONTEXT:
 EXAM DETAILS:
 - Subject: ${subject}
 - Paper Type: ${paperType}
-- Units/Topics to Cover: ${units.join(', ')}
+- Units/Topics to Cover: ${units.join(', ')} (${units.length} units total)
 - Days Until Exam: ${daysUntilExam}
 - Available Study Hours: ${availableHours || 'Not specified'} hours
 
 ESTIMATION GUIDELINES:
 
-1. **Subject Complexity**: Consider the inherent difficulty of the subject
-2. **Paper Type Weight**: Different exam papers require different preparation intensity
-   - Paper 1 (MCQ/Short answer): Usually less intensive
-   - Paper 2 (Essay/Long form): More intensive, requires deeper understanding
-   - Paper 3 (Data analysis): Moderate, requires practice with problem-solving
-   - Internal Assessment/IA: Very intensive, requires research and writing
-   - Extended Essay: Most intensive, requires extensive research
-   - Coursework/NEA: Similar to IA, project-based
+1. **REALISTIC & ACHIEVABLE**:
+   - The estimate MUST fit within ${availableHours} hours (student's actual available time)
+   - Target 60-80% of available time for healthy balance (leave buffer for rest/life)
+   - For short timeframes (< 7 days), you can use up to 85% of available hours
+   - NEVER exceed available hours - prioritize most important content
 
-3. **Unit Coverage**: Estimate hours per unit based on:
-   - Breadth of content in each unit
-   - Typical difficulty level for this subject and grade
-   - Prior knowledge assumption (student has attended classes)
-   - Need for practice problems/past papers
+2. **Assume Prior Knowledge**:
+   - Student has attended ALL classes and has basic understanding
+   - This is REVIEW and PRACTICE, NOT learning from scratch
+   - Focus on consolidation, practice problems, and exam technique
+   - NOT building foundational knowledge
 
-4. **Education System Context**:
-   - IB: Typically requires deeper conceptual understanding, essay writing
-   - A-Level: Requires detailed content knowledge and application
-   - American (AP): Varies by AP vs Standard, focuses on breadth and application
+3. **Paper Type Time Requirements** (revision, not initial learning):
+   - Paper 1 (MCQ/Short): 3-5 hours per unit (quick review + practice)
+   - Paper 2 (Essay/Long): 4-6 hours per unit (deeper review + writing practice)
+   - Paper 3 (Data/Problem): 4-6 hours per unit (problem sets + practice)
+   - Internal Assessment/IA: 8-12 hours total (refinement + polishing)
+   - Extended Essay: 10-15 hours total (editing + bibliography)
+   - Coursework/NEA: 8-12 hours total (review + improvements)
 
-5. **Grade Level**: Higher grades = more complex content = more time needed
+4. **Unit Coverage Strategy**:
+   - Per unit calculation for review: 2-6 hours depending on complexity
+   - Account for overlap between units (don't double-count)
+   - Prioritize high-weight topics over low-weight ones
+   - Include 2-3 hours for full practice exams/past papers
 
-6. **Realistic Time Allocation**:
-   - Account for learning, review, practice, and consolidation
-   - Include time for practice exams/past papers
-   - Consider diminishing returns (don't over-estimate)
-   - Assume student has been attending classes (not learning from scratch)
-   - Be realistic about what can be achieved
+5. **Time Efficiency**:
+   - Students with good attendance need LESS time (not more)
+   - Diminishing returns after certain point - more time ≠ better results
+   - Quality > Quantity: focused study is more effective
+   - Leave time for rest, meals, breaks (essential for retention)
 
-7. **Important**:
-   - Do NOT simply multiply units by a fixed number
-   - Consider the actual content depth and complexity
-   - Account for overlap between units
-   - Consider exam format requirements (essays, problem-solving, etc.)
+6. **Calculation Method**:
+   - Calculate ideal hours needed for thorough review
+   - Compare to available hours
+   - If ideal > available: scale down to fit (prioritize core content)
+   - If ideal < available: don't inflate estimate - use the lower number
+   - Final estimate should be 60-80% of available hours (85% max for urgent exams)
+
+EXAMPLE CALCULATIONS:
+
+Example 1: 5 units, Paper 2, 30 available hours, 10 days
+- Per unit: 4 hours × 5 = 20 hours
+- Practice exams: 3 hours
+- Total ideal: 23 hours
+- Available: 30 hours
+- Recommendation: 23 hours (77% of available - perfect balance)
+
+Example 2: 8 units, Paper 1, 20 available hours, 3 days (urgent!)
+- Ideal per unit: 3 hours × 8 = 24 hours
+- BUT only 20 hours available
+- Scale down: Focus on 6 most important units (3 hours each = 18 hours)
+- Recommendation: 17 hours (85% of available, 2 units briefly reviewed)
 
 OUTPUT FORMAT:
 Provide your response as a JSON object with EXACTLY this structure:
 {
-  "estimatedHours": <number>,
+  "estimatedHours": <number between 0.6*availableHours and 0.85*availableHours>,
   "breakdown": {
     "<unit1>": <hours>,
     "<unit2>": <hours>
   },
-  "reasoning": "<brief 2-3 sentence explanation>",
-  "recommendation": "<one sentence about whether available hours are sufficient>"
+  "reasoning": "<2-3 sentences: why this amount, how it fits available time, study approach>",
+  "recommendation": "<realistic assessment: sufficient/tight/need to prioritize>"
 }
 
-CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, just the JSON object.`;
+CRITICAL RULES:
+- estimatedHours MUST be ≤ ${availableHours ? availableHours * 0.85 : 100} (85% of available time maximum)
+- estimatedHours SHOULD be around ${availableHours ? Math.round(availableHours * 0.7) : 70}h (70% target for balance)
+- Focus on REVIEW not learning from scratch
+- Be realistic - students have other commitments
+- Respond ONLY with valid JSON. No markdown, no code blocks.`;
 
     const userPrompt = `Estimate the study hours needed for this exam preparation.`;
 
@@ -146,13 +172,24 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, just the JS
       throw new Error('AI response missing required fields');
     }
 
-    // Ensure estimatedHours is reasonable (between 2 and 200 hours)
-    if (result.estimatedHours < 2 || result.estimatedHours > 200) {
-      console.warn('AI estimated unreasonable hours:', result.estimatedHours);
-      result.estimatedHours = Math.max(2, Math.min(200, result.estimatedHours));
+    // Ensure estimatedHours respects available time constraints
+    const minHours = 2; // Absolute minimum
+    const maxHours = availableHours ? availableHours * 0.85 : 200; // 85% of available or 200 max
+    const targetHours = availableHours ? availableHours * 0.7 : 70; // 70% target
+
+    let originalEstimate = result.estimatedHours;
+
+    // Clamp to reasonable range
+    if (result.estimatedHours < minHours) {
+      console.warn(`AI estimated too low: ${result.estimatedHours}h, using minimum ${minHours}h`);
+      result.estimatedHours = minHours;
+    } else if (result.estimatedHours > maxHours) {
+      console.warn(`AI estimated too high: ${result.estimatedHours}h (${availableHours}h available), capping at ${maxHours.toFixed(1)}h (85%)`);
+      result.estimatedHours = Math.round(maxHours);
+      result.recommendation = `Time is tight! Focus on high-priority topics. Original estimate was ${originalEstimate}h but only ${availableHours}h available.`;
     }
 
-    console.log('✅ AI estimation successful:', result.estimatedHours, 'hours');
+    console.log('✅ AI estimation successful:', result.estimatedHours, 'hours', availableHours ? `(${Math.round((result.estimatedHours / availableHours) * 100)}% of available)` : '');
 
     return NextResponse.json(result);
 
