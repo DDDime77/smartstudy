@@ -118,7 +118,7 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, just the JS
       ],
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 10000,
     });
 
     const responseContent = completion.choices[0].message.content;

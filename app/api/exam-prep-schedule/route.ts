@@ -240,6 +240,7 @@ Now generate the study plan by calling create_assignment for each session. Be sp
       tool_choice: 'auto',
       parallel_tool_calls: true,
       temperature: 0.7,
+      max_tokens: 16000, // Increased 10x for complex exam prep scheduling
       stream: true,
     });
 

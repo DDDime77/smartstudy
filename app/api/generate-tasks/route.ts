@@ -105,7 +105,7 @@ Generate the problem now.`;
               content: taskPrompt
             }],
             temperature: 0.7,
-            max_tokens: 1500,
+            max_tokens: 15000,
             stream: true,
           });
 
@@ -169,7 +169,7 @@ Generate the solution now. Be thorough and educational.`;
             }],
             stream: true,
             temperature: 0.3,
-            max_tokens: 10000,
+            max_tokens: 100000,
           });
 
           // Send periodic keepalives during solution generation

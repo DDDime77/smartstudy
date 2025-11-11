@@ -39,7 +39,7 @@ Be patient, supportive, and adapt your explanations to the student's level of un
       model: 'gpt-4',
       messages: [systemMessage, ...messages],
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 10000,
       stream: true,
     });
 
