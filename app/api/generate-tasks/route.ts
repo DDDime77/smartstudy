@@ -105,7 +105,7 @@ Generate the problem now.`;
               content: taskPrompt
             }],
             temperature: 0.7,
-            max_tokens: 15000,
+            max_tokens: 4000, // GPT-4 context limit is 8192 total
             stream: true,
           });
 
@@ -169,7 +169,7 @@ Generate the solution now. Be thorough and educational.`;
             }],
             stream: true,
             temperature: 0.3,
-            max_tokens: 100000,
+            max_tokens: 8000, // GPT-4o max output tokens
           });
 
           // Send periodic keepalives during solution generation
