@@ -39,7 +39,7 @@ Be patient, supportive, and adapt your explanations to the student's level of un
       model: 'gpt-4',
       messages: [systemMessage, ...messages],
       temperature: 0.7,
-      max_tokens: 10000,
+      max_tokens: 3000, // GPT-4 has 8192 total context limit (input + output)
       stream: true,
     });
 
