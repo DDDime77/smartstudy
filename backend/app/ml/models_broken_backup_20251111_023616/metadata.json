@@ -1,0 +1,31 @@
+{
+  "user_ids": {
+    "202e7cca-51d9-4a87-b6e5-cdd083b3a6c5": 0,
+    "537b7b10-dd68-4e27-844f-20882922538a": 1,
+    "af7b3bcb-3593-427e-b430-380106777910": 2,
+    "a8a61c28-ba41-4b3e-baae-2951042007bb": 3
+  },
+  "topics": {
+    "elsa": 0,
+    "Algebra": 1,
+    "Sum": 2,
+    "Statistics": 3,
+    "Probability": 4,
+    "Trig identity": 5,
+    "Geometry": 6,
+    "Microeconomics": 7,
+    "Calculus": 8,
+    "Waves": 9,
+    "Trigonometry": 10,
+    "Mechanics": 11,
+    "Exam Preparation": 12
+  },
+  "difficulties": {
+    "easy": 0,
+    "medium": 1,
+    "hard": 2
+  },
+  "n_users": 4,
+  "n_topics": 13,
+  "n_difficulties": 3
+}

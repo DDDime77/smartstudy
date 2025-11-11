@@ -1,0 +1,7 @@
+2025-11-11T03:11:15:  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+2025-11-11T03:11:15:  We detected multiple lockfiles and selected the directory of /home/claudeuser/package-lock.json as the root directory.
+2025-11-11T03:11:15:  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+2025-11-11T03:11:15:    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+2025-11-11T03:11:15:  Detected additional lockfiles: 
+2025-11-11T03:11:15:    * /home/claudeuser/smartstudy/package-lock.json
+2025-11-11T03:11:15: 
