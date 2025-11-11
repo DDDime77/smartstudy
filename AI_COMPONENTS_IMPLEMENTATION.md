@@ -18,56 +18,47 @@ We built a small, practical stack for the list of problems: generating study mat
 
 ---
 
-# ML Prediction System - Technical Detail
+# ML Prediction System
 
-## Architecture
+## What It Does
 
-**Hybrid three-layer system**: Embedding neural network (primary) → LNIRT statistical model (fallback) → Adaptive rule-based layer (post-processing)
+The system acts like a **personal tutor** that learns each student's ability and predicts two things for every practice task: **(1) Will they answer correctly?** (0-95% probability) and **(2) How long will it take?** (10-300 seconds). Predictions improve as students complete more tasks.
 
-**Neural Network (TensorFlow/Keras)**:
-- Input: User embedding (32D), topic embedding (16D), difficulty embedding (8D), 13 history features
-- Hidden layers: Dense 128→64→32 units with BatchNorm, ReLU, Dropout
-- Output: Dual-head (success probability via sigmoid, time via softplus)
+## How It Works
 
-**13 History Features**:
-- Overall: success_rate, avg_time, task_count
-- Topic-specific: topic_success, topic_time, topic_count
-- Difficulty-specific: diff_success, diff_time, diff_count
-- Recent: recent_success, recent_time (last 5 tasks)
-- Improvement: success_delta, time_delta
+**Step 1 - Collect Data**: When you complete a task, we record: correct/incorrect, time taken, topic, difficulty.
 
-**Adaptive Rules** (applied sequentially):
+**Step 2 - Learn Patterns**: A neural network (3-layer, 128→64→32 neurons) learns from all students' data. It creates unique "fingerprints" for each student (32 numbers), each topic (16 numbers), and each difficulty (8 numbers). It also tracks 13 performance metrics: overall success rate, topic-specific performance, recent trends (last 5 tasks), improvement speed.
 
-| Rule | Trigger | Action |
-|------|---------|--------|
-| Early Learning | ≤3 tasks in topic | Use actual_time × 1.05, map success to 85% |
-| Boost | Recent success >80% & improving | Increase by +40% (cap 95%) |
-| Reduce | Recent success <20% | Reduce to 15% minimum |
-| Override | Prediction error >100% | Use actual performance directly |
+**Step 3 - Make Smart Adjustments**: Four rules fine-tune predictions in real-time:
+- **New learner** (≤3 tasks): Use your actual performance, not predictions
+- **Doing great** (>80% recent success): Boost confidence +40% (max 95%)
+- **Struggling** (<20% recent success): Lower to 15% minimum, offer easier content
+- **Big mismatch** (predicted 60s but you take 120s): Trust your actual speed
 
-## Training & Performance
+**Step 4 - Keep Learning**: Every 5 task completions (from any student) trigger automatic retraining (~30 seconds in background). Your predictions get more accurate over time.
 
-**Automatic Training**: Every 5 global task completions trigger async retraining (~30s, Adam optimizer, MSE loss, early stopping at 50 epochs)
+## Performance
 
-**Performance Metrics**:
-- Prediction accuracy: ~85% (calibrated probability)
-- Time error: ±15s for 75% of tasks
-- Cold start: 50% → Personalized: 80-90% (after 20+ tasks)
-- Adaptation speed: 3-5 tasks to detect improvement/struggle
+| Metric | Value | What It Means |
+|--------|-------|---------------|
+| Accuracy | ~85% | If we predict 80% success, you succeed ~80% of the time |
+| Time error | ±15s | Predictions within 15 seconds for 75% of tasks |
+| Cold start | 50% | First task with no data (generic guess) |
+| Personalized | 80-90% | After 20+ tasks (knows your abilities well) |
+| Adapts in | 3-5 tasks | Detects if you're improving or struggling |
 
-**Example Evolution** (Sarah, new student, Algebra):
-- Task 1: 50%, 60s → ✓30s (default)
-- Task 2: 85%, 32s → ✓45s (early learning)
-- Task 4: 65%, 42s → ✓30s (ML + adaptive)
-- Task 20: 90%, 33s → ✓30s (fully personalized)
+## Example: Sarah Learns Algebra
 
-## Implementation
+| Task | Prediction | Actual | Why? |
+|------|------------|--------|------|
+| 1 | 50%, 60s | ✓ 30s | No data yet—system guesses average |
+| 2 | 85%, 32s | ✓ 45s | "You did well! Predicting similar success" |
+| 4 | 65%, 42s | ✓ 30s | Got one wrong → confidence adjusts down |
+| 20 | 90%, 33s | ✓ 30s | System knows Sarah well—accurate prediction |
 
-**Tech Stack**: TensorFlow/Keras 2.x, PostgreSQL, async workers
-**Key Files**: `embedding_model_v2.py` (neural net), `embedding_service.py` (prediction + rules), `lnirt_model.py` (statistical fallback)
-**Storage**: Models saved as `.keras` files, loaded on-demand
-**Data Flow**: Request → Fetch history → Extract features → Generate embeddings → NN prediction → Apply rules → Final output
+**Tech**: TensorFlow neural network + PostgreSQL database + async training workers
+**Files**: `embedding_model_v2.py`, `embedding_service.py`, `lnirt_model.py`
 
 ---
-
-**Version**: 2.0 | **Updated**: November 2025
+*Version 2.0 | November 2025*
