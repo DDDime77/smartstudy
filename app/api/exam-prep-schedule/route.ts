@@ -233,6 +233,8 @@ Now generate the study plan by calling create_assignment for each session. Be sp
       }
     ];
 
+    console.log('🤖 Calling OpenAI with', totalSessions, 'sessions to generate');
+
     const initialStream = await openai.chat.completions.create({
       model: 'gpt-4-turbo',
       messages,
@@ -240,7 +242,7 @@ Now generate the study plan by calling create_assignment for each session. Be sp
       tool_choice: 'auto',
       parallel_tool_calls: true,
       temperature: 0.7,
-      max_tokens: 16000, // Increased 10x for complex exam prep scheduling
+      max_tokens: 4000, // GPT-4 Turbo limit is 4096, using 4000 to be safe
       stream: true,
     });
 
@@ -337,9 +339,17 @@ Now generate the study plan by calling create_assignment for each session. Be sp
       },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Exam prep schedule API error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to generate schedule' }), {
+    console.error('Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+    });
+    return new Response(JSON.stringify({
+      error: 'Failed to generate schedule',
+      details: error?.message || 'Unknown error'
+    }), {
       status: 500,
     });
   }
