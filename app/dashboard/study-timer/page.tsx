@@ -879,8 +879,8 @@ export default function StudyTimerPage() {
         console.log('No active session to update (normal for free study mode)', err);
       }
 
-      // Also update assignment time if this is an assignment session
-      if (assignmentSession && currentElapsed > 0) {
+      // Also update assignment time if this is an assignment session (not free study)
+      if (assignmentSession && assignmentSession.assignmentId && currentElapsed > 0) {
         await saveAssignmentTime();
       }
 
@@ -893,7 +893,7 @@ export default function StudyTimerPage() {
   };
 
   const saveAssignmentTime = async () => {
-    if (!assignmentSession) return;
+    if (!assignmentSession || !assignmentSession.assignmentId) return;
 
     try {
       const currentElapsed = elapsedSecondsRef.current;
