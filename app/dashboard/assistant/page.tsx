@@ -159,24 +159,36 @@ export default function StudyAssistantPage() {
         throw new Error(`Failed to load recommendation: ${response.status}`);
       }
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+      // Check if response is JSON or streaming text
+      const contentType = response.headers.get('content-type');
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      if (contentType?.includes('application/json')) {
+        // Handle JSON response (onboarding case)
+        const data = await response.json();
+        setAssistantData(prev => ({
+          ...prev!,
+          recommendation: data.recommendation || 'No recommendation available'
+        }));
+      } else {
+        // Handle streaming text response
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-          const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          // Update recommendation as it streams
-          setAssistantData(prev => ({
-            ...prev!,
-            recommendation: buffer
-          }));
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+
+            // Update recommendation as it streams
+            setAssistantData(prev => ({
+              ...prev!,
+              recommendation: buffer
+            }));
+          }
         }
       }
 
