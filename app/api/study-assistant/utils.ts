@@ -87,6 +87,11 @@ export async function createSingleAssignmentInline(
   const requiredTasksCount = params.required_tasks_count || 5;
   const title = 'Study Session: ' + matchingSubject.name;
 
+  // Truncate topic to 500 characters to prevent database error
+  const topicTruncated = params.topic.length > 500
+    ? params.topic.substring(0, 497) + '...'
+    : params.topic;
+
   await db.query(
     'INSERT INTO ai_assignments (user_id, subject_id, title, subject_name, topic, difficulty, scheduled_date, scheduled_time, estimated_minutes, required_tasks_count) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
     [
@@ -94,7 +99,7 @@ export async function createSingleAssignmentInline(
       matchingSubject.id,
       title,
       matchingSubject.name,
-      params.topic,
+      topicTruncated,
       difficulty,
       dateStr,
       scheduledTime,
