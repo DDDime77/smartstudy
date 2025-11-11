@@ -408,6 +408,9 @@ class EmbeddingModelService:
             adjusted_prob = max(0.25, base_prob * 0.7)
 
         # RULE 3: Adjust time based on recent speed (MORE SENSITIVE)
+        # Check both: improvement over time AND deviation from prediction
+        prediction_error = base_time - recent_avg_time  # Positive = actual faster than predicted
+
         if time_improvement > 10:  # Getting faster by 10+ seconds
             # User is getting faster - reduce time prediction
             time_factor = 0.9 - (min(time_improvement, 60) / 300)  # Up to 10% reduction
@@ -416,6 +419,14 @@ class EmbeddingModelService:
             # User is getting slower - increase time prediction
             time_factor = 1.1 + (min(abs(time_improvement), 60) / 300)  # Up to 10% increase
             adjusted_time = min(300, base_time * time_factor)
+        elif prediction_error > 15:  # Actual time significantly faster than prediction
+            # User consistently faster than ML predicts - adjust toward actual
+            blend_factor = min(prediction_error / base_time, 0.5)  # Max 50% adjustment
+            adjusted_time = max(10, base_time * (1 - blend_factor))
+        elif prediction_error < -15:  # Actual time significantly slower than prediction
+            # User consistently slower than ML predicts - adjust toward actual
+            blend_factor = min(abs(prediction_error) / base_time, 0.5)  # Max 50% adjustment
+            adjusted_time = min(300, base_time * (1 + blend_factor))
 
         # RULE 4: If predictions are unreasonably low/high, constrain them
         if len(relevant_tasks) >= 10:
