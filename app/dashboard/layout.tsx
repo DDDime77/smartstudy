@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import { NotificationProvider } from '@/components/NotificationProvider';
+import { NotificationPopup } from '@/components/NotificationPopup';
 
 export default function DashboardLayout({
   children,
@@ -22,16 +24,21 @@ export default function DashboardLayout({
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-black">
-      {/* Sidebar */}
-      <Sidebar />
+    <NotificationProvider>
+      <div className="min-h-screen bg-black">
+        {/* Sidebar */}
+        <Sidebar />
 
-      {/* Main Content */}
-      <main className="ml-64 min-h-screen">
-        <div className="p-8">
-          {children}
-        </div>
-      </main>
-    </div>
+        {/* Main Content */}
+        <main className="ml-64 min-h-screen">
+          <div className="p-8">
+            {children}
+          </div>
+        </main>
+
+        {/* Notification Popup */}
+        <NotificationPopup />
+      </div>
+    </NotificationProvider>
   );
 }
