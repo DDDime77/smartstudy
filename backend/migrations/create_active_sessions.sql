@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS active_study_sessions (
     pending_task_params JSONB,
 
     -- Grade level for task generation
-    grade_level VARCHAR(10),
+    grade_level VARCHAR(50),
     study_system VARCHAR(50) DEFAULT 'IB',
 
     -- Timestamps
