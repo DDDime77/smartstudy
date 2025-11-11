@@ -73,46 +73,53 @@ export async function POST(req: NextRequest) {
     console.log(`  Hard sessions (75min avg): ${hardSessions}`);
     console.log(`  Total sessions: ${totalSessions}`);
 
+    // PRE-CALCULATE EXACT DATES FOR EQUAL DISTRIBUTION
+    const daysUntilExam = calculation.daysUntil;
+    const dayInterval = daysUntilExam / totalSessions;
+    const scheduledDates: string[] = [];
+
+    for (let i = 0; i < totalSessions; i++) {
+      const dayOffset = Math.floor(dayInterval * i);
+      const sessionDate = new Date(currentDate);
+      sessionDate.setDate(sessionDate.getDate() + dayOffset);
+      scheduledDates.push(sessionDate.toISOString().split('T')[0]);
+    }
+
+    console.log('📅 Pre-calculated Equal Distribution:');
+    console.log(`  Day interval: ${dayInterval.toFixed(2)} days`);
+    scheduledDates.forEach((date, i) => {
+      console.log(`  Session ${i + 1}: ${date}`);
+    });
+
     // AI system prompt for exam prep scheduling
     const systemPrompt = `You are an AI Study Scheduler helping a student prepare for an upcoming exam.
-
-Current Date: ${currentDate}
 
 Exam Details:
 - Subject: ${subject_name}
 - Exam Type: ${exam_type}
-- Exam Date: ${exam_date}
 - Days Until Exam: ${calculation.daysUntil}
 - Units to Cover:
 ${unitsText}
 
 Schedule Analysis:
-- Total Estimated Hours Needed: ${Math.round(totalEstimatedHours)}h (from AI estimation)
+- Total Estimated Hours Needed: ${Math.round(totalEstimatedHours)}h
 - Hours allocated per difficulty: ${Math.round(hoursPerDifficulty)}h each
-- Days until exam: ${calculation.daysUntil}
-- Total Available Hours: ${Math.round(calculation.totalAvailableHours)}h
-
-Student's Busy Schedule (avoid these times):
-${busyScheduleText}
 
 YOUR TASK:
-Create ${totalSessions} study sessions (${easySessions} easy + ${mediumSessions} medium + ${hardSessions} hard) spread across the next ${calculation.daysUntil} days.
+Create ${totalSessions} study sessions (${easySessions} easy + ${mediumSessions} medium + ${hardSessions} hard).
 
 CRITICAL DIFFICULTY DISTRIBUTION REQUIREMENT:
 You MUST create EXACTLY:
 - ${easySessions} sessions with difficulty="easy"
   * Duration: 30-45 minutes each
-  * Tasks: 5 tasks per session
   * Total time for all easy sessions: ~${Math.round(hoursPerDifficulty)}h
 
 - ${mediumSessions} sessions with difficulty="medium"
   * Duration: 50-65 minutes each
-  * Tasks: 6-7 tasks per session
   * Total time for all medium sessions: ~${Math.round(hoursPerDifficulty)}h
 
 - ${hardSessions} sessions with difficulty="hard"
   * Duration: 70-90 minutes each
-  * Tasks: 8-10 tasks per session
   * Total time for all hard sessions: ~${Math.round(hoursPerDifficulty)}h
 
 REQUIREMENTS:
@@ -121,7 +128,6 @@ REQUIREMENTS:
    - Then MEDIUM sessions (${mediumSessions} sessions) for core practice
    - End with HARD sessions (${hardSessions} sessions) for advanced practice and exam prep
    - You MUST specify difficulty AND estimated_minutes explicitly in EVERY create_assignment call
-   - Final session (1-2 days before exam) should be "hard" difficulty
 
 2. **Topic Distribution**: Break down the ${units.length} unit(s) into specific study sessions
    - Use the ACTUAL unit names provided (e.g., "${units[0]}")
@@ -132,58 +138,17 @@ REQUIREMENTS:
    - Medium: "Practice: [Topic]", "Apply: [Concept]"
    - Hard: "Advanced: [Topic]", "Mastery: [Concept]", "Final Review"
 
-3. **EQUAL TIME DISTRIBUTION** (CRITICAL):
-   - Days until exam: ${calculation.daysUntil}
-   - Total sessions to create: ${totalSessions}
-   - Sessions per day: ${(totalSessions / calculation.daysUntil).toFixed(2)}
-
-   DISTRIBUTION FORMULA:
-   - Divide ${calculation.daysUntil} days into ${totalSessions} equal slots
-   - Day interval: ${(calculation.daysUntil / totalSessions).toFixed(1)} days between sessions
-   - Example schedule for ${totalSessions} sessions over ${calculation.daysUntil} days:
-${Array.from({ length: Math.min(totalSessions, 5) }, (_, i) => {
-  const dayOffset = Math.floor((calculation.daysUntil / totalSessions) * i);
-  const sessionDate = new Date(currentDate);
-  sessionDate.setDate(sessionDate.getDate() + dayOffset);
-  return `     Session ${i + 1}: ${sessionDate.toISOString().split('T')[0]} (day ${dayOffset})`;
-}).join('\n')}
-${totalSessions > 5 ? `     ... (${totalSessions - 5} more sessions distributed equally)` : ''}
-
-4. **Scheduling Logic**:
-   - Distribute sessions EVENLY across ALL available days
-   - Use formula: session_date = current_date + (days_until_exam / total_sessions) × session_number
-   - Use time_of_day based on difficulty: easy=morning, medium=afternoon, hard=evening
-   - Last session should be on ${exam_date} - 1 day (for final review)
-
-5. **Call create_assignment ${totalSessions} times** (EXACT COUNT REQUIRED)
-   - Each call creates ONE study session (topic + time block, NO task generation)
-   - MUST include: difficulty, estimated_minutes
-   - required_tasks_count is optional (defaults to 5-10 based on difficulty)
-   - Focus on TOPICS and TIME DISTRIBUTION, not task generation
+3. **Call create_assignment ${totalSessions} times** (EXACT COUNT REQUIRED)
+   - Each call creates ONE study session
+   - MUST include: subject, topic, difficulty, estimated_minutes
+   - DO NOT include: due_date, time_of_day (dates will be assigned automatically)
+   - Focus on TOPICS and DIFFICULTY PROGRESSION
    - Vary the topics across units
    - Progress from easy → medium → hard
 
-CRITICAL SCHEDULING RULES:
-- START TODAY (current date: ${currentDate})
-- DISTRIBUTE EQUALLY: Use the day interval formula to space sessions evenly
-- DO NOT cluster multiple sessions on the same day
-- Spread sessions across ALL ${calculation.daysUntil} days until exam
-- For very short timeframes (< 3 days), you may have multiple sessions per day, but otherwise spread them out
+CRITICAL: Generate ${totalSessions} sessions in order: ${easySessions} easy, then ${mediumSessions} medium, then ${hardSessions} hard.
 
-EXAMPLE EQUAL DISTRIBUTION (14 days until exam, 7 sessions: 2 easy, 2 medium, 3 hard):
-Day interval: 14 / 7 = 2 days between sessions
-
-- Session 1 (day 0): topic="Intro: [Unit 1]", difficulty="easy", estimated_minutes=40, required_tasks_count=5, due_date="${currentDate}", time_of_day="morning"
-- Session 2 (day 2): topic="Basics: [Unit 2]", difficulty="easy", estimated_minutes=45, required_tasks_count=5, due_date="<+2 days>", time_of_day="morning"
-- Session 3 (day 4): topic="Practice: [Unit 1]", difficulty="medium", estimated_minutes=55, required_tasks_count=6, due_date="<+4 days>", time_of_day="afternoon"
-- Session 4 (day 6): topic="Apply: [Unit 2]", difficulty="medium", estimated_minutes=60, required_tasks_count=6, due_date="<+6 days>", time_of_day="afternoon"
-- Session 5 (day 8): topic="Advanced: [Unit 3]", difficulty="hard", estimated_minutes=70, required_tasks_count=8, due_date="<+8 days>", time_of_day="evening"
-- Session 6 (day 11): topic="Mastery: [Unit 4]", difficulty="hard", estimated_minutes=75, required_tasks_count=9, due_date="<+11 days>", time_of_day="evening"
-- Session 7 (day 13): topic="Final Review: All Topics", difficulty="hard", estimated_minutes=90, required_tasks_count=10, due_date="<exam_date - 1>", time_of_day="evening"
-
-CRITICAL: Calculate exact dates using the formula, don't cluster sessions!
-
-Now generate the study plan by calling create_assignment for each session. Be specific with topics, dates, difficulty levels, AND estimated_minutes. START FROM TODAY (${currentDate})!`;
+Now generate the study plan by calling create_assignment for each session. Be specific with topics, difficulty levels, AND estimated_minutes!`;
 
     // Import createSingleAssignmentInline from study-assistant
     const { createSingleAssignmentInline } = await import('../study-assistant/utils');
@@ -194,7 +159,7 @@ Now generate the study plan by calling create_assignment for each session. Be sp
         type: 'function',
         function: {
           name: 'create_assignment',
-          description: 'Create a single study assignment for exam preparation. Call this multiple times to create a series of study sessions.',
+          description: 'Create a single study assignment for exam preparation. Call this multiple times to create a series of study sessions. Dates will be assigned automatically in equal distribution.',
           parameters: {
             type: 'object',
             properties: {
@@ -206,30 +171,21 @@ Now generate the study plan by calling create_assignment for each session. Be sp
                 type: 'string',
                 description: 'Specific topic from the exam units (use actual unit names, not generic terms)'
               },
-              due_date: {
-                type: 'string',
-                description: 'Date in YYYY-MM-DD format'
-              },
-              time_of_day: {
-                type: 'string',
-                enum: ['morning', 'afternoon', 'evening'],
-                description: 'Time preference'
-              },
               difficulty: {
                 type: 'string',
                 enum: ['easy', 'medium', 'hard'],
-                description: 'Difficulty level'
+                description: 'Difficulty level (REQUIRED)'
               },
               estimated_minutes: {
                 type: 'number',
-                description: 'Estimated time in minutes'
+                description: 'Estimated time in minutes (REQUIRED)'
               },
               required_tasks_count: {
                 type: 'number',
-                description: 'Number of practice tasks'
+                description: 'Number of practice tasks (optional, defaults based on difficulty)'
               }
             },
-            required: ['subject', 'topic']
+            required: ['subject', 'topic', 'difficulty', 'estimated_minutes']
           }
         }
       }
@@ -240,7 +196,7 @@ Now generate the study plan by calling create_assignment for each session. Be sp
       { role: 'system', content: systemPrompt },
       {
         role: 'user',
-        content: `Generate ${calculation.recommendedSessions} study sessions for the ${exam_type} exam on ${exam_date}. Use the create_assignment tool for each session.`
+        content: `Generate ${totalSessions} study sessions NOW. Call create_assignment ${totalSessions} times with specific topics from the provided units. Include difficulty and estimated_minutes in each call. Start with ${easySessions} easy sessions, then ${mediumSessions} medium sessions, then ${hardSessions} hard sessions.`
       }
     ];
 
@@ -265,6 +221,7 @@ Now generate the study plan by calling create_assignment for each session. Be sp
           let fullContent = '';
           const toolCallsMap = new Map<number, any>();
           let lastProcessedIndex = -1;
+          let sessionIndex = 0; // Track which session we're creating
 
           // Helper to execute tool call
           const executeToolCall = async (toolCall: any) => {
@@ -273,13 +230,31 @@ Now generate the study plan by calling create_assignment for each session. Be sp
             controller.enqueue(encoder.encode('\n__TOOL_CALL_START__\n'));
 
             const args = JSON.parse(toolCall.function.arguments);
-            controller.enqueue(encoder.encode(`__TOOL_DATA__:${JSON.stringify({
-              name: toolCall.function.name,
-              args,
-              topic: args.topic
-            })}\n`));
 
             if (toolCall.function.name === 'create_assignment') {
+              // INJECT pre-calculated date and time_of_day
+              if (sessionIndex < scheduledDates.length) {
+                args.due_date = scheduledDates[sessionIndex];
+
+                // Determine time_of_day based on difficulty
+                if (args.difficulty === 'easy') {
+                  args.time_of_day = 'morning';
+                } else if (args.difficulty === 'medium') {
+                  args.time_of_day = 'afternoon';
+                } else {
+                  args.time_of_day = 'evening';
+                }
+
+                console.log(`📅 Session ${sessionIndex + 1}: Assigning date ${args.due_date} (${args.time_of_day})`);
+                sessionIndex++;
+              }
+
+              controller.enqueue(encoder.encode(`__TOOL_DATA__:${JSON.stringify({
+                name: toolCall.function.name,
+                args,
+                topic: args.topic
+              })}\n`));
+
               await createSingleAssignmentInline(studentId, args, controller, encoder);
             }
 
