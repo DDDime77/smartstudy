@@ -165,7 +165,7 @@ def main():
 
     # Test bulk user (existing user with lots of data)
     print("\nLogging in as bulk@example.com...")
-    bulk_token = login("bulk@example.com", "bulkpass123")
+    bulk_token = login("bulk@example.com", "password123")
     if not bulk_token:
         print("❌ Failed to login")
         return

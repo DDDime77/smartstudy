@@ -411,22 +411,32 @@ class EmbeddingModelService:
         # Check both: improvement over time AND deviation from prediction
         prediction_error = base_time - recent_avg_time  # Positive = actual faster than predicted
 
+        # Debug logging
+        print(f"[Adaptive] base_time={base_time:.1f}s, recent_avg={recent_avg_time:.1f}s, overall_avg={overall_avg_time:.1f}s")
+        print(f"[Adaptive] time_improvement={time_improvement:.1f}s, prediction_error={prediction_error:.1f}s")
+
         if time_improvement > 10:  # Getting faster by 10+ seconds
             # User is getting faster - reduce time prediction
             time_factor = 0.9 - (min(time_improvement, 60) / 300)  # Up to 10% reduction
             adjusted_time = max(10, base_time * time_factor)
+            print(f"[Adaptive] FASTER: time_factor={time_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
         elif time_improvement < -10:  # Getting slower by 10+ seconds
             # User is getting slower - increase time prediction
             time_factor = 1.1 + (min(abs(time_improvement), 60) / 300)  # Up to 10% increase
             adjusted_time = min(300, base_time * time_factor)
+            print(f"[Adaptive] SLOWER: time_factor={time_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
         elif prediction_error > 15:  # Actual time significantly faster than prediction
             # User consistently faster than ML predicts - adjust toward actual
             blend_factor = min(prediction_error / base_time, 0.5)  # Max 50% adjustment
             adjusted_time = max(10, base_time * (1 - blend_factor))
+            print(f"[Adaptive] PRED_FAST: blend_factor={blend_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
         elif prediction_error < -15:  # Actual time significantly slower than prediction
             # User consistently slower than ML predicts - adjust toward actual
             blend_factor = min(abs(prediction_error) / base_time, 0.5)  # Max 50% adjustment
             adjusted_time = min(300, base_time * (1 + blend_factor))
+            print(f"[Adaptive] PRED_SLOW: blend_factor={blend_factor:.3f}, adjusted_time={adjusted_time:.1f}s")
+        else:
+            print(f"[Adaptive] NO_CHANGE: adjusted_time={adjusted_time:.1f}s")
 
         # RULE 4: If predictions are unreasonably low/high, constrain them
         if len(relevant_tasks) >= 10:

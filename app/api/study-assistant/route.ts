@@ -145,7 +145,7 @@ ${contextText}
       model: 'gpt-4-turbo',
       messages,
       temperature: 0.7,
-      max_tokens: 8000,
+      max_tokens: 2000, // Reduced to allow for longer context
       stream: true, // Enable streaming
     });
 
@@ -517,6 +517,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
       tool_choice: 'auto',
       parallel_tool_calls: true,
       temperature: 0.7,
+      max_tokens: 2000, // Reduced to allow for longer context
       stream: true, // Enable streaming for initial response!
     });
 
@@ -655,7 +656,7 @@ Be conversational and explain your reasoning. If you create multiple tasks, expl
               tool_choice: 'auto',
               parallel_tool_calls: true,
               temperature: 0.7,
-              max_tokens: 8000,
+              max_tokens: 2000, // Reduced to allow for longer context
               stream: true,
             });
 
