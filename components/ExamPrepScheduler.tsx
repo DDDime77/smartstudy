@@ -105,19 +105,24 @@ export default function ExamPrepScheduler({
       } catch (aiError) {
         console.warn('AI estimation failed, falling back to rule-based:', aiError);
 
-        // Fallback to rule-based estimation
+        // Fallback to rule-based estimation (REALISTIC revision times)
         const unitCount = cleanUnits.length;
-        let hoursPerUnit = 8;
+        let hoursPerUnit = 3; // Realistic review time per unit
 
-        // Adjust based on exam type
-        if (exam.exam_type.includes('Paper 1')) hoursPerUnit = 6;
-        if (exam.exam_type.includes('Paper 2')) hoursPerUnit = 8;
-        if (exam.exam_type.includes('Paper 3')) hoursPerUnit = 10;
-        if (exam.exam_type.includes('IA') || exam.exam_type.includes('Internal Assessment')) hoursPerUnit = 15;
-        if (exam.exam_type.includes('Extended Essay')) hoursPerUnit = 20;
+        // Adjust based on exam type (review/revision, not learning from scratch)
+        if (exam.exam_type.includes('Paper 1')) hoursPerUnit = 2; // MCQ review
+        if (exam.exam_type.includes('Paper 2')) hoursPerUnit = 3; // Essay practice
+        if (exam.exam_type.includes('Paper 3')) hoursPerUnit = 3; // Problem solving
+        if (exam.exam_type.includes('IA') || exam.exam_type.includes('Internal Assessment')) hoursPerUnit = 4; // Refinement
+        if (exam.exam_type.includes('Extended Essay')) hoursPerUnit = 5; // Editing
 
-        estimatedHoursNeeded = Math.max(unitCount * hoursPerUnit, 4);
-        console.log('📊 Using rule-based estimation:', estimatedHoursNeeded, 'hours');
+        // Calculate based on units, but cap at 65% of available time (2h/day budget)
+        const idealHours = unitCount * hoursPerUnit;
+        const maxAllowedHours = totalAvailableHours * 0.65; // 65% of 2h/day × days
+        estimatedHoursNeeded = Math.min(idealHours, maxAllowedHours);
+        estimatedHoursNeeded = Math.max(estimatedHoursNeeded, 4); // Minimum 4 hours
+
+        console.log('📊 Using rule-based estimation:', estimatedHoursNeeded, 'hours', `(${Math.round((estimatedHoursNeeded / totalAvailableHours) * 100)}% of ${totalAvailableHours}h budget)`);
       }
 
       // Calculate recommended sessions based on days until exam
