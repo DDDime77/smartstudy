@@ -97,12 +97,13 @@ export default function StudyAssistantPage() {
   }, []);
 
   useEffect(() => {
-    // Only auto-scroll if user is near the bottom (within 100px)
+    // Only auto-scroll chat container if user is near the bottom (within 100px)
     const chatContainer = chatEndRef.current?.parentElement;
     if (chatContainer) {
       const isNearBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 100;
       if (isNearBottom) {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        // Scroll only the chat container, not the whole page
+        chatContainer.scrollTop = chatContainer.scrollHeight;
       }
     }
   }, [chatMessages, streamingSegments]);
