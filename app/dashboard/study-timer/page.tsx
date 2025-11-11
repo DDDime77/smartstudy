@@ -1440,7 +1440,7 @@ export default function StudyTimerPage() {
                       </p>
                       {currentTask.predicted_correct !== undefined && currentTask.predicted_time_seconds !== undefined && (
                         <div className="mt-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                          <p className="text-xs text-blue-300/80 mb-1">LNIRT ML Predictions:</p>
+                          <p className="text-xs text-blue-300/80 mb-1">Smart Predictions:</p>
                           <div className="flex gap-4 text-sm">
                             <span className="text-white">
                               <span className="text-white/60">Success:</span> {(currentTask.predicted_correct * 100).toFixed(1)}%
