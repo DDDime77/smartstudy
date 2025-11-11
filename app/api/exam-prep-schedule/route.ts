@@ -132,45 +132,56 @@ REQUIREMENTS:
    - Medium: "Practice: [Topic]", "Apply: [Concept]"
    - Hard: "Advanced: [Topic]", "Mastery: [Concept]", "Final Review"
 
-3. **Time Distribution**: Space sessions evenly leading up to the exam
+3. **EQUAL TIME DISTRIBUTION** (CRITICAL):
    - Days until exam: ${calculation.daysUntil}
-   - Create ${totalSessions} sessions total
-   - Distribute across available days: ${
-     calculation.daysUntil <= 7
-       ? 'every 1-2 days (intensive)'
-       : calculation.daysUntil <= 14
-       ? 'every 1-3 days (regular)'
-       : 'every 2-4 days (extended)'
-   }
+   - Total sessions to create: ${totalSessions}
+   - Sessions per day: ${(totalSessions / calculation.daysUntil).toFixed(2)}
+
+   DISTRIBUTION FORMULA:
+   - Divide ${calculation.daysUntil} days into ${totalSessions} equal slots
+   - Day interval: ${(calculation.daysUntil / totalSessions).toFixed(1)} days between sessions
+   - Example schedule for ${totalSessions} sessions over ${calculation.daysUntil} days:
+${Array.from({ length: Math.min(totalSessions, 5) }, (_, i) => {
+  const dayOffset = Math.floor((calculation.daysUntil / totalSessions) * i);
+  const sessionDate = new Date(currentDate);
+  sessionDate.setDate(sessionDate.getDate() + dayOffset);
+  return `     Session ${i + 1}: ${sessionDate.toISOString().split('T')[0]} (day ${dayOffset})`;
+}).join('\n')}
+${totalSessions > 5 ? `     ... (${totalSessions - 5} more sessions distributed equally)` : ''}
 
 4. **Scheduling Logic**:
-   - Avoid the busy schedule times listed above
-   - Use time_of_day: 'morning'/'afternoon'/'evening' appropriately
-   - Space sessions out - don't cluster them
-   - Final session should be 1-2 days before exam
+   - Distribute sessions EVENLY across ALL available days
+   - Use formula: session_date = current_date + (days_until_exam / total_sessions) × session_number
+   - Use time_of_day based on difficulty: easy=morning, medium=afternoon, hard=evening
+   - Last session should be on ${exam_date} - 1 day (for final review)
 
 5. **Call create_assignment ${totalSessions} times** (EXACT COUNT REQUIRED)
-   - Each call creates ONE session
-   - MUST include: difficulty, estimated_minutes, required_tasks_count
+   - Each call creates ONE study session (topic + time block, NO task generation)
+   - MUST include: difficulty, estimated_minutes
+   - required_tasks_count is optional (defaults to 5-10 based on difficulty)
+   - Focus on TOPICS and TIME DISTRIBUTION, not task generation
    - Vary the topics across units
    - Progress from easy → medium → hard
 
-IMPORTANT SCHEDULING RULES:
-- START TODAY if user has free time available (current date: ${currentDate})
-- You can schedule multiple sessions on the same day if the user has enough free time
-- For exams 2-3 days away, distribute intensively across all available days including today
-- Check the busy schedule and fill free time slots throughout each day
+CRITICAL SCHEDULING RULES:
+- START TODAY (current date: ${currentDate})
+- DISTRIBUTE EQUALLY: Use the day interval formula to space sessions evenly
+- DO NOT cluster multiple sessions on the same day
+- Spread sessions across ALL ${calculation.daysUntil} days until exam
+- For very short timeframes (< 3 days), you may have multiple sessions per day, but otherwise spread them out
 
-EXAMPLE (if units were ["Supply & Demand", "Market Structures"], exam in 2 days, 9 sessions: 3 easy, 3 medium, 3 hard):
-- Session 1: topic="Intro: Supply & Demand Basics", difficulty="easy", estimated_minutes=35, required_tasks_count=5, due_date="${currentDate}", time_of_day="morning"
-- Session 2: topic="Basics: Equilibrium", difficulty="easy", estimated_minutes=40, required_tasks_count=5, due_date="${currentDate}", time_of_day="afternoon"
-- Session 3: topic="Intro: Market Structures", difficulty="easy", estimated_minutes=45, required_tasks_count=5, due_date="${currentDate}", time_of_day="evening"
-- Session 4: topic="Practice: Elasticity", difficulty="medium", estimated_minutes=55, required_tasks_count=6, due_date="<+1 day>", time_of_day="morning"
-- Session 5: topic="Apply: Consumer/Producer Surplus", difficulty="medium", estimated_minutes=60, required_tasks_count=7, due_date="<+1 day>", time_of_day="afternoon"
-- Session 6: topic="Practice: Market Efficiency", difficulty="medium", estimated_minutes=65, required_tasks_count=6, due_date="<+1 day>", time_of_day="evening"
-- Session 7: topic="Advanced: Oligopoly Models", difficulty="hard", estimated_minutes=75, required_tasks_count=8, due_date="<exam_date - 1>", time_of_day="morning"
-- Session 8: topic="Mastery: Game Theory", difficulty="hard", estimated_minutes=80, required_tasks_count=9, due_date="<exam_date - 1>", time_of_day="afternoon"
-- Session 9: topic="Final Review: All Topics", difficulty="hard", estimated_minutes=90, required_tasks_count=10, due_date="<exam_date - 1>", time_of_day="evening"
+EXAMPLE EQUAL DISTRIBUTION (14 days until exam, 7 sessions: 2 easy, 2 medium, 3 hard):
+Day interval: 14 / 7 = 2 days between sessions
+
+- Session 1 (day 0): topic="Intro: [Unit 1]", difficulty="easy", estimated_minutes=40, required_tasks_count=5, due_date="${currentDate}", time_of_day="morning"
+- Session 2 (day 2): topic="Basics: [Unit 2]", difficulty="easy", estimated_minutes=45, required_tasks_count=5, due_date="<+2 days>", time_of_day="morning"
+- Session 3 (day 4): topic="Practice: [Unit 1]", difficulty="medium", estimated_minutes=55, required_tasks_count=6, due_date="<+4 days>", time_of_day="afternoon"
+- Session 4 (day 6): topic="Apply: [Unit 2]", difficulty="medium", estimated_minutes=60, required_tasks_count=6, due_date="<+6 days>", time_of_day="afternoon"
+- Session 5 (day 8): topic="Advanced: [Unit 3]", difficulty="hard", estimated_minutes=70, required_tasks_count=8, due_date="<+8 days>", time_of_day="evening"
+- Session 6 (day 11): topic="Mastery: [Unit 4]", difficulty="hard", estimated_minutes=75, required_tasks_count=9, due_date="<+11 days>", time_of_day="evening"
+- Session 7 (day 13): topic="Final Review: All Topics", difficulty="hard", estimated_minutes=90, required_tasks_count=10, due_date="<exam_date - 1>", time_of_day="evening"
+
+CRITICAL: Calculate exact dates using the formula, don't cluster sessions!
 
 Now generate the study plan by calling create_assignment for each session. Be specific with topics, dates, difficulty levels, AND estimated_minutes. START FROM TODAY (${currentDate})!`;
 
