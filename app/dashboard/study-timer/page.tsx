@@ -1439,17 +1439,88 @@ export default function StudyTimerPage() {
                         )}
                       </p>
                       {currentTask.predicted_correct !== undefined && currentTask.predicted_time_seconds !== undefined && (
-                        <div className="mt-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                          <p className="text-xs text-blue-300/80 mb-1">Smart Predictions:</p>
-                          <div className="flex gap-4 text-sm">
-                            <span className="text-white">
-                              <span className="text-white/60">Success:</span> {(currentTask.predicted_correct * 100).toFixed(1)}%
-                            </span>
-                            <span className="text-white">
-                              <span className="text-white/60">Time:</span> {Math.floor(currentTask.predicted_time_seconds / 60)}m {currentTask.predicted_time_seconds % 60}s
-                            </span>
+                        <>
+                          <div className="mt-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                            <p className="text-xs text-blue-300/80 mb-1">Smart Predictions:</p>
+                            <div className="flex gap-4 text-sm">
+                              <span className="text-white">
+                                <span className="text-white/60">Success:</span> {(currentTask.predicted_correct * 100).toFixed(1)}%
+                              </span>
+                              <span className="text-white">
+                                <span className="text-white/60">Time:</span> {Math.floor(currentTask.predicted_time_seconds / 60)}m {currentTask.predicted_time_seconds % 60}s
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                          {/* Smart Difficulty Suggestion */}
+                          {(() => {
+                            const successPercentage = currentTask.predicted_correct * 100;
+                            const currentDifficulty = currentTask.difficulty;
+                            const difficultyLevels = ['easy', 'medium', 'hard'];
+                            const currentIndex = difficultyLevels.indexOf(currentDifficulty);
+
+                            // High success (≥80%) - suggest harder difficulty
+                            if (successPercentage >= 80 && currentIndex < difficultyLevels.length - 1) {
+                              const suggestedDifficulty = difficultyLevels[currentIndex + 1];
+                              return (
+                                <div className="mt-2 p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-start gap-2">
+                                  <div className="flex-shrink-0 mt-0.5">
+                                    <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                                      <TrendingUp className="w-3 h-3 text-green-400" />
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-green-300 mb-1">💡 Ready for a Challenge!</p>
+                                    <p className="text-xs text-green-200/80 mb-2">
+                                      You're doing great! ({successPercentage.toFixed(0)}% predicted success)
+                                      Try switching to <span className="font-semibold capitalize">{suggestedDifficulty}</span> difficulty for more growth.
+                                    </p>
+                                    <button
+                                      onClick={() => {
+                                        setNextTaskDifficulty(suggestedDifficulty);
+                                        handleNextTask();
+                                      }}
+                                      className="text-xs px-3 py-1.5 rounded-md bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-300 transition-all hover:scale-105"
+                                    >
+                                      Try {suggestedDifficulty.charAt(0).toUpperCase() + suggestedDifficulty.slice(1)}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Low success (≤30%) - suggest easier difficulty
+                            if (successPercentage <= 30 && currentIndex > 0) {
+                              const suggestedDifficulty = difficultyLevels[currentIndex - 1];
+                              return (
+                                <div className="mt-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-start gap-2">
+                                  <div className="flex-shrink-0 mt-0.5">
+                                    <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center">
+                                      <Target className="w-3 h-3 text-orange-400" />
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-orange-300 mb-1">💡 Build Your Foundation</p>
+                                    <p className="text-xs text-orange-200/80 mb-2">
+                                      This might be challenging ({successPercentage.toFixed(0)}% predicted success).
+                                      Consider trying <span className="font-semibold capitalize">{suggestedDifficulty}</span> difficulty to strengthen your understanding.
+                                    </p>
+                                    <button
+                                      onClick={() => {
+                                        setNextTaskDifficulty(suggestedDifficulty);
+                                        handleNextTask();
+                                      }}
+                                      className="text-xs px-3 py-1.5 rounded-md bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 transition-all hover:scale-105"
+                                    >
+                                      Try {suggestedDifficulty.charAt(0).toUpperCase() + suggestedDifficulty.slice(1)}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })()}
+                        </>
                       )}
                     </>
                   )}
