@@ -200,7 +200,7 @@ export default function StudyTimerPage() {
               sessionStartTimeRef.current = Date.now();
               console.log('✅ Study session auto-started from assignment:', session.id);
             } catch (err) {
-              console.error('Failed to create study session:', err);
+              handleApiError(err, 'Failed to create study session');
             }
           }
 
@@ -229,7 +229,7 @@ export default function StudyTimerPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch active session:', error);
+        handleApiError(error, 'Failed to fetch active session');
       }
     };
 
@@ -350,7 +350,7 @@ export default function StudyTimerPage() {
                       current_task: newTask,
                     });
                   } catch (err) {
-                    console.error('Failed to save task to active session:', err);
+                    handleApiError(err, 'Failed to save task to active session');
                   }
                 }
 
@@ -388,7 +388,7 @@ export default function StudyTimerPage() {
                   // Refresh task history
                   await fetchTaskHistory(params.subject);
                 } catch (err) {
-                  console.error('Failed to save task to database:', err);
+                  handleApiError(err, 'Failed to save task to database');
                 }
               }
             } catch (e) {
@@ -408,7 +408,7 @@ export default function StudyTimerPage() {
       const history = await PracticeTasksService.getAll({ subject, limit: 10 });
       setTaskHistory(history);
     } catch (error) {
-      console.error('Failed to fetch task history:', error);
+      handleApiError(error, 'Failed to fetch task history');
     }
   };
 
@@ -539,7 +539,7 @@ export default function StudyTimerPage() {
             setAssignmentSession(updatedSession);
           }
         } catch (error) {
-          console.error('Failed to update assignment progress:', error);
+          handleApiError(error, 'Failed to update assignment progress');
         }
       }
 
@@ -642,7 +642,7 @@ export default function StudyTimerPage() {
           await saveAssignmentTime();
         }
       } catch (error) {
-        console.error('Failed to end session:', error);
+        handleApiError(error, 'Failed to end session');
       }
     }
 
@@ -652,7 +652,7 @@ export default function StudyTimerPage() {
       await ActiveSessionsService.delete();
       console.log('✅ Active session deleted from server');
     } catch (error) {
-      console.error('Failed to delete active session:', error);
+      handleApiError(error, 'Failed to delete active session');
     }
 
     // Clear assignment session state
@@ -813,7 +813,7 @@ export default function StudyTimerPage() {
         setInlineGrade('9'); // Default if no grade level set
       }
     } catch (error) {
-      console.error('Failed to load user grade:', error);
+      handleApiError(error, 'Failed to load user grade');
       setInlineGrade('9'); // Default on error
     }
   };
@@ -887,7 +887,7 @@ export default function StudyTimerPage() {
       console.log(`💾 Auto-saved: ${currentElapsed}s elapsed, ${currentInterruptions} interruptions`);
     } catch (error) {
       if (!isFinal) {
-        console.error('Failed to save elapsed time:', error);
+        handleApiError(error, 'Failed to save elapsed time');
       }
     }
   };
@@ -921,7 +921,7 @@ export default function StudyTimerPage() {
       };
       setAssignmentSession(updatedSession);
     } catch (error) {
-      console.error('Failed to save assignment time:', error);
+      handleApiError(error, 'Failed to save assignment time');
     }
   };
 
@@ -968,7 +968,7 @@ export default function StudyTimerPage() {
             });
             console.log('✅ Created active session for free study mode');
           } catch (err) {
-            console.error('Failed to create active session:', err);
+            handleApiError(err, 'Failed to create active session');
             // Non-critical error, continue anyway
           }
         }
@@ -1009,7 +1009,7 @@ export default function StudyTimerPage() {
             const { ActiveSessionsService } = await import('@/lib/api/active-sessions');
             await ActiveSessionsService.delete();
           } catch (error) {
-            console.error('Failed to delete active session:', error);
+            handleApiError(error, 'Failed to delete active session');
           }
           setAssignmentSession(null);
         }
@@ -1020,7 +1020,7 @@ export default function StudyTimerPage() {
           await ActiveSessionsService.delete();
           console.log('✅ Deleted active session for free study mode');
         } catch (error) {
-          console.error('Failed to delete active session:', error);
+          handleApiError(error, 'Failed to delete active session');
         }
       }
 
@@ -1077,7 +1077,7 @@ export default function StudyTimerPage() {
             await ActiveSessionsService.delete();
             console.log('✅ Deleted active session for completed free study');
           } catch (error) {
-            console.error('Failed to delete active session:', error);
+            handleApiError(error, 'Failed to delete active session');
           }
         }
 
