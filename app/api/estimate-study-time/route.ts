@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
 Your task is to estimate the TOTAL number of hours a student needs to prepare for an upcoming exam.
 
-CRITICAL CONSTRAINT: The student has ${availableHours || 'limited'} hours available until the exam. Your estimate MUST be achievable within this timeframe.
+CRITICAL CONSTRAINT: The student can dedicate MAX 2 HOURS PER DAY for this exam preparation (they have other subjects and commitments). Available time: ${availableHours || 'limited'} hours total. Your estimate MUST fit within this limit.
 
 STUDENT CONTEXT:
 - Education System: ${educationSystem}
@@ -59,11 +59,12 @@ EXAM DETAILS:
 
 ESTIMATION GUIDELINES:
 
-1. **REALISTIC & ACHIEVABLE**:
-   - The estimate MUST fit within ${availableHours} hours (student's actual available time)
-   - Target 60-80% of available time for healthy balance (leave buffer for rest/life)
-   - For short timeframes (< 7 days), you can use up to 85% of available hours
-   - NEVER exceed available hours - prioritize most important content
+1. **REALISTIC & ACHIEVABLE** (2-Hour Daily Limit):
+   - Student can study MAX 2 hours per day for this ONE exam (they have multiple subjects)
+   - Available time budget: ${daysUntilExam} days × 2h/day = ${availableHours} hours total
+   - Target 60-75% of available time for sustainable studying (leave margin for life)
+   - For urgent exams (< 5 days), you can use up to 80% of available hours
+   - NEVER exceed available hours - quality over quantity
 
 2. **Assume Prior Knowledge**:
    - Student has attended ALL classes and has basic understanding
@@ -98,20 +99,27 @@ ESTIMATION GUIDELINES:
    - If ideal < available: don't inflate estimate - use the lower number
    - Final estimate should be 60-80% of available hours (85% max for urgent exams)
 
-EXAMPLE CALCULATIONS:
+EXAMPLE CALCULATIONS (2h/day limit):
 
-Example 1: 5 units, Paper 2, 30 available hours, 10 days
-- Per unit: 4 hours × 5 = 20 hours
-- Practice exams: 3 hours
-- Total ideal: 23 hours
-- Available: 30 hours
-- Recommendation: 23 hours (77% of available - perfect balance)
+Example 1: 5 units, Paper 2, 10 days until exam
+- Budget: 10 days × 2h/day = 20h available
+- Per unit: 3h review × 5 = 15h
+- Practice exam: 2h
+- Total: 17h (85% of 20h - good balance)
 
-Example 2: 8 units, Paper 1, 20 available hours, 3 days (urgent!)
-- Ideal per unit: 3 hours × 8 = 24 hours
-- BUT only 20 hours available
-- Scale down: Focus on 6 most important units (3 hours each = 18 hours)
-- Recommendation: 17 hours (85% of available, 2 units briefly reviewed)
+Example 2: 8 units, Paper 1, 3 days until exam (urgent!)
+- Budget: 3 days × 2h/day = 6h available
+- Ideal: 3h × 8 units = 24h (impossible!)
+- Reality: Focus on 4 highest-weight units (1h each = 4h)
+- Quick review of others: 0.5h each × 4 = 2h
+- Total: 4.5h (75% of 6h - prioritized approach)
+
+Example 3: 3 units, Paper 3, 14 days until exam
+- Budget: 14 days × 2h/day = 28h available
+- Per unit: 4h × 3 = 12h
+- Problem sets: 3h
+- Practice exams: 3h
+- Total: 18h (64% of 28h - comfortable pace)
 
 OUTPUT FORMAT:
 Provide your response as a JSON object with EXACTLY this structure:
@@ -125,11 +133,13 @@ Provide your response as a JSON object with EXACTLY this structure:
   "recommendation": "<realistic assessment: sufficient/tight/need to prioritize>"
 }
 
-CRITICAL RULES:
-- estimatedHours MUST be ≤ ${availableHours ? availableHours * 0.85 : 100} (85% of available time maximum)
-- estimatedHours SHOULD be around ${availableHours ? Math.round(availableHours * 0.7) : 70}h (70% target for balance)
+CRITICAL RULES (2-Hour Daily Budget):
+- Maximum daily study time per subject: 2 hours
+- estimatedHours MUST be ≤ ${availableHours ? Math.round(availableHours * 0.8) : 100}h (80% of ${daysUntilExam} days × 2h/day)
+- estimatedHours SHOULD be around ${availableHours ? Math.round(availableHours * 0.65) : 65}h (65% target - sustainable pace)
+- Remember: Student has OTHER subjects too - this is just ONE exam
 - Focus on REVIEW not learning from scratch
-- Be realistic - students have other commitments
+- Quality focused study > long hours of unfocused study
 - Respond ONLY with valid JSON. No markdown, no code blocks.`;
 
     const userPrompt = `Estimate the study hours needed for this exam preparation.`;
@@ -172,10 +182,10 @@ CRITICAL RULES:
       throw new Error('AI response missing required fields');
     }
 
-    // Ensure estimatedHours respects available time constraints
+    // Ensure estimatedHours respects 2-hour daily limit constraints
     const minHours = 2; // Absolute minimum
-    const maxHours = availableHours ? availableHours * 0.85 : 200; // 85% of available or 200 max
-    const targetHours = availableHours ? availableHours * 0.7 : 70; // 70% target
+    const maxHours = availableHours ? availableHours * 0.8 : 200; // 80% of available (2h/day × days)
+    const targetHours = availableHours ? availableHours * 0.65 : 65; // 65% target (sustainable pace)
 
     let originalEstimate = result.estimatedHours;
 
@@ -184,12 +194,13 @@ CRITICAL RULES:
       console.warn(`AI estimated too low: ${result.estimatedHours}h, using minimum ${minHours}h`);
       result.estimatedHours = minHours;
     } else if (result.estimatedHours > maxHours) {
-      console.warn(`AI estimated too high: ${result.estimatedHours}h (${availableHours}h available), capping at ${maxHours.toFixed(1)}h (85%)`);
+      console.warn(`AI estimated too high: ${result.estimatedHours}h (${availableHours}h available at 2h/day), capping at ${maxHours.toFixed(1)}h (80%)`);
       result.estimatedHours = Math.round(maxHours);
-      result.recommendation = `Time is tight! Focus on high-priority topics. Original estimate was ${originalEstimate}h but only ${availableHours}h available.`;
+      result.recommendation = `Time is tight! With 2h/day limit (${daysUntilExam} days), focus on highest-priority topics. Original estimate was ${originalEstimate}h but only ${availableHours}h available.`;
     }
 
-    console.log('✅ AI estimation successful:', result.estimatedHours, 'hours', availableHours ? `(${Math.round((result.estimatedHours / availableHours) * 100)}% of available)` : '');
+    const dailyAverage = availableHours ? (result.estimatedHours / daysUntilExam).toFixed(1) : 'N/A';
+    console.log('✅ AI estimation successful:', result.estimatedHours, 'hours', availableHours ? `(${Math.round((result.estimatedHours / availableHours) * 100)}% of ${availableHours}h budget, ~${dailyAverage}h/day)` : '');
 
     return NextResponse.json(result);
 

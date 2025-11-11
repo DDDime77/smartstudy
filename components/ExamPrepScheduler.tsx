@@ -60,31 +60,15 @@ export default function ExamPrepScheduler({
         return;
       }
 
-      // Calculate available hours per day from busy schedule
-      const calculateDailyAvailableHours = () => {
-        // Assume 16 waking hours per day (6 AM - 10 PM)
-        const wakingHours = 16;
+      // REALISTIC DAILY STUDY LIMIT FOR EXAM PREP
+      // Students can't study all day - they have other subjects, life, rest, etc.
+      // Maximum 2 hours per day for exam prep per subject is realistic and sustainable
+      const MAX_DAILY_STUDY_HOURS = 2;
 
-        // Calculate average busy hours per day
-        let totalBusyHours = 0;
-        const recurringSlots = busySlots.filter(slot => slot.recurring);
+      // Total available hours = 2 hours per day × days until exam
+      const totalAvailableHours = MAX_DAILY_STUDY_HOURS * daysUntil;
 
-        recurringSlots.forEach(slot => {
-          const [startHour, startMin] = slot.start_time.split(':').map(Number);
-          const [endHour, endMin] = slot.end_time.split(':').map(Number);
-          const duration = (endHour + endMin / 60) - (startHour + startMin / 60);
-          totalBusyHours += duration;
-        });
-
-        // Average across all 7 days (recurring slots)
-        const avgBusyHoursPerDay = recurringSlots.length > 0 ? totalBusyHours / 7 : 0;
-        const availableHoursPerDay = Math.max(wakingHours - avgBusyHoursPerDay, 2); // Minimum 2 hours
-
-        return availableHoursPerDay;
-      };
-
-      const dailyAvailableHours = calculateDailyAvailableHours();
-      const totalAvailableHours = dailyAvailableHours * daysUntil;
+      console.log(`📅 Exam Prep Time Budget: ${daysUntil} days × ${MAX_DAILY_STUDY_HOURS}h/day = ${totalAvailableHours}h total`);
 
       const units = exam.units || [];
       const cleanUnits = units.filter(u => u && u.trim());
